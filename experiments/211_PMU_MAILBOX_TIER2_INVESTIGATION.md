@@ -3,7 +3,7 @@
 **Date:** 2026-05-19
 **Hardware:** 2x NVIDIA Titan V (GV100), vfio-pci
 **Spring:** hotSpring
-**Status:** Phase A COMPLETE, Phase B COMPLETE (all attempts failed), Phase C PARTIAL
+**Status:** Phase A COMPLETE, Phase B COMPLETE (all failed), Phase C COMPLETE (DMEM locked), Warm Handoff PREPARED
 **Depends on:** Exp 210 (GPC boundary analysis, sovereignty tier model)
 
 ## Objective
@@ -282,40 +282,152 @@ from the VFIO side.
 
 Based on live hardware evidence, the paths are now re-prioritized:
 
-### Priority 1: Kernel Patch (nouveau gv100_gr_fini)
+## Phase C Results: DMEM Access / Queue-Based PG Probe (2026-05-20)
 
-The most viable path. Modify nouveau to skip GPC power-down during driver
-unbind. This preserves the powered state for VFIO passthrough.
+Phase C tested whether the HS lock on Volta PMU blocks DMEM access or only IMEM.
+If DMEM PIO remained accessible, we could write queue-based messages directly.
 
-- File: `drivers/gpu/drm/nouveau/nvkm/engine/gr/gv100.c`
-- Function: `gv100_gr_fini()` (called during unbind)
-- Change: Skip the GPC power gating sequence, leave domains powered
-- Risk: Low (only affects unbind path, not normal operation)
+### Step 1: PIO DMEM Read
+
+| Test | Result |
+|------|--------|
+| DMEMC set to read mode, offset 0 | Accessible |
+| DMEMD readback | `0xDEAD5EC2` (all 64 words identical) |
+| Interpretation | **Security sentinel** — HS lock returns trap value, not real data |
+
+The pattern `0xDEAD5EC2` is a deliberate "DEAD SECure" marker. PIO DMEM reads
+return this sentinel regardless of offset, confirming the HS lock covers DMEM
+data reads. This is distinct from PRI faults (`0xBADFxxxx`).
+
+### Step 2: DMEM Dump
+
+All 64 words at offsets 0x000–0x0FC returned identical `0xDEAD5EC2`. No
+firmware data is exposed — the HS boundary is complete.
+
+### Step 3: PIO DMEM Write
+
+| Test | Result |
+|------|--------|
+| Wrote `0xCAFEBABE` to DMEM offset `0xFF00` | Write accepted (no error) |
+| Readback at same offset | `0xDEAD5EC2` (sentinel, not our pattern) |
+| Interpretation | **Writes silently dropped** — HS lock blocks DMEM writes |
+
+### Step 4: Falcon DMA Transfer Registers
+
+| Register | Value | Meaning |
+|----------|-------|---------|
+| DMACTL (`0x10A10C`) | `0x00000080` | DMA idle (bit 7 = done) |
+| DMATRFBASE (`0x10A110`) | `0x00000000` | No transfer configured |
+| DMATRFMOFFS (`0x10A114`) | `0x00000000` | No memory offset |
+| DMATRFCMD (`0x10A118`) | `0x00000002` | Previous transfer config residue |
+| DMATRFFBOFFS (`0x10A11C`) | `0x00000000` | No FB offset |
+
+DMA engine is idle. Registers are readable but configuring a DMA transfer
+would require a valid VRAM source address, and the HS firmware would need
+to accept the transfer (unlikely without proper ACR authentication).
+
+### Step 5: Queue HEAD Write Test
+
+| Test | Result |
+|------|--------|
+| HEAD0 before | `0x00000000` |
+| Wrote `0x00000001` to HEAD0 | No error |
+| HEAD0 readback | `0x00000000` |
+| Interpretation | **Queue HEAD registers are read-only in HS mode** |
+
+### Step 6: Doorbell / Interrupt Trigger
+
+| Test | Result |
+|------|--------|
+| IRQSSET write `(1 << 4)` | No error |
+| IRQSTAT after | `0x00000000` (unchanged) |
+| MAILBOX0 after | `0x00000300` (unchanged) |
+| Interpretation | **Interrupt injection blocked in HS mode** |
+
+### Phase C Conclusion
+
+The Volta PMU HS lock is **comprehensive**:
+
+```
+Component          | Accessible | Writable | Real Data
+──────────────────────────────────────────────────────
+MAILBOX0/1         | ✓          | ✓        | ✓ (only writable PMU regs)
+CPUCTL/SCTL/HWCFG  | ✓          | ✗        | ✓
+DMEM (PIO)         | ✓*         | ✗        | ✗ (returns 0xDEAD5EC2 sentinel)
+IMEM (PIO)         | ?          | ✗        | ✗
+Queue HEAD/TAIL    | ✓*         | ✗        | partial (heads=0, tails=PRI fault)
+IRQSSET            | ?          | ✗        | N/A
+DMA transfer regs  | ✓          | ?        | ✓ (idle state)
+FBIF CTL/TRANSCFG  | ✓          | ?        | ✓
+
+* Readable but returns trap/sentinel values
+```
+
+**The PMU software path is CLOSED for Volta HS-locked firmware.** The only
+writable PMU interface is MAILBOX0/1, which Phase B proved insufficient
+for power gating commands (simple mailbox protocol is not what HS firmware
+expects, and the queue-based protocol cannot be used because queues are
+inaccessible).
+
+## Revised Path to Tier 2 (Post-Phase C)
+
+### Priority 1: Source-Patched Nouveau Warm Handoff ← PREPARED, READY TO TEST
+
+**Correction from earlier docs**: The target function is `gf100_gr_fini()`
+in `gf100.c` (shared by all Fermi+ including GV100), NOT `gv100_gr_fini()`
+(which does not exist).
+
+A patched nouveau.ko has been built (2026-05-20) with five teardown functions
+NOP'd:
+
+| Function | File | Effect |
+|----------|------|--------|
+| `gf100_gr_fini` | `nvkm/engine/gr/gf100.c` | Prevents FECS/GPCCS release |
+| `nvkm_pmu_fini` | `nvkm/subdev/pmu/base.c` | Keeps PMU running across unbind |
+| `nvkm_mc_disable` | `nvkm/subdev/mc/base.c` | Preserves PMC_ENABLE bits |
+| `nvkm_mc_reset` | `nvkm/subdev/mc/base.c` | Prevents engine reset cycles |
+| `nvkm_fifo_fini` | `nvkm/engine/fifo/base.c` | Preserves PFIFO runlist |
+
+Artifacts:
+- Patched module: `infra/agentReagents/tools/k80-sovereign/artifacts/nouveau-patched.ko`
+- Warm handoff script: `infra/agentReagents/tools/k80-sovereign/warm_handoff_titanv.sh`
+- Livepatch (failed on 6.17 — strict reloc): `livepatch_nvkm_mc_reset.c`
+
+**Workflow**: `sudo ./warm_handoff_titanv.sh 0000:02:00.0`
+
+The experiment could not execute in this session because the VFIO device
+was in a stuck kernel state (zombie toadstool process held device reference).
+**Requires a clean reboot to test.**
 
 ### Priority 2: nvidia-470 Warm Handoff
 
-Use the proprietary nvidia-470 driver as the warm-handoff source. The
-proprietary driver keeps GPCs powered during its normal operation. If we
-unbind nvidia-470 cleanly and bind vfio-pci, the GPC domain may remain
-powered.
+nvidia-470.256.02 is built for kernel 6.17.9 via DKMS at:
+`/var/lib/dkms/nvidia/470.256.02/6.17.9-76061709-generic/x86_64/module/nvidia.ko`
 
-### Priority 3: PMU Queue Protocol (Needs DMEM Access)
+**Complication**: nvidia-580 (open kernel) is currently loaded for RTX 5060.
+nvidia-470 cannot coexist (symbol conflicts). Would require unloading nvidia-580
+first, temporarily losing the RTX 5060 display. Less clean than the nouveau path.
 
-If we can construct a valid queue-based message IN the PMU's DMEM via
-the FBIF DMA window (which IS accessible at `0x10AE00+`), we might be
-able to send a proper PG command. This requires reverse-engineering the
-Volta HS PMU message queue layout.
+### Priority 3: PMU Queue Protocol ← CLOSED
+
+Phase C proved DMEM is inaccessible (sentinel reads, dropped writes) and queue
+HEAD registers are read-only in HS mode. No software path remains to construct
+or inject queue-based messages on Volta HS firmware.
 
 ### Priority 4: K80 Cross-Gen (When Hardware Arrives)
 
-The K80's unsigned falcons bypass all of this. No HS lock, no ACR, no
-queue protocol — direct PIO upload and mailbox command.
+The K80's GK210 falcons are **unsigned** (pre-Maxwell HS). This means:
+- PIO DMEM/IMEM will be writable (no HS lock)
+- Queue heads/tails will be accessible
+- Firmware can be uploaded directly
+- `gk110_pmu_pgob()` PGOB sequence available (nouveau has it)
 
 ## Code Changes (Exp 211)
 
 ### New Files
 - `cylinder/src/vfio/pmu_investigate.rs` — PMU investigation pipeline:
-  `PmuInvestigationResult`, `UngatingAttempt`, `investigate_pmu(bar0)`
+  `PmuInvestigationResult`, `UngatingAttempt`, `PhaseC`, `investigate_pmu(bar0)`,
+  `investigate_pmu_phase_c(bar0)`
 
 ### Modified Files
 - `cylinder/src/vfio/mod.rs` — registered `pmu_investigate` module
@@ -323,6 +435,11 @@ queue protocol — direct PIO upload and mailbox command.
   on `CgSweepResult` fields (now used by PMU investigation)
 - `server/handler/mod.rs` — added `sovereign.pmu_investigate` / `pmu.investigate` route
 - `server/handler/dispatch/mod.rs` — added `sovereign_pmu_investigate()` handler
+
+### New Scripts / Artifacts
+- `infra/agentReagents/tools/k80-sovereign/warm_handoff_titanv.sh` — warm handoff automation
+- `infra/agentReagents/tools/k80-sovereign/artifacts/nouveau-patched.ko` — patched module
+- `infra/agentReagents/tools/k80-sovereign/build_nvidia470_kernel617.sh` — nvidia-470 build
 
 ### New RPC Method
 

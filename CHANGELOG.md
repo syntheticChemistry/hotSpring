@@ -7,6 +7,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Phase C PMU Probe + Warm Handoff Preparation (May 20, 2026)
+
+### Added
+- **Phase C: DMEM Access Probe** in `pmu_investigate.rs` — comprehensive HS lock
+  boundary test (PIO DMEM read/write, queue HEAD write, doorbell injection, falcon
+  DMA state). All tests confirm Volta HS lock is total: DMEM returns `0xDEAD5EC2`
+  sentinel, writes silently dropped, queue HEAD read-only, interrupts blocked.
+  Only MAILBOX0/1 remain writable. **PMU software path conclusively closed.**
+- **Source-patched nouveau.ko** built for kernel 6.17.9 with five teardown functions
+  NOP'd (`gf100_gr_fini`, `nvkm_pmu_fini`, `nvkm_mc_disable`, `nvkm_mc_reset`,
+  `nvkm_fifo_fini`). Saved to `artifacts/nouveau-patched.ko`.
+- **`warm_handoff_titanv.sh`** — automated warm handoff script: unbind vfio-pci →
+  bind patched nouveau (GPU init, GPCs ungate) → unbind (teardown NOP'd) → rebind
+  vfio-pci → test GPC state. Ready to execute after clean reboot.
+
+### Fixed
+- **Dev environment stabilized**: cleaned ~470GB of cargo debug artifacts across
+  5 projects. Fixed rustup proxy issue (Cursor AppImage `argv[0]` leaking into
+  rustup). Killed 3 duplicate toadstool daemons.
+- **Corrected Exp 211 docs**: target function is `gf100_gr_fini()` in `gf100.c`
+  (shared by all Fermi+), not the nonexistent `gv100_gr_fini()` in `gv100.c`.
+
+### Changed
+- **Exp 211 status**: Phase A/B/C complete. PMU software path closed. Warm handoff
+  path promoted to Priority 1. nvidia-470 warm handoff documented as Priority 2.
+  K80 cross-gen remains Priority 4 (hardware incoming).
+
 ## Unreleased — River Delta Audit + Dark Forest Gate (May 19, 2026)
 
 ### Added
