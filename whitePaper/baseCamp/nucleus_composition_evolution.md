@@ -64,7 +64,7 @@ Code paths:
    - **Family-aware discovery**: Inherited via `CompositionContext` — `{capability}-{FAMILY_ID}.sock` resolved before fallback.
    - **Env var auto-setup**: `validate-primal-proof.sh` auto-sets `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET` when `FAMILY_ID` is provided.
 
-6. **`validate-primal-proof.sh`** — End-to-end script. Bare mode (domain only) and `--full` mode (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Detects bare vs live NUCLEUS automatically.
+6. **`validate-primal-proof.sh`** — End-to-end script. Bare mode (domain only) and `--full` mode (pre-flight `primalspring certify` + domain `hotspring_guidestone`). Detects bare vs live NUCLEUS automatically.
 
 7. **Phase 46 Composition Template (April 27, 2026)** — `tools/hotspring_composition.sh` implements hotSpring's event-driven QCD computation lane:
    - **Async tick model**: Convergence-based progression (not fixed-rate) — simulations run until physics converges, with `domain_on_tick()` as the entry point.

@@ -4,7 +4,7 @@ set -eu
 # hotSpring Primal Proof Validation — genomeBin Depot Workflow (v0.9.17)
 #
 # Runs the full primal-proof chain:
-#   1. Pre-flight: primalspring_guidestone (composition base check)
+#   1. Pre-flight: primalspring certify (composition base check)
 #   2. Domain: hotspring_guidestone (QCD physics + guideStone properties)
 #
 # Requires a running NUCLEUS (deployed via plasmidBin/nucleus_launcher.sh).
@@ -59,13 +59,13 @@ OVERALL_EXIT=0
 
 # ── Step 1: Pre-flight (optional, --full) ─────────────────────────
 if [ "$FULL" = "1" ]; then
-    echo "━━━ Step 1: Pre-flight — primalspring_guidestone ━━━"
+    echo "━━━ Step 1: Pre-flight — primalspring certify ━━━"
     echo
 
     if [ -f "$PRIMALSPRING/Cargo.toml" ]; then
         PREFLIGHT_EXIT=0
         cd "$PRIMALSPRING"
-        cargo run --release --bin primalspring_guidestone 2>&1 || PREFLIGHT_EXIT=$?
+        cargo run --release --bin primalspring_unibin -- certify 2>&1 || PREFLIGHT_EXIT=$?
         cd "$ROOT"
 
         case $PREFLIGHT_EXIT in

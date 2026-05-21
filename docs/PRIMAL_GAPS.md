@@ -1871,7 +1871,7 @@ Next: hardware validation on Titan V and K80.
 - **Severity:** Low (schema alignment, no regressions)
 - **Classification:** primalSpring Wave 20 absorption
 - **Trigger:** primalSpring "Wave 20 Delta Spring Evolution — Schema Standardization + E2E Validation"
-  directive. Registry expanded to 452 methods. `capability.list` canonical envelope defined.
+  directive. Registry expanded to 445 methods. `capability.list` canonical envelope defined.
   `nest.commit` E2E validation scenario added upstream.
 - **Completed:**
   1. **`capabilities_list_response()`**: New canonical response builder in `niche/tables.rs`.

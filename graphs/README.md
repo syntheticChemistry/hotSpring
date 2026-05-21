@@ -56,7 +56,7 @@ Use `hotspring_unibin certify` (the eukaryotic UniBin entry point).
 `validation/CHECKSUMS` holds the BLAKE3 manifest. See
 `primalSpring/wateringHole/GUIDESTONE_COMPOSITION_STANDARD.md` for the standard.
 
-The `primalspring_guidestone` binary provides base composition certification (6
+The `primalspring certify` subcommand provides base composition certification (6
 layers: graph parsing, discovery, health, capability parity, cross-atomic
 pipeline, bonding, crypto). hotSpring's domain guideStone inherits that and only
 validates QCD physics on top.
