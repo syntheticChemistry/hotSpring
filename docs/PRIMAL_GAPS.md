@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 21, 2026 (kernel health preflight: 216 experiments, 3-layer autoconf detection, post-fix audit clean, 19 RPC methods)
+**Last audited:** May 21, 2026 (nvsov dual-load + driver infra evolution: 218 experiments, TPC wall confirmed Exp 217, nvsov co-load Exp 218, 21 RPC methods)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1941,36 +1941,63 @@ Next: hardware validation on Titan V and K80.
      that require biomeGate's `barracuda-local` feature gating fix.
 - **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
 
-### GAP-HS-107 — Tier 2 Sovereign Compute Blocker: GPC Power Domain Wall (May 19, 2026)
+### GAP-HS-107 — Tier 2 Sovereign Compute Blocker: TPC PRI Ring Wall (May 21, 2026)
 
 - **Severity:** High (blocks all sovereign shader execution on Titan V)
-- **Classification:** Hardware power domain boundary — blocks vendor-atheistic compute
-- **Root Cause:** After nouveau unbind, all GPU engine domains (GR, CE, NVDEC) are
-  power-gated. The PRI ring to these domains is dead — reads return `0xbadfXXXX`
-  fault values. This is a hardware power domain boundary, not a software/configuration
-  issue. The chicken-and-egg: need PRI ring to write power registers, but PRI ring
-  requires the target domain to be powered.
-- **Evidence:**
-  - CE0 at `0x104000` → `0xbadf3000` (PRI fault)
-  - GPCCS at `0x41A004` → `0xbadf5545` (PRI fault)
+- **Classification:** TPC PRI ring station missing — blocks vendor-atheistic compute
+- **Root Cause (refined Exp 215):** After binary-patched nouveau warm handoff, GPC
+  **fabric** survives (6/6 GPCs alive at `0x8780029F`) but **TPC PRI ring stations
+  are never created** by nouveau on Volta. The `0xBADF5040` at TPC control registers
+  is not power-gating — it is a PRI ring routing fault indicating the TPC station was
+  never registered with the ringmaster. Nouveau on Volta cannot load signed PMU firmware
+  (`pmu: firmware unavailable`), so the compute domain initialization that creates TPC
+  stations never runs. This is distinct from the original Exp 210 framing which
+  characterized the entire GPC domain as power-gated.
+- **PMU Software Path: CLOSED (Exp 211):** PMU is HS-locked (SCTL=`0x3002`), DMEM
+  returns `0xDEAD5EC2` sentinel, queue HEAD read-only, interrupt injection blocked.
+  Six ungating strategies attempted — all failed.
+- **Evidence (Exp 215):**
+  - GPC0 per-unit (`0x500000`) → `0x8780029F` (**alive** — GPC fabric preserved)
+  - GPC0 TPC0 control (`0x504000`) → `0xBADF5040` (**missing** — PRI station not registered)
+  - GPC0 TPC0 SM0 (`0x504200`) → `0x000900F0` (**alive** — SM on different PRI sub-path)
+  - CE4 (`0x108000`) → `0x01004005` (**alive**)
+  - FECS PC → ~`0xEAC`, advancing (HS poll loop — running but cannot dispatch)
   - PBDMA DEVICE error (intr_0 bit 28) when dispatching to gated engines
-  - PGRAPH_STATUS at `0x400700` → `0x00000000` (no activity)
-- **Impact:** Sovereign VFIO infrastructure (Tier 1) is fully validated, but sovereign
-  compute dispatch (Tier 2) is completely blocked on Titan V. RTX 5060 has Tier 2
-  via DRM path (proprietary driver), but the VFIO sovereign path is the atheistic target.
-- **Proposed Solutions (prioritized):**
-  1. **PMU Mailbox Protocol** (Exp 211): PMU falcon at `0x10A000+` is alive post-unbind.
-     Send PG_CTRL command via MBOX0/MBOX1 to ungate GPC domain. Success criterion:
-     `GPC_ENABLES` at `0x41A004` returns non-fault value.
-  2. **Kernel Patch**: Modify nouveau `gv100_gr_fini()` to skip GPC power-down during unbind.
-  3. **nvidia-470 Handoff**: Use proprietary driver as warm handoff source (keeps GPCs powered).
-  4. **K80 Cross-Gen**: Incoming K80 has unsigned falcons (no ACR) — may reach Tier 2
-     via direct PIO falcon upload before Volta.
-- **Cross-References:** Exp 210 (`experiments/210_SOVEREIGN_GPC_BOUNDARY.md`),
-  Exp 211 (`experiments/211_PMU_MAILBOX_TIER2_INVESTIGATION.md`),
-  GAP-HS-047 (PMU firmware extraction — deprioritized, may be relevant),
-  `infra/whitePaper/gen4/architecture/SILICON_DEISM.md`
-- **Status:** OPEN — awaiting PMU mailbox investigation (Exp 211)
+- **What's been tried (Exp 210-215):** CG sweep (21 domains), PRI bus recovery +
+  enumerate (multiple times), PGOB broadcast writes, PMC full ungate, PMU simple
+  mailbox, PMU queue protocol (inaccessible), THERM gate override, binary patch
+  fini NOPs + clock-gate NOPs, GPC MMU init writes, `sw_nonctx.bin` replay (**stub
+  only — real firmware never tested**), FECS STARTCPU/INIT_CTXSW.
+- **Impact:** Sovereign VFIO infrastructure (Tier 1) is fully validated. Titan V is
+  classified Tier 2 (GPC fabric + CE alive) but **dispatch blocked** by TPC wall.
+  RTX 5060 has full Tier 2 via proprietary driver.
+- **Active Attack Paths (prioritized, May 2026, post-Exp 217):**
+  1. **nvidia-470 nvsov dual-load injection (Exp 218, PRIMARY):** Infrastructure 95%
+     complete in diesel engine (`HandoffConfig::nvidia_patched_titanv()`). DKMS 470.256.02
+     discovery, binary patching, module rename, full handoff pipeline implemented.
+     `nvsov` added to glowplug warm-preserving swap list. Blocker: co-load symbol/procfs
+     conflicts with nvidia-580. Resolution via compile-time `MODULE_BASE_NAME=nvsov`
+     (agentReagents build) or expanded runtime NOP set.
+  2. **agentReagents VM compute (parallel):** `reagent-nvidia470-titanv.yaml` ready.
+     nvidia-470 + CUDA 11.4 inside VM for immediate Titan V compute. SBR on exit
+     destroys state (no host warm handoff). Available now.
+  3. ~~**K80 cross-gen:**~~ K80 retired (hardware destroyed Exp 199). Path closed.
+- **Closed Paths:**
+  - BAR0 register writes (CLOSED — Exp 217: `sw_nonctx.bin` broadcast accepted
+    at `0x419xxx` but per-GPC TPC control at `0x504xxx` remains `0xBADF5040`.
+    Full 5-phase ungating + PGRAPH reset also failed. Twin study confirmed.)
+  - PMU mailbox protocol (CLOSED — HS-locked, Exp 211)
+  - `gv100_gr_fini()` kernel patch (MOOT — fini does not tear down TPC stations
+    because init never created them)
+  - PRI ringmaster enumerate (INSUFFICIENT — Exp 215 Stage 3)
+- **Cross-References:** Exp 210, 211, 215, 216, 217,
+  `sovereign_tiers.rs` module docs, `SOVEREIGN_VALIDATION_MATRIX.md`
+- **Status:** OPEN — Exp 217 definitively proved TPC PRI stations are firmware-mediated
+  (signed GPCCS, not BAR0 writes). nvidia-470 nvsov dual-load injection is the primary
+  path. Infrastructure exists in diesel engine + glowplug; co-load conflict resolution
+  is the remaining blocker. Co-load isolation solved (ksymtab stripping, 5 NOP targets,
+  PC32/PLT32 normalization, ret0 at offset+5). Module loads. Reboot required to test
+  full pipeline (zombie module from test oops).
 
 ---
 

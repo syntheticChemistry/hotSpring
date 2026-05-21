@@ -207,9 +207,9 @@ unencrypted. This means:
 - No SEC2 intermediary for the boot chain
 - GPC power gating may not be enforced by firmware at all
 
-When the replacement K80 arrives, it may provide the first path to Tier 2
-sovereign compute — not despite being old hardware, but *because* old
-hardware has fewer firmware barriers.
+*Historical note (May 2026): K80 was retired after hardware destruction (Exp 199).
+The nvidia-470 nvsov dual-load injection path (Exp 218) supersedes the K80 cross-gen
+strategy for Tier 2 advancement.*
 
 ### VBIOS Interpreter Progress (Path to Tier 3)
 

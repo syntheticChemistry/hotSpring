@@ -1,8 +1,9 @@
 # Evolution Readiness: Rust → WGSL Shader Promotion → ToadStool Absorption
 
-> **Note (May 12, 2026):** This document was last substantively updated during
-> the March 2026 evolution sprint. For current status, see `CHANGELOG.md`,
-> `PRIMAL_GAPS.md`, and `whitePaper/baseCamp/README.md`.
+> **Note (May 21, 2026):** This document was last substantively updated during
+> the March 2026 evolution sprint. K80 references are historical (hardware retired
+> Exp 199). Test counts and barraCuda pin versions are stale. For current status,
+> see `CHANGELOG.md`, `PRIMAL_GAPS.md`, and `EXPERIMENT_INDEX.md`.
 
 This document maps each Rust module to its GPU shader readiness tier,
 tracks what toadstool has absorbed, and identifies next absorption targets.

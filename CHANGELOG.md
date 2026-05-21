@@ -7,6 +7,73 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## nvidia-470 nvsov Dual-Load Injection — Exp 218 (May 21, 2026)
+
+### Added
+- **Co-load isolation NOP set**: 5 new targets (`nv_cap_init`, `nv_cap_drv_init`,
+  `nv_procfs_init`, `nvidia_register_module`, `nv_cap_procfs_init`) in
+  `PatchSet::nvidia_warm_handoff()` — prevent procfs/chardev/capabilities
+  conflicts when loading `nvsov` alongside host nvidia-580.
+- **`strip_ksymtab()`**: ELF section zeroing for `__ksymtab`, `__kcrctab`,
+  `__ksymtab_strings` to prevent kernel "exports duplicate symbol" rejection.
+- **`objcopy`-based ksymtab stripping**: Post-patch `objcopy --remove-section`
+  in the DKMS handoff path — robust section removal before `insmod`.
+- **`sovereign.snapshot` RPC**: Read-only GPU state capture endpoint.
+- **`sovereign.compare` RPC**: Twin-card structured diff (captures two
+  snapshots, returns `SnapshotDelta` list).
+- **`SnapshotDelta` + `diff_structured()`**: Structured comparison of
+  `SovereignSnapshot` pairs.
+- **`SymbolResolver` trait + `NmResolver`**: Abstracted symbol resolution
+  from patch application.
+- **`PatchSet::from_json()`**: Runtime patch set definition via JSON.
+- **`HandoffConfig` extensions**: `patch_set_override`, `skip_preflight`.
+- **`WarmInitPlan::from_handoff_config()`**: Unified config derivation.
+- **Generation-dispatched experiment stages**: Stages 4-6 accept optional
+  `chip` parameter with auto-detection from BOOT0.
+
+### Fixed
+- **R_X86_64_PC32/PLT32 normalization**: `normalize_relocations()` now handles
+  type 2 (PC32) and type 4 (PLT32) 32-bit relocations — required for
+  kernel 6.17+ which rejects nonzero values at these target locations.
+- **`RetAtEntry` relocation conflict**: Patches at offset+5 (after ftrace
+  `call __fentry__` preamble) to avoid clobbering PLT32 relocation
+  displacement at bytes 1-4.
+- **`RetAtEntry` return value**: Now emits `xor eax,eax; ret` (return 0)
+  instead of bare `ret`, fixing nvidia init failures from garbage `eax`.
+
+### Validated
+- `nvsov` module loads alongside nvidia-580 (ksymtab stripped, co-load
+  isolation NOPs applied, PC32/PLT32 relocations normalized). Module enters
+  `nvidia_init_module` without kernel oops.
+- `sovereign.snapshot` on both Titan Vs: consistent Tier 1.
+- `sovereign.compare` on twin Titan Vs: one register delta (`THERM_GATE`).
+- `sovereign.warm_handoff` on both Titan Vs: consistent 6/8 patches, Tier 1.
+- 700 cylinder + 109 glowplug unit tests pass.
+
+## Driver Infra Evolution — Exp 217 (May 21, 2026)
+
+### Added
+- **Exp 217 — TPC PRI Station Creation**: BAR0 path definitively CLOSED.
+  Full ungating sequence + sw_nonctx.bin replay + PGRAPH reset all fail to
+  create TPC PRI ring stations — confirmed firmware-mediated (GPCCS required).
+
+### Validated
+- BAR0-only Tier 2 sovereignty is impossible on Volta. Strategic pivot to
+  nvidia-470 `nvsov` dual-load injection path (Exp 218).
+
+## D-State Hardening & Kernel Health — Exps 214-216 (May 20-21, 2026)
+
+### Added
+- **`guarded_sysfs` module**: All sysfs writes through timeout-guarded
+  helpers preventing D-state hangs. FLR disable/restore for warm swap.
+- **`kernel_health.rs`**: 3-layer detection for kernel header corruption
+  (autoconf.h freshness, struct layout probe, reference module cross-check).
+- **`sovereign.kernel_health` RPC**: Exposes kernel health check via RPC.
+
+### Fixed
+- **Exp 216**: Corrupted `autoconf.h` (out-of-tree build shifted
+  `struct module` by 24 bytes) — root-caused and auto-repairable.
+
 ## Live Hardware Warm Handoff & IOMMU Fix — Exp 213 (May 20, 2026)
 
 ### Added

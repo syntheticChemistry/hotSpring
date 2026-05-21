@@ -1,7 +1,7 @@
 # Data Inventory — hotSpring GPU Cracking Corpus
 
-**Last Updated:** 2026-03-30
-**Hardware (biomeGate):** Titan V #1 (0000:03:00.0), Titan V #2 (0000:4a:00.0), RTX 5070 (GB206) (0000:21:00.0), Tesla K80 (GK210)
+**Last Updated:** 2026-05-21
+**Hardware (biomeGate):** Titan V #1 (0000:03:00.0), Titan V #2 (0000:4b:00.0), RTX 5060 (GB206) (0000:21:00.0). K80 retired (destroyed Exp 199).
 **Hardware (strandgate):** RTX 3090 (SM86, **GPFIFO operational**), RX 6950 XT (GFX10.3, **24/24 QCD compiled**)
 
 ## Capture Matrix

@@ -1,7 +1,7 @@
 # Sovereign Validation Matrix
 
-**Updated:** 2026-05-11 (Sprint E — ALL 3 GPUs Sovereign)
-**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides." **Sprint E (May 2026):** Binary-patched nouveau warm-catch resolves GAP-HS-073 (Titan V FECS RUNNING) and GAP-HS-076 (K80 GDDR5 trained + GPCs active). Warm-catch pipeline elevated to pure Rust (`coralctl warm-catch`). ALL 3 GPUs sovereign. Dispatch validation and E2E physics wiring are the remaining gap. **Sprint D (May 2026):** Warm handoff DMATRF to FECS proven. Falcon v5 HS ROM security gate identified. **Sprint C:** HW validation run confirmed warm handoff as intermediate path. **Sprint B:** Titan V SEC2 FBIF, K80 warm NOP dispatch, SLM pool, unsafe audit. **SovereignInit pipeline (Exp 165):** pure Rust `open_sovereign(bdf)` path.
+**Updated:** 2026-05-21 (Sprint G — TPC Wall Identified, Kernel Health Preflight)
+**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. **Sprint G (May 2026):** Exp 215 refines Tier 2 blocker from "GPC power domain" to **TPC PRI ring station wall** — GPC fabric survives warm handoff but TPC control registers return `0xBADF5040` (station missing). PMU software path **CLOSED** on Volta (Exp 211). Kernel build environment health check integrated (Exp 216). Sovereign driver rotation codified in diesel engine (Exp 211/S267). Exp 217 targets `sw_nonctx.bin` broadcast TPC wake. **Sprint F:** Tier model codified (Exp 210), CE runlist discovery, binary-patch warm handoff proven (Exp 211), sovereignty consolidation (Exp 212), live hardware handoff (Exp 213), D-state hardening (Exp 214). **Sprint E:** Binary-patched nouveau warm-catch resolves GAP-HS-073/076. ALL 3 GPUs sovereign infrastructure (Tier 1). **SovereignInit pipeline (Exp 165):** pure Rust `open_sovereign(bdf)` path.
 
 ## Dispatch Path Inventory
 
@@ -26,22 +26,40 @@
 
 ### Titan V (GV100, SM70)
 
+**Sovereignty Tier Status:**
+- **Tier 1 (Warm Infrastructure):** VALIDATED (Exp 210) — VFIO, BAR0, DMA, PFIFO, channels, pushbuffers, FECS liveness, topology discovery. 183ms warm pipeline (Exp 208).
+- **Tier 2 (Warm Compute):** CLASSIFIED (Exp 215) — GPC fabric alive (6/6 GPCs), CE4/CE5 alive. **Dispatch BLOCKED by TPC PRI ring wall** (`0x504000` = `0xBADF5040`). PMU software path CLOSED (Exp 211).
+- **Tier 3 (Silicon Deistic):** Long-term target — VBIOS interpreter has 422 ops (Exp 204), ~100 unknown opcodes remain.
+
 | Layer | VFIO Cold | VFIO Warm | nouveau DRM | nvidia+UVM | NVK/wgpu |
 |-------|-----------|-----------|-------------|------------|----------|
 | L1: Device binding | PASS | PASS | PASS | UNTESTED | PASS |
 | L2: BAR0/BAR2 access | PASS | PASS | PASS | UNTESTED | PASS |
-| L3: PMC enable + engines | PASS | PASS | PASS | UNTESTED | PASS |
-| L4: PFIFO init + PBDMA | PASS (Exp 058) | PASS (warm mode) | PASS | UNTESTED | PASS |
+| L3: PMC enable + engines | PASS | PASS (23 engines preserved, Exp 211) | PASS | UNTESTED | PASS |
+| L4: PFIFO init + PBDMA | PASS (Exp 058) | PASS (warm mode, PBDMA submit proven S263) | PASS | UNTESTED | PASS |
 | L5: MMU fault buffer | PASS (Exp 076) | PASS | PASS | UNTESTED | PASS |
 | L6: PBDMA context load | PARTIAL (Exp 058) | PASS (stale intr fix) | PASS | UNTESTED | PASS |
-| L7: SEC2 + ACR DMA | PASS (Exp 110) | **PARTIAL** (ACR BL starts mb0=1, stalls — PMU FW missing) | N/A | N/A | N/A |
-| L8: WPR/ACR + FECS boot | **BLOCKED** (SEC2 ACR never completes: no PMU FW in linux-firmware) | **PARTIAL** (DMATRF FECS 101blk/192µs proven; ROM HS gate blocks unsigned code) | PASS (nouveau handles) | UNTESTED | PROVEN |
-| L9: FECS alive + GR init | BLOCKED (depends on L8) | **FRONTIER** (depends on L8 ACR completion) | PASS (nouveau handles) | UNTESTED | PROVEN |
-| L10: GPFIFO submit | BLOCKED (depends on L9) | **FRONTIER** (QMD+pushbuf ready) | **PASS** (Exp 163: NOP dispatch, pure Rust) | UNTESTED | PROVEN |
-| L11: Fence + readback | BLOCKED (depends on L10) | **FRONTIER** | **PASS** (syncobj wait, Exp 163) | UNTESTED | PROVEN |
+| L7: SEC2 + ACR DMA | PASS (Exp 110) | **PASS** (ACR DMA boot solved, Exp 206: FECS+GPCCS via iommufd) | N/A | N/A | N/A |
+| L8: WPR/ACR + FECS boot | **BLOCKED** (cold WPR barrier) | **PASS** (FECS alive via ACR DMA; PC advancing in HS poll loop, Exp 206/215) | PASS (nouveau handles) | UNTESTED | PROVEN |
+| L9: FECS alive + GR init | BLOCKED (depends on L8) | **BLOCKED** — TPC wall: GPC fabric alive, **TPC PRI stations missing** (`0xBADF5040`). FECS runs but cannot dispatch. PMU path CLOSED. (Exp 211/215) | PASS (nouveau handles) | UNTESTED | PROVEN |
+| L10: GPFIFO submit | BLOCKED | **BLOCKED** — depends on L9 TPC ungating | **PASS** (Exp 163: NOP dispatch, pure Rust) | UNTESTED | PROVEN |
+| L11: Fence + readback | BLOCKED | **BLOCKED** — depends on L10 | **PASS** (syncobj wait, Exp 163) | UNTESTED | PROVEN |
 | Compile (WGSL->SASS) | PASS (SM70) | PASS (SM70) | PASS (SM70) | PASS (SM70) | PASS (via NVK) |
 
-### Tesla K80 (GK210, Kepler)
+**TPC Wall Detail (Exp 215):**
+
+| Register | Value | Meaning |
+|----------|-------|---------|
+| PMC_ENABLE (`0x200`) | `0x5FECDFF1` | 23 engines alive (warm) |
+| GPC0 per-unit (`0x500000`) | `0x8780029F` | GPC fabric alive |
+| GPC0 TPC0 control (`0x504000`) | `0xBADF5040` | **TPC PRI station missing** |
+| GPC0 TPC0 SM0 (`0x504200`) | `0x000900F0` | SM accessible (different PRI sub-path) |
+| CE4 (`0x108000`) | `0x01004005` | Alive |
+| FECS PC | ~`0xEAC`, advancing | HS poll loop |
+
+### Tesla K80 (GK210, Kepler) — Hardware Destroyed (Exp 199), RETIRED
+
+**Status:** K80 #1 destroyed in Exp 199 (thermal event → `PowerSafetyProfile` created in Exp 200). K80 path retired — replaced by nvidia-470 nvsov dual-load injection (Exp 218) as primary Tier 2 strategy. Historical data below retained as fossil record.
 
 | Layer | VFIO Cold | nouveau DRM | nvidia+UVM |
 |-------|-----------|-------------|------------|
@@ -54,15 +72,11 @@
 | L9-L11: Dispatch | **FRONTIER** (NOP dispatch wired, cold PLL fix, needs GPC HW validation) | BLOCKED (GR engine not init on kernel 6.17, Exp 181) | UNTESTED |
 | Compile | PASS (SM37) | PASS (SM37) | PASS (SM37) |
 
-**K80 Architecture Notes (2026-05-06):**
-- No FLR hardware — PMC soft-reset is the only recovery path (`device.reset method=pmc`)
-- PRI ring writes from userspace are destructive (corrupted die 0 ring fabric)
-- PLX PEX 8747 PCIe switch: D3cold kills link, requires full AC power drain to recover
-- Cold-boot sovereign: udev `drivers_probe` + `d3cold_allowed=0` fix applied (Exp 180)
-- **SSEL PLL fix (May 2026):** `program_engine_plls` now uses per-engine `locked_mask` — only sets SSEL bits for PLLs that actually achieved lock. Prevents dead GPC clock from failed PLL.
-- **Post-PMU PLL retry (May 2026):** After PMU boot, re-tests GPC PLL writability. If PMU ungated power domain, retries crystal clocks + engine PLLs.
-- **Warm NOP dispatch wired:** GPFIFO push → doorbell → GP_GET poll infrastructure complete in `kepler_cold_pipeline.rs`.
-- nouveau on kernel 6.17.9: GR engine does NOT initialize for K80 (chip 0xf2, no `nvf2_chipset` entry). CTXSW_TIMEOUT on all compute channels (Exp 181).
+**K80 Architecture Notes (2026-05-06, historical — hardware unavailable):**
+- No FLR hardware — PMC soft-reset is the only recovery path
+- PLX PEX 8747 PCIe switch: D3cold kills link, requires full AC power drain
+- Unsigned falcons: no ACR barrier, `gk110_pmu_pgob()` available for TPC ungating
+- nouveau on kernel 6.17.9: GR engine does NOT initialize (no `nvf2_chipset` entry)
 
 ### RTX 5060 (GB206, Blackwell)
 
@@ -79,57 +93,86 @@
 | L1-L11 | **PROVEN** (full pipeline, 6/6 dispatch tests PASS) |
 | Compile | PASS (GFX1030) |
 
-## Maze Strategy: Solving from Both Sides
+## Maze Strategy: Breaking the TPC Wall (Post-Exp 217)
 
 ```
-                    Titan V (GV100)
+            TPC PRI Wall — DEFINITIVELY FIRMWARE-MEDIATED
+                         │
+    ╔════════════════════╧════════════════════════╗
+    ║ BAR0 writes CANNOT create TPC PRI stations  ║
+    ║ sw_nonctx.bin: broadcast accepted (0x26F0)  ║
+    ║ per-GPC TPC control: still 0xBADF5040       ║
+    ║ PGRAPH reset: no effect on TPC stations     ║
+    ╚════════════════════╤════════════════════════╝
                          │
          ┌───────────────┼───────────────┐
          │               │               │
-    VFIO Warm        nvidia+UVM      NVK/wgpu
-    (sovereign)      (proprietary     (fallback
-                      trace+learn)    compute)
-         │               │               │
-    livepatch NOP    code-complete    PROVEN for
-    gk104_runl       in uvm_compute   physics
-    ready to test    needs nvidia     today
-         │           loaded for       │
-         │           Titan V          │
-         ▼               ▼               ▼
-    FECS preserved   Learn FECS      Run science
-    through swap?    init sequence    while cracking
-         │           from RM ioctls   sovereignty
+    nvidia-470       agentReagents
+    nvsov dual-load  VM compute
+    (Exp 218)        (available now)
          │               │
-         └───────┬───────┘
-                 │
-         Both inform sovereign
-         FECS boot strategy
+    DKMS 470.256.02  nvidia-470 in
+    → patch NOPs     VM → full CUDA
+    → strip ksymtab  No host handoff
+    → rename nvsov   SBR on exit
+    → insmod+bind        │
+         │               ▼
+         ▼          Direct compute
+    TPC stations     inside VM
+    preserved?       (parallel path)
+         │
+    warm swap to
+    vfio-pci
+         │
+         ▼
+    classify_tier()
+    → tpc_alive?
+         │
+         ▼
+    FECS dispatch + QMD
+    = Tier 2 Sovereign
 ```
 
-### Path A: VFIO Warm Handoff (our frontier)
-- **Status:** Livepatch 4-function NOP deployed, dynamic enable/disable wired, reset_method fix proven
-- **Next:** Test `coralctl warm-fecs` + `vfio_dispatch_warm_handoff`
-- **If FECS stays alive:** Full E2E pipeline lights up via toadStool `shader.dispatch`
+### Path A: nvidia-470 nvsov Dual-Load Injection (PRIMARY — Exp 218)
+- **Status:** Co-load isolation SOLVED. Module loads alongside host nvidia-580. Reboot
+  needed to clear zombie module from test oops, then full pipeline test.
+- **Blockers Solved:**
+  - `exports duplicate symbol` → `objcopy --remove-section` strips ksymtab sections
+  - procfs/chardev conflicts → 5 co-load isolation NOPs (`nv_cap_init`, `nv_cap_drv_init`,
+    `nv_procfs_init`, `nvidia_register_module`, `nv_cap_procfs_init`)
+  - Relocation conflict at patch sites → ret0 at offset+5 (after ftrace preamble)
+  - Kernel 6.17 nonzero relocation targets → PC32/PLT32 normalization added
+- **Next:** Reboot, run `sovereign.warm_handoff` with `nvidia_patched_titanv`, verify
+  TPC alive, classify tier.
+- **RPC:** `sovereign.warm_handoff` with strategy `nvidia_patched_titanv`
 
-### Path B: nvidia+UVM Proprietary Tracing
-- **Status:** `NvUvmComputeDevice` code-complete (RM+GPFIFO+QMD+sync)
-- **Next:** Load nvidia proprietary for Titan V, run UVM dispatch, trace RM init sequence
-- **Value:** Learn exactly how RM initializes FECS/GPCCS on Volta without WPR barriers
-- **Dual-use:** RTX 5060 stays on nvidia for display; Titan V can temporarily use nvidia for learning
+### Path B: agentReagents VM Compute (parallel, available now)
+- **Status:** `reagent-nvidia470-titanv.yaml` template exists. nvidia-470 + CUDA 11.4 inside
+  VM. SBR on VM exit destroys state (no warm handoff back to host). Used when Titan V needs
+  full compute and host sovereignty isn't required.
+- **Value:** Compute immediately available. No TPC wall inside VM.
 
-### Path C: NVK/wgpu Fallback (proven, available now)
+### ~~Path C: K80 Cross-Generation~~ (RETIRED)
+- **Status:** K80 #1 destroyed (Exp 199). Hardware retired — no replacement.
+  Historical data retained as fossil record. nvidia-470 nvsov path (Path A) supersedes.
+
+### Path D: NVK/wgpu Fallback (proven, available now)
 - **Status:** 4-tier compute validated, QCD production runs complete
 - **Value:** Run real physics while cracking sovereignty; baseline for performance comparison
+
+### Path E: BAR0 Register Writes (CLOSED — Exp 217)
+- **Status:** DEFINITIVELY CLOSED. `sw_nonctx.bin` broadcast writes, full 5-phase ungating,
+  PGRAPH reset, CG sweep, PRI enumerate — all tested with real firmware on both Titan Vs.
+  Broadcast `0x419xxx` path configures TPC *settings* but cannot create TPC PRI ring
+  *stations*. Twin study confirmed identical results on both cards.
 
 ## Upstream Integration Status
 
 | System | Version | Integration | Impact |
 |--------|---------|-------------|--------|
-| toadStool | S168 | `shader.dispatch` wired, delegates to coralReef `compute.dispatch.execute` | Full orchestration ready — lights up when VFIO dispatch works |
+| toadStool | S268 | `sovereign.warm_handoff` RPC, `sovereign.kernel_health` preflight, `sovereign.experiment` stages, `toadstool kernel-health` CLI, diesel engine per-GPU lifecycle, 87 RPC methods, 700 cylinder tests | Full orchestration — warm handoff → tier classify → experiment stages pipeline |
 | barraCuda | Sprint 23 | f64 precision pipeline fixed, `SovereignDevice` validates RPC contract | Correct physics results guaranteed; IPC contract validated |
-| coral-ember | current | FLR for capable GPUs, PMC soft-reset for non-FLR (K80/Titan V), `device_has_flr()` PCIe cap check, auto-reset routing, `pri_fault` in fecs.state | Single reset authority; no sudo/pkexec needed |
-| coral-glowplug | current | All resets route through ember (FD holder), PRI-aware warm_handoff polling, livepatch via ember RPC | No direct VFIO reset; clean diagnostic signals |
-| coral-driver | current | PRI fault guards on all falcon state (fecs_is_alive, GrEngineStatus, FalconState, diagnostics), cold boot recipe | Zero false-positive warm handoff detection |
+| cylinder | S267 | `kmod` lifecycle, `module_patch` binary NOP, `sovereign_handoff` 8-step pipeline, `sovereign_tiers` classifier, `kernel_health` 3-layer preflight, `NvGspBridge` firmware interface | Hardware sovereignty stack — all stages implemented |
 
 ## Key Experiments Reference
 
@@ -153,3 +196,15 @@
 | 163 | Firmware Boundary | L8-L11 | **Architectural pivot.** NOP dispatch via DRM (pure Rust). PMU mailbox mapped. PmuInterface created. Hot-handoff channel injection proven. |
 | 164 | Sovereign Compute Dispatch | L11 | **5/5 E2E phases pass.** f32, f64, multi-workgroup, Lennard-Jones on Titan V via DRM. |
 | 165 | SovereignInit Pipeline | L12 | **8-stage pure Rust nouveau replacement.** `open_sovereign(bdf)`. Firmware-as-ingredient. GR init extracted. FECS method probe. 429 tests. |
+| 190 | Three-GPU Validation | L1-L11 | ALL 3 GPUs sovereign. RTX 5060 12/12 roundtrip. Titan V warm-catch. K80 5 GPCs. |
+| 204 | VBIOS Interpreter | L1 | 422 ops executed, 231 BAR0 writes on cold Titan V. ~100 unknown opcodes. |
+| 206 | Falcon ACR DMA Boot | L7-L8 | ACR DMA solved — FECS+GPCCS boot via iommufd. FECS cpuctl=0x10 on both Titans. |
+| 208 | Warm Keepalive Pipeline | L1-L9 | **183ms warm pipeline** (76× faster than cold). fd store survives daemon restart. |
+| 210 | GPC Boundary + Tier Model | L9 | Tier model codified. CE runlist=10. PTOP parser fix. **Tier 1 VALIDATED.** |
+| 211 | PMU Mailbox + Driver Rotation | L9 | PMU HS-locked. Binary-patch warm handoff. `sovereign.warm_handoff` RPC. **PMU path CLOSED.** |
+| 212 | Sovereignty Consolidation | L9 | Golden-state replay wire. Generation-aware `classify_tier_for_profile()`. |
+| 213 | Live Hardware Warm Handoff | L1-L9 | IOMMU sibling unbind, anchor release, `/tmp` writable. Post-reboot validated. |
+| 214 | D-State Hardening | L1 | Guarded sysfs, child-process isolation, timeout-guarded writes. |
+| 215 | Sovereign Warm Compute Tier 2 | L9 | **TPC wall identified.** GPC fabric alive, TPC PRI stations missing (`0xBADF5040`). Tier 2 reclassified. |
+| 216 | Kernel Autoconf Mismatch | L0 | 3-layer `autoconf.h` health check. `sovereign.kernel_health` RPC. All modules clean. |
+| 217 | TPC PRI Station Creation | L9 | **TPC wall confirmed firmware-dependent.** `sw_nonctx.bin` (341 real writes, 94 TPC broadcast) applied via `NvGspBridge`. Broadcast `0x419xxx` writes accepted (returns `0x26F0`), but per-GPC TPC control (`0x504000`) remains `0xBADF5040`. Full 5-phase ungating + PGRAPH reset also failed. Twin study confirmed on both Titan Vs. Conclusion: TPC PRI stations require signed GPCCS firmware. |

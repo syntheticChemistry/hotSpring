@@ -86,8 +86,10 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 214 | DSTATE_HARDENING_SYSFS_GUARDS | validation | ✅ D-state hardening: child-process isolation, RAII handoff guard, timeout-guarded sysfs writes, module stuck detection |
 | 215 | SOVEREIGN_WARM_COMPUTE_TIER2 | validation | ✅ Tier 1→2 advancement: `SovereignSnapshot` struct, `sovereign.experiment` RPC, BAR0 register manipulation infrastructure |
 | 216 | KERNEL_AUTOCONF_MISMATCH_DETECTION | analysis | ✅ Corrupted `autoconf.h` → 24-byte `struct module` layout shift → misleading relocation errors. 3-layer detection methodology. `kernel_health.rs` abstraction |
+| 217 | TPC_PRI_STATION_CREATION | analysis | ✅ BAR0-only Tier 2 path definitively CLOSED. Full ungating + sw_nonctx.bin replay + PGRAPH reset all fail to create TPC PRI ring stations — confirmed firmware-mediated (GPCCS required) |
+| 218 | NVIDIA470_NVSOV_DUAL_LOAD | validation | 🔄 nvidia-470 as renamed `nvsov` module loads alongside host nvidia-580. ksymtab stripped, co-load isolation NOPs (5 targets), PC32/PLT32 relocation normalization, ret0 at offset+5. Reboot needed to clear zombie module |
 
-> **Note:** 216 experiments total (001–189 archived + 190 archived final coral-ember + 191–216 active).
+> **Note:** 218 experiments total (001–189 archived + 190 archived final coral-ember + 191–218 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -195,7 +197,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **700** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **216 experiments**
+- **700** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **218 experiments**
 
 ## Eukaryotic Evolution (May 2026)
 

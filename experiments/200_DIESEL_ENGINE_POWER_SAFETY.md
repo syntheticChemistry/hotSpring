@@ -109,6 +109,5 @@ cargo check → ✅ (only pre-existing warning in pfifo.rs)
 
 - [ ] Live validation on Titan V (GV100, `FIRMWARE_MANAGED` — should behave
   identically to Exp 199 since mask is 0xFFFFFFFF)
-- [ ] When replacement K80 arrives, validate `PRE_FIRMWARE` path with
-  conservative mask and rollback
+- ~~When replacement K80 arrives, validate `PRE_FIRMWARE` path~~ — K80 retired (Exp 199)
 - [ ] PGRAPH CG ungating for Volta cold path (still blocks FECS HS boot)

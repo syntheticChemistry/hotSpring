@@ -66,7 +66,8 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-18 | `HOTSPRING_COMPREHENSIVE_EVOLUTION_HANDOFF_MAY18_2026.md` | ✅ | Comprehensive evolution: 213 experiments reconciled, dual Titan V fleet, K80 retired, primal evolution handoff |
 | 2026-05-19 | `HOTSPRING_GPC_BOUNDARY_CE_VALIDATE_HANDOFF_MAY19_2026.md` | archive | GPC boundary analysis: PTOP parser fix, CE runlist discovery, sovereignty tier model, all engine domains power-gated, paths to Tier 2 |
 | 2026-05-20 | `HOTSPRING_SOVEREIGN_DRIVER_ROTATION_EXP211_COMPLETE_MAY20_2026.md` | archive | Exp 211 complete, sovereign driver rotation codified in diesel engine, docs reconciled |
-| 2026-05-21 | `HOTSPRING_KERNEL_HEALTH_PREFLIGHT_EXP216_MAY21_2026.md` | ✅ | Kernel health preflight: 3-layer autoconf detection, Exp 216, post-fix audit clean |
+| 2026-05-21 | `HOTSPRING_KERNEL_HEALTH_PREFLIGHT_EXP216_MAY21_2026.md` | archive | Kernel health preflight: 3-layer autoconf detection, Exp 216, post-fix audit clean |
+| 2026-05-21 | `HOTSPRING_NVSOV_DUAL_LOAD_DRIVER_INFRA_EXP217_218_MAY21_2026.md` | ✅ | Exp 217 TPC wall closed, Exp 218 nvsov dual-load (4 blockers solved, module loads), driver infra evolution (SymbolResolver, snapshot/compare RPCs, generation dispatch) |
 
 ### `mmiotraces/`
 
