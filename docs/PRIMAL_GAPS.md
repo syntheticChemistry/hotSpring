@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 19, 2026 (GPC boundary analysis: 211 experiments, sovereignty tier model, CE validation, 183ms warm pipeline, 7 deploy graphs)
+**Last audited:** May 21, 2026 (kernel health preflight: 216 experiments, 3-layer autoconf detection, post-fix audit clean, 19 RPC methods)
 **License:** AGPL-3.0-or-later
 
 ---

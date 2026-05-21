@@ -49,6 +49,8 @@ scripting to daemon-managed GPU lifecycle.
 
 | Archived Script | Replaced By |
 |-----------------|-------------|
+| `build_nvidia_oracle.sh` | `agentReagents` VM image build (oracle module coexistence) |
+| `distill_oracle_recipe.sh` | `coralctl oracle distill` (mmiotrace distillation) |
 | `read_bar0_regs.py` | `toadstool device mmio read <BDF> <offset>` |
 | `read_bar0_deep.py` | `toadstool device probe <BDF>` |
 | `test_pramin.py` | `toadstool device vram-probe <BDF>` |

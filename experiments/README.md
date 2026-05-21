@@ -81,8 +81,13 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 209 | SOVEREIGN_VFIO_DISPATCH_BRIDGE | validation | ✅ Anchor-fd adoption, PBDMA pushbuffer submission on warm Titan V, coralReef SM70 compile. PGRAPH power gating gap identified |
 | 210 | SOVEREIGN_GPC_BOUNDARY | analysis | ✅ Hardware power domain boundary mapped. CE runlist discovery. Sovereignty tier model (`SovereignTier` enum + `classify_tier()`). Tier 1 validated, Tier 2 blocked by GPC power |
 | 211 | PMU_MAILBOX_TIER2_INVESTIGATION | analysis | ✅ Volta PMU software path closed (DMEM `0xDEAD5EC2` sentinel). Binary-patch warm handoff executed (PMC preserved). Sovereign driver rotation codified (`sovereign.warm_handoff` RPC). K80 promoted Priority 1 |
+| 212 | SOVEREIGNTY_CONSOLIDATION_REVALIDATION | consolidation | ✅ 3 abstraction gaps closed: warm_capture→engine_ungate wire (golden-state replay), init pipeline hierarchy (Option return, warm heuristic fix), generation-aware classification (5 offsets in GenerationProfile, classify_tier_for_profile). All tests pass |
+| 213 | LIVE_HARDWARE_WARM_HANDOFF | validation | 🔄 3 infra gaps fixed on live hardware: IOMMU group sibling unbind, VFIO anchor release before handoff, systemd /tmp access. `sovereign.classify_tier` RPC validated on 2× Titan V. Reboot required to clear stuck kernel state |
+| 214 | DSTATE_HARDENING_SYSFS_GUARDS | validation | ✅ D-state hardening: child-process isolation, RAII handoff guard, timeout-guarded sysfs writes, module stuck detection |
+| 215 | SOVEREIGN_WARM_COMPUTE_TIER2 | validation | ✅ Tier 1→2 advancement: `SovereignSnapshot` struct, `sovereign.experiment` RPC, BAR0 register manipulation infrastructure |
+| 216 | KERNEL_AUTOCONF_MISMATCH_DETECTION | analysis | ✅ Corrupted `autoconf.h` → 24-byte `struct module` layout shift → misleading relocation errors. 3-layer detection methodology. `kernel_health.rs` abstraction |
 
-> **Note:** 211 experiments total (001–189 archived + 190 archived final coral-ember + 191–211 active).
+> **Note:** 216 experiments total (001–189 archived + 190 archived final coral-ember + 191–216 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -190,7 +195,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **634** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **211 experiments**
+- **700** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **216 experiments**
 
 ## Eukaryotic Evolution (May 2026)
 

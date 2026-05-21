@@ -1,7 +1,7 @@
 +++
 title = "hotSpring Validation Summary"
-description = "Computational physics on consumer GPU — 596/1,045 tests, 211 experiments, guideStone Level 6, 25 papers reproduced, $0.30 total science cost"
-date = 2026-05-19
+description = "Computational physics on consumer GPU — 700/596/1,045 tests, 216 experiments, guideStone Level 6, 25 papers reproduced, $0.30 total science cost"
+date = 2026-05-21
 
 [taxonomies]
 primals = ["barracuda", "toadstool", "coralreef", "beardog", "songbird", "nestgate", "rhizocrypt", "loamspine", "sweetgrass", "squirrel"]
@@ -10,8 +10,8 @@ springs = ["hotspring"]
 
 ## Status
 
-- **596 / 1,045 tests** passing (IPC-first default / barracuda-local), 0 failed, 6 GPU-heavy ignored
-- **211 experiments** across 12 physics categories + sovereign GPU
+- **700 (cylinder) / 596 / 1,045 tests** passing (IPC-first default / barracuda-local), 0 failed, 6 GPU-heavy ignored
+- **216 experiments** across 12 physics categories + sovereign GPU
 - **25 papers** reproduced (25/25 CPU, 20/25 GPU)
 - **guideStone Level 6 CERTIFIED** — NUCLEUS Deployment Validation
 - **167 binaries**, **65 validation suites** (smoke/nucleus/silicon), **128 WGSL shaders**, **7 deploy graphs**
@@ -37,7 +37,7 @@ springs = ["hotspring"]
 |---|----------|-------|
 | 01 | Composition Validation | Deploy graphs (7), guideStone Level 6, capability routing, atomic types |
 | 02 | Benchmark Comparison | Python vs Rust (44.8x–2274x), GPU vs CPU (44–72x), DF64 3.24 TFLOPS |
-| 03 | Experiment Evidence | 211 experiments, science ladder milestones, evolution timeline |
+| 03 | Experiment Evidence | 213 experiments, science ladder milestones, evolution timeline |
 | 04 | Cross-Spring Connections | 10 primals consumed, 5 patterns handed back, ecosystem flows |
 | 05 | Physics Deep Dive | Nuclear EOS, lattice QCD, sovereign GPU pipeline, code safety |
 

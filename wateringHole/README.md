@@ -63,8 +63,10 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-17 | `HOTSPRING_FALCON_ACR_DMA_HANDOFF_MAY17_2026.md` | archive | Falcon ACR DMA boot solved: DMA backend wired, FECS cpuctl=0x10, stale coral-ember killed, 02:00.0 bound to vfio-pci |
 | 2026-05-18 | `HOTSPRING_SOVEREIGN_BOOT_ABSTRACTION_HANDOFF_MAY18_2026.md` | ✅ | Sovereign boot abstraction: SovereignBootState enum, WarmKeepalive facade, sovereign.profile RPC, twin-card cold profiling, hardware line codified |
 | 2026-05-18 | `HOTSPRING_WARM_KEEPALIVE_183MS_HANDOFF_MAY18_2026.md` | ✅ | Warm keepalive PROVEN: 183ms warm pipeline, falcon preservation, fd store end-to-end, 76× faster than cold |
-| 2026-05-18 | `HOTSPRING_COMPREHENSIVE_EVOLUTION_HANDOFF_MAY18_2026.md` | ✅ | Comprehensive evolution: 211 experiments reconciled, dual Titan V fleet, K80 retired, primal evolution handoff |
-| 2026-05-19 | `HOTSPRING_GPC_BOUNDARY_CE_VALIDATE_HANDOFF_MAY19_2026.md` | ✅ | GPC boundary analysis: PTOP parser fix, CE runlist discovery, sovereignty tier model, all engine domains power-gated, paths to Tier 2 |
+| 2026-05-18 | `HOTSPRING_COMPREHENSIVE_EVOLUTION_HANDOFF_MAY18_2026.md` | ✅ | Comprehensive evolution: 213 experiments reconciled, dual Titan V fleet, K80 retired, primal evolution handoff |
+| 2026-05-19 | `HOTSPRING_GPC_BOUNDARY_CE_VALIDATE_HANDOFF_MAY19_2026.md` | archive | GPC boundary analysis: PTOP parser fix, CE runlist discovery, sovereignty tier model, all engine domains power-gated, paths to Tier 2 |
+| 2026-05-20 | `HOTSPRING_SOVEREIGN_DRIVER_ROTATION_EXP211_COMPLETE_MAY20_2026.md` | archive | Exp 211 complete, sovereign driver rotation codified in diesel engine, docs reconciled |
+| 2026-05-21 | `HOTSPRING_KERNEL_HEALTH_PREFLIGHT_EXP216_MAY21_2026.md` | ✅ | Kernel health preflight: 3-layer autoconf detection, Exp 216, post-fix audit clean |
 
 ### `mmiotraces/`
 

@@ -7,6 +7,60 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Live Hardware Warm Handoff & IOMMU Fix — Exp 213 (May 20, 2026)
+
+### Added
+- **`sovereign.classify_tier` RPC**: Generation-aware tier classification endpoint.
+  Auto-detects SM version from BOOT0, looks up `GenerationProfile`, returns full
+  evidence with profile metadata (CE class, register offsets, tier level).
+- **IOMMU group sibling handling**: `iommu_group_siblings()` discovers sibling BDFs
+  in the same IOMMU group. `rebind_siblings_to_vfio()` restores siblings after
+  warm swap. Handoff Step 2 now unbinds all siblings before seeder bind.
+- **VFIO anchor release**: `sovereign_warm_handoff` RPC releases VFIO anchor and
+  cached device before spawning the handoff pipeline. Prevents IOMMU group
+  deadlock from daemon-held FDs.
+
+### Fixed
+- **systemd `/tmp` access**: Added `/tmp` to `ReadWritePaths` in
+  `toadstool-ember.service` for patched module staging.
+
+### Validated
+- `sovereign.classify_tier` on 2× Titan V: SM 70 auto-detected, CE class
+  0xC3B5 (VOLTA_DMA_COPY_A), correct profile offsets, Tier 0 (cold) confirmed.
+- `sovereign.init` cold start: 203-205ms on both cards.
+
+### Discovered
+- Cascading kernel failure: stuck nouveau probe → zombie VFIO thread → IOMMU
+  group lock. Root cause: daemon held anchor FDs during handoff. Fixed.
+
+## Sovereignty Consolidation Sprint — Exp 212 (May 20, 2026)
+
+### Added
+- **Warm capture → engine ungate wire**: `SovereignStrategy` now accepts golden-state
+  `GrInitSequence` via `with_golden_sequences()`. `engine_ungate_sequences()` returns
+  them for replay. `SovereignInitOptions.engine_init_path` loads golden-state JSON.
+  RPC handler `sovereign.init` deserializes `GrInitSequence` from file path.
+  Silicon-deistic bridge: learn from vendor driver once, replay forever.
+- **`classify_tier_for_profile()`**: Generation-aware tier classification using offsets
+  from `GenerationProfile` instead of hardcoded Volta values. Backward-compatible
+  `classify_tier()` preserved as convenience.
+- **`validate_ce_with_profile()`**: CE validation with generation-aware DMA class
+  from `GenerationProfile`.
+- **`GenerationProfile` tier fields**: 5 new fields (`fecs_pc_offset`,
+  `gpc_broadcast_offset`, `ce0_base_offset`, `pgraph_status_offset`, `ce_class`)
+  across all 11 generation profiles.
+- **`ChipFamily::engine_label()`**: Default engine name for golden sequences.
+
+### Changed
+- **`pipeline_for_family()`** returns `Option<Box<dyn InitPipeline>>` — unknown
+  families get `None` instead of silently falling back to VoltaInit.
+- **`BootPipeline` warm heuristic** fixed from `count_ones() > 8` to
+  `count_ones() >= 8 && pramin_accessible`, matching `is_warm_gpu()`.
+  Applied to both `init_volta.rs` and `init_kepler.rs`.
+- **Init pipeline hierarchy documented**: module-level doc clarifies that
+  `InitPipeline`/`BootPipeline` is the thin cross-vendor probe surface,
+  `sovereign_init` is the production NVIDIA orchestrator.
+
 ## Sovereign Driver Rotation Codified (May 20, 2026)
 
 ### Added
