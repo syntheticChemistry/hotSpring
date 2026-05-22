@@ -1,0 +1,120 @@
+# Catalyst Recipe: Volta (GV100) via nvidia-470
+#
+# This recipe defines how to produce a catalyst .ko module from raw
+# DKMS source. Given the same DKMS source + kernel, the recipe
+# reproduces an identical patched module.
+#
+# The PatchSet in module_patch.rs is the code-level implementation.
+# This TOML externalizes it for archival and iteration.
+
+[catalyst]
+name = "gv100_nvidia470_catalyst"
+gpu_family = "Volta"
+chip = "GV100"
+description = "nvidia-470 catalyst for TPC sovereignty on Titan V"
+
+[source]
+dkms_module = "nvidia"
+dkms_version = "470.256.02"
+driver_type = "proprietary"
+supports_volta_legacy_rm = true
+
+[build]
+kernel = "6.17.9-76061709-generic"
+patch_set = "nvidia_catalyst_handoff"
+module_rename = { from = "nvidia", to = "nvsov" }
+settle_secs = 15
+
+[objcopy]
+remove_sections = [
+    "__ksymtab",
+    "__kcrctab",
+    "__ksymtab_strings",
+    ".rela__ksymtab",
+]
+
+# Teardown NOPs — preserve GPU state through unbind
+[[patches]]
+symbol = "nv_pci_remove"
+strategy = "RetAtEntry"
+purpose = "Prevent teardown on unbind — preserve warm GPU state"
+
+[[patches]]
+symbol = "gpuStateUnload_IMPL"
+strategy = "RetAtEntry"
+purpose = "Prevent RM GPU state unload"
+
+[[patches]]
+symbol = "gpuStateDestroy_IMPL"
+strategy = "RetAtEntry"
+purpose = "Prevent RM GPU state destruction"
+
+[[patches]]
+symbol = "_deviceTeardown"
+strategy = "RetAtEntry"
+purpose = "Prevent device teardown"
+
+[[patches]]
+symbol = "clTeardown_IMPL"
+strategy = "RetAtEntry"
+purpose = "Prevent client teardown"
+
+[[patches]]
+symbol = "fecsBufferTeardown"
+strategy = "RetAtEntry"
+purpose = "Prevent FECS buffer teardown — preserves firmware state"
+
+# Co-load isolation NOPs — prevent host nvidia conflicts
+# NOTE: nv_cap_init and nv_cap_drv_init are NOT patched (unlike
+# nvidia_warm_handoff). This allows RM capability table creation,
+# which unblocks full compute init (SEC2/ACR/PMU/GPCCS/FECS/TPC).
+
+[[patches]]
+symbol = "nv_procfs_init"
+strategy = "RetAtEntry"
+purpose = "Prevent /proc/driver/nvidia/ conflict with host nvidia"
+
+[[patches]]
+symbol = "nv_cap_procfs_init"
+strategy = "RetAtEntry"
+purpose = "Prevent /proc capability registration conflict"
+
+[[patches]]
+symbol = "nvlink_core_init"
+strategy = "Ret1AtEntry"
+purpose = "Prevent NVLink procfs conflict"
+
+[[patches]]
+symbol = "nvswitch_init"
+strategy = "Ret1AtEntry"
+purpose = "Prevent NVSwitch procfs conflict"
+
+[[patches]]
+symbol = "nv_acpi_init"
+strategy = "RetAtEntry"
+purpose = "Prevent duplicate ACPI handler registration"
+
+[[patches]]
+symbol = "nv_cap_create_dir_entry"
+strategy = "RetAtEntry"
+purpose = "Return NULL — RM skips cap dir operations"
+
+[[patches]]
+symbol = "nv_cap_create_file_entry"
+strategy = "RetAtEntry"
+purpose = "Return NULL — RM skips cap file operations"
+
+[[patches]]
+symbol = "nv_cap_destroy_entry"
+strategy = "RetAtEntry"
+purpose = "NOP — cap entries are stubs, nothing to destroy"
+
+[[patches]]
+symbol = "init_module"
+strategy = "NopCallAt(0x7f)"
+purpose = "NOP __register_chrdev — host nvidia owns major 195"
+
+[notes]
+experiment = 219
+parent_experiment = 218
+evolution = "Derived from nvidia_warm_handoff by removing nv_cap_init/nv_cap_drv_init NOPs"

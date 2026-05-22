@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 21, 2026 (nvsov dual-load + driver infra evolution: 218 experiments, TPC wall confirmed Exp 217, nvsov co-load Exp 218, 21 RPC methods)
+**Last audited:** May 22, 2026 (catalyst driver pattern: 219 experiments, Exp 219 catalyst BAR0 capture + golden state replay, 24 RPC methods)
 **License:** AGPL-3.0-or-later
 
 ---

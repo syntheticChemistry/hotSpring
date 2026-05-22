@@ -1,7 +1,7 @@
 # Experiment 218 — nvidia-470 nvsov Dual-Load Injection
 
-**Date**: 2026-05-21
-**Status**: IN PROGRESS — co-load isolation solved, module loads alongside nvidia-580, reboot needed to clear zombie module from test oops
+**Date**: 2026-05-21 → 2026-05-22
+**Status**: COMPLETE — dual-load co-existence achieved, warm handoff succeeds, Tier 0 (Cold) result
 **Hardware**: 2x NVIDIA Titan V (GV100), BDFs `0000:02:00.0`, `0000:49:00.0`
 **Dependency**: Exp 217 (TPC wall confirmed firmware-dependent), Exp 216 (kernel health clean)
 
@@ -124,6 +124,83 @@ toadstool-rpc sovereign.warm_handoff '{"bdf":"0000:49:00.0","strategy":"nvidia_p
 | PBDMA DEVICE error | bit 28 clear |
 | (stretch) FECS context switch | completes |
 | (stretch) QMD dispatch + readback | non-zero |
+
+## Results
+
+### Trial 3 — Full Warm Handoff (2026-05-22)
+
+**Outcome: SUCCESS (infrastructure) / NEGATIVE (TPC sovereignty)**
+
+The patched nvidia-470 module (`nvso13`) loaded alongside nvidia-580 and completed
+a full warm handoff cycle. All 8 pipeline steps passed. Key findings:
+
+```
+module_prep:      ✅ 12/17 patches applied, renamed nvidia→nvso13
+unbind_current:   ✅ vfio-pci unbound (+ audio sibling)
+deferred_insmod:  ✅ dual-load module loaded + bound via driver_override
+seeder_bind:      ✅ driver=nvso13 bound to 0000:49:00.0
+seeder_settle:    ✅ 10s settle
+warm_swap:        ✅ nvso13 → vfio-pci (warm_preserved=true)
+tier_classify:    ✅ Tier 0: Cold boot — tpc_alive=false
+module_cleanup:   ✅ rmmod nvso13 clean
+```
+
+**Tier Classification:** `cold` — PMC_ENABLE shows 4 engines, PRAMIN inaccessible,
+TPC stations not alive. The 470 driver loaded and probed the GPU but our NOP set
+prevented the full RM initialization (caps, procfs, nvlink, nvswitch, acpi, chardev
+all stubbed). Without RM init completing, the GPU compute domain was not initialized.
+
+### Bugs Found & Fixed
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| `Invalid module format` (type 11, 32S) | Kernel 6.17 rejects nonzero relocation targets | `normalize_relocations` + type 11 handling |
+| Post-objcopy corruption | objcopy re-created relocation conflicts | Moved objcopy BEFORE patching (pre-patch pipeline) |
+| Offset domain mismatch | `nullify_relocations_at` compared file offsets vs section-relative | Added `target_sh_offset` resolution via `sh_info` |
+| Wrong file offsets for all patches | `nm` returns section-relative VAs, not file offsets | `resolve_symbol_file_offsets()` — pure ELF parser with per-section offset |
+| `.init.text` symbols misplaced | Single `.text` offset assumed for all symbols | Section-aware ELF symbol resolver |
+| Ftrace clobber | `ret` at entry+0 destroyed ftrace call site | Ftrace-aware `RetAtEntry` — patches at entry+5 when preamble detected |
+| `register_chrdev` conflict | Host nvidia owns major 195 | `NopCallAt(0x7f)` on `init_module` to skip `__register_chrdev` |
+| `nvidia_register_module` NOPed | Module instance table empty → probe fails | Removed from NOP set |
+| `No such device` | insmod before GPU unbound from vfio-pci | Deferred insmod after unbind + `driver_override` |
+| procfs conflicts (caps, nvlink, nvswitch) | Duplicate `/proc/driver/nvidia-*` entries | NOPed `nv_cap_*_init`, `nvlink_core_init`, `nvswitch_init` |
+| `nv_cap_alloc` NULL deref | Cap table uninitialized after NOPing init | NOPed `nv_cap_create_dir_entry`, `nv_cap_create_file_entry`, `nv_cap_destroy_entry` |
+| LOCAL symbols not found | ELF parser filtered to `STB_GLOBAL` only | Accept all `STT_FUNC` symbols regardless of binding |
+| `nopcall` relocation not nullified | `patch_ranges` filter excluded `nopcall` prefix | Added `nopcall` to filter predicate |
+
+### Final NOP Set (17 targets)
+
+| Symbol | Strategy | Section | Purpose |
+|--------|----------|---------|---------|
+| `nv_pci_remove` | RetAtEntry | .text | Preserve GPU state on unbind |
+| `nv_cap_init` | Ret1AtEntry | .text | Skip cap table init (returns "success") |
+| `nv_cap_drv_init` | Ret1AtEntry | .text | Skip cap driver init |
+| `nv_procfs_init` | RetAtEntry | .text | Skip /proc/driver/nvidia/ |
+| `nv_cap_procfs_init` | RetAtEntry | .text | Skip cap procfs |
+| `nvlink_core_init` | Ret1AtEntry | .init.text | Skip nvlink subsystem |
+| `nvswitch_init` | Ret1AtEntry | .text | Skip nvswitch subsystem |
+| `nv_acpi_init` | RetAtEntry | .text | Skip ACPI handler duplication |
+| `nv_cap_create_dir_entry` | RetAtEntry | .text | Stub cap dir creation |
+| `nv_cap_create_file_entry` | RetAtEntry | .text | Stub cap file creation |
+| `nv_cap_destroy_entry` | RetAtEntry | .text | Stub cap cleanup |
+| `init_module` | NopCallAt(0x7f) | .init.text | Skip __register_chrdev call |
+
+### Analysis
+
+The dual-load succeeds mechanically but the nvidia-470 driver's RM initialization
+is too deeply coupled to the subsystems we NOPed. The driver loaded, registered its
+PCI driver, probed the GPU, but without caps/procfs/nvlink/chardev the RM core
+(`rm_init_rm`) likely skipped GPU engine initialization. The result is equivalent
+to a partial-init state — the driver owns the device but hasn't booted the compute
+pipeline (SEC2→ACR→PMU→GPCCS→FECS→TPC).
+
+**Next steps for TPC sovereignty require one of:**
+1. **Selective RM enablement** — Allow more RM subsystems to init while still
+   preventing host conflicts. Needs careful bisection of which NOPs can be removed.
+2. **Exclusive nvidia-470 session** — Unload nvidia-580 entirely, load nvidia-470
+   for full init, warm swap, then reload nvidia-580. Requires display restart.
+3. **Register state capture** — Run full nvidia-470 in VM, capture complete BAR0
+   register state at TPC-alive moment, replay captured state post-warm-handoff.
 
 ## Fallback
 
