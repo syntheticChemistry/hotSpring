@@ -8,7 +8,7 @@
 //!
 //! **Witness integration (v2):** Each pipeline phase can produce a
 //! `WireWitnessRef` hash witness (blake3 of the output). On dehydration,
-//! the merkle root can optionally be signed by BearDog, producing a
+//! the merkle root can optionally be signed by the crypto provider, producing a
 //! signature witness. All witnesses are collected for downstream
 //! loamSpine commit and sweetGrass braid.
 //!
@@ -133,7 +133,7 @@ impl DagSession {
 
     /// Dehydrate the session to a merkle root.
     ///
-    /// When BearDog is available, signs the merkle root and adds a
+    /// When the crypto provider is available, signs the merkle root and adds a
     /// signature witness. Returns the complete provenance with all
     /// witnesses collected during the session.
     pub fn dehydrate(mut self, nucleus: &NucleusContext) -> DagProvenance {
@@ -182,8 +182,8 @@ impl DagSession {
     }
 }
 
-/// Attempt to sign the merkle root via BearDog. Returns `None` if
-/// BearDog is not available or signing fails.
+/// Attempt to sign the merkle root via the crypto domain provider.
+/// Returns `None` if no crypto primal is available or signing fails.
 fn try_sign_merkle_root(
     nucleus: &NucleusContext,
     merkle_root: &str,
@@ -206,7 +206,8 @@ fn try_sign_merkle_root(
         .and_then(serde_json::Value::as_str)?;
 
     let family = &nucleus.family_id;
-    println!("  BearDog: signed merkle root ({family})");
+    let crypto_name = crate::niche::primal_name_for_domain("crypto").unwrap_or("crypto");
+    println!("  {crypto_name}: signed merkle root ({family})");
 
     Some(WireWitnessRef::beardog_signature(
         family,

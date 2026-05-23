@@ -54,8 +54,8 @@ pub struct RhmcCalibrator {
     mass: f64,
     strange_mass: Option<f64>,
     beta: f64,
-    /// Lattice dimensions (used for volume-dependent heuristics and spectral probing).
-    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
+    /// Lattice dimensions — available for volume-dependent heuristics and spectral probing.
+    #[expect(dead_code, reason = "stored for future volume-dependent calibration heuristics")]
     dims: [usize; 4],
 
     // Discovered state

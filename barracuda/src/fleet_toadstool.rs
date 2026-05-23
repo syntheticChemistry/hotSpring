@@ -109,37 +109,6 @@ impl ToadStoolDispatchClient {
         jsonrpc_result(&resp)
     }
 
-    /// `compute.dispatch.submit` — submit a workload for sovereign dispatch.
-    ///
-    /// The `params` should include at minimum:
-    /// - `binary_b64`: base64-encoded compiled shader binary
-    /// - `dispatch_dims`: `[x, y, z]` workgroup counts
-    /// - `buffers`: array of `{ data_b64, size, binding }` buffer descriptors
-    /// - `timeout_ms`: dispatch timeout in milliseconds
-    ///
-    /// Prefers `call_by_capability` when NUCLEUS context is available,
-    /// falling back to direct socket RPC.
-    #[deprecated(note = "use compute_dispatch::compile_and_submit() or submit_binary()")]
-    pub fn submit(&self, params: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
-        let ctx = NucleusContext::detect();
-        if let Ok(resp) =
-            ctx.call_by_capability("compute", "compute.dispatch.submit", params.clone())
-        {
-            return Ok(resp);
-        }
-        let resp = send_jsonrpc(&self.socket_path, "compute.dispatch.submit", params)?;
-        jsonrpc_result(&resp)
-    }
-
-    /// `compute.dispatch` — alias for `submit` (toadStool accepts both method names).
-    #[deprecated(note = "use compute_dispatch::compile_and_submit() or submit_binary()")]
-    pub fn dispatch(
-        &self,
-        params: &serde_json::Value,
-    ) -> Result<serde_json::Value, HotSpringError> {
-        self.submit(params)
-    }
-
     /// Check if toadStool is alive and accepting dispatch requests.
     pub fn is_alive(&self) -> bool {
         self.health().is_ok()

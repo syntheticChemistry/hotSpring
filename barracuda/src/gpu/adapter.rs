@@ -74,7 +74,7 @@ pub fn enumerate_adapters() -> Vec<AdapterInfo> {
 
     let result = std::panic::catch_unwind(|| {
         let instance = create_instance();
-        pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()))
+        crate::block_on::block_on(instance.enumerate_adapters(wgpu::Backends::all()))
             .into_iter()
             .enumerate()
             .map(|(i, adapter): (usize, wgpu::Adapter)| {
@@ -192,17 +192,17 @@ pub fn select_adapter_hint(hint: &str) -> Result<wgpu::Adapter, crate::error::Ho
     let selector = token.to_lowercase();
     if selector == "auto" {
         let fresh: Vec<wgpu::Adapter> =
-            pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all()));
+            crate::block_on::block_on(create_instance().enumerate_adapters(wgpu::Backends::all()));
         auto_select(fresh)
     } else if let Ok(idx) = selector.parse::<usize>() {
         select_by_index_or_name(
-            pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
+            crate::block_on::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
             idx,
             &selector,
         )
     } else {
         select_by_name(
-            pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
+            crate::block_on::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
             &selector,
         )
     }
@@ -226,7 +226,7 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
 
     let instance = create_instance();
     let adapters: Vec<wgpu::Adapter> =
-        pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+        crate::block_on::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
     if adapters.is_empty() {
         return Err(crate::error::HotSpringError::NoAdapter);
     }

@@ -181,7 +181,7 @@ health_probe = "health.liveness"
 [genomeBin.service]
 restart_policy = "on-failure"
 after = ["beardog", "songbird", "toadstool", "barracuda"]
-wants = ["coralreef", "nestgate"]
+wants = ["toadstool", "nestgate"]
 TOML
 
 echo ""

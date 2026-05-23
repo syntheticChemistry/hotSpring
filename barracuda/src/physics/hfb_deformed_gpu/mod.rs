@@ -36,21 +36,9 @@ use std::time::Instant;
 
 pub use types::GpuResidentL3Result;
 
-// EVOLUTION(GPU): `physics/shaders/deformed_*_f64.wgsl` sources exist but this solver still
-// uses Rayon + batched GPU eigensolve only — WGSL grid kernels not hooked into `binding_energies_l3_gpu`.
-#[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
-fn create_f64_storage_buf(device: &WgpuDevice, label: &str, data: &[f64]) -> wgpu::Buffer {
-    let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-    device.create_storage_buffer(label, &bytes)
-}
-
-// EVOLUTION(GPU): same as above — buffer readback helpers reserved for eventual WGSL path.
-#[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
-fn read_f64_from_gpu(device: &WgpuDevice, buf: &wgpu::Buffer, count: usize) -> Vec<f64> {
-    device
-        .read_buffer_f64(buf, count)
-        .unwrap_or_else(|_| vec![0.0; count])
-}
+// GPU WGSL grid kernel path: `physics/shaders/deformed_*_f64.wgsl` shaders exist
+// but are not yet wired into `binding_energies_l3_gpu`. Current path uses Rayon +
+// batched GPU eigensolve. See EXPERIMENT_INDEX.md for tracking.
 
 /// Batch compute L3 binding energies on GPU with deformed HFB.
 ///

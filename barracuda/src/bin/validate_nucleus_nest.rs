@@ -38,10 +38,10 @@ fn main() {
     println!("  ── DAG Provenance (rhizoCrypt) ──");
     if let Some(rc) = ctx.by_domain("dag") {
         if rc.alive {
-            let session_result = ctx.call(
-                "rhizocrypt",
+            let session_result = ctx.call_by_capability(
+                "dag",
                 "dag.session.create",
-                &serde_json::json!({
+                serde_json::json!({
                     "label": "hotspring_nest_validation_probe",
                     "metadata": { "spring": "hotspring", "purpose": "composition_validation" }
                 }),
@@ -70,7 +70,7 @@ fn main() {
     println!("  ── Ledger Commit (loamSpine) ──");
     if let Some(ls) = ctx.by_domain("ledger") {
         if ls.alive {
-            let health = ctx.call("loamspine", "health.liveness", &serde_json::json!({}));
+            let health = ctx.call_by_capability("ledger", "health.liveness", serde_json::json!({}));
             match health {
                 Ok(resp) => {
                     let ok = resp.get("result").is_some();
@@ -89,7 +89,7 @@ fn main() {
     println!("  ── Attribution (sweetGrass) ──");
     if let Some(sg) = ctx.by_domain("attribution") {
         if sg.alive {
-            let health = ctx.call("sweetgrass", "health.liveness", &serde_json::json!({}));
+            let health = ctx.call_by_capability("attribution", "health.liveness", serde_json::json!({}));
             match health {
                 Ok(resp) => {
                     let ok = resp.get("result").is_some();
@@ -106,9 +106,9 @@ fn main() {
 
     // ── Capability assertions ──
     println!("  ── Capability assertions ──");
-    validate_capability(&ctx, "rhizocrypt", "dag.session.create", &mut harness);
-    validate_capability(&ctx, "loamspine", "session.commit", &mut harness);
-    validate_capability(&ctx, "sweetgrass", "braid.create", &mut harness);
+    validate_capability(&ctx, "dag", "dag.session.create", &mut harness);
+    validate_capability(&ctx, "ledger", "session.commit", &mut harness);
+    validate_capability(&ctx, "attribution", "braid.create", &mut harness);
 
     // ── Provenance Parity: local witness vs IPC DAG ──
     println!("  ── Provenance Parity ──");

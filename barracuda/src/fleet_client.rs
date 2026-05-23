@@ -23,6 +23,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::error::HotSpringError;
+use crate::niche;
 use crate::primal_bridge::send_jsonrpc;
 
 pub use crate::fleet_ember::{
@@ -248,43 +249,40 @@ pub fn probe_ember_socket(socket_path: &Path) -> bool {
 
 /// Resolve the toadStool compute socket path.
 ///
-/// Precedence: `TOADSTOOL_SOCKET` env → `$XDG_RUNTIME_DIR/biomeos/compute.sock`
-/// → `/tmp/biomeos/compute.sock`.
+/// Precedence: `TOADSTOOL_SOCKET` env → first existing `compute.sock` in
+/// [`niche::socket_dirs()`] → `compute.sock` in the first niche dir.
 fn toadstool_compute_socket() -> PathBuf {
     if let Ok(sock) = std::env::var("TOADSTOOL_SOCKET") {
         return PathBuf::from(sock);
     }
-    let base = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_owned());
-    PathBuf::from(base).join("biomeos").join("compute.sock")
+    let dirs = niche::socket_dirs();
+    for dir in &dirs {
+        let candidate = dir.join("compute.sock");
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+    dirs.first()
+        .map(|d| d.join("compute.sock"))
+        .unwrap_or_else(|| PathBuf::from("/run/toadstool/biomeos/compute.sock"))
 }
-
-/// Well-known toadStool runtime directory for ember sockets.
-const TOADSTOOL_RUN_DEFAULT: &str = "/run/toadstool";
 
 /// Resolve the toadStool runtime directory for ember sockets.
 ///
-/// Precedence: `TOADSTOOL_RUN_DIR` → `CORALREEF_RUN_DIR` (deprecated) →
-/// `$XDG_RUNTIME_DIR/toadstool` → `/run/toadstool`.
+/// Precedence: `TOADSTOOL_RUN_DIR` env → parent of first existing niche
+/// socket dir → `/run/toadstool`.
 fn toadstool_run_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("TOADSTOOL_RUN_DIR") {
         return PathBuf::from(dir);
     }
-    if let Ok(dir) = std::env::var("CORALREEF_RUN_DIR") {
-        log::warn!("CORALREEF_RUN_DIR is deprecated — use TOADSTOOL_RUN_DIR");
-        return PathBuf::from(dir);
-    }
-    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        let base = PathBuf::from(&xdg);
-        let p = base.join("toadstool");
-        if p.is_dir() {
-            return p;
-        }
-        let legacy = base.join("coralreef");
-        if legacy.is_dir() {
-            return legacy;
+    for dir in niche::socket_dirs() {
+        if dir.is_dir() {
+            if let Some(parent) = dir.parent() {
+                return parent.to_path_buf();
+            }
         }
     }
-    PathBuf::from(TOADSTOOL_RUN_DEFAULT)
+    PathBuf::from("/run/toadstool")
 }
 
 /// Candidate ember socket paths for a given PCI BDF, in priority order.
@@ -304,15 +302,10 @@ pub fn ember_socket_candidates(bdf: &str) -> Vec<PathBuf> {
 
 /// Resolved glowplug socket path.
 ///
-/// Precedence: `TOADSTOOL_GLOWPLUG_SOCKET` → `CORALREEF_GLOWPLUG_SOCKET` (deprecated)
-/// → `{toadstool_run_dir}/glowplug.sock`.
+/// Precedence: `TOADSTOOL_GLOWPLUG_SOCKET` → `{toadstool_run_dir}/glowplug.sock`.
 #[must_use]
 pub fn glowplug_socket_path() -> PathBuf {
     if let Ok(p) = std::env::var("TOADSTOOL_GLOWPLUG_SOCKET") {
-        return PathBuf::from(p);
-    }
-    if let Ok(p) = std::env::var("CORALREEF_GLOWPLUG_SOCKET") {
-        log::warn!("CORALREEF_GLOWPLUG_SOCKET is deprecated — use TOADSTOOL_GLOWPLUG_SOCKET");
         return PathBuf::from(p);
     }
     toadstool_run_dir().join("glowplug.sock")

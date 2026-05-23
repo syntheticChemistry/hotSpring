@@ -60,6 +60,15 @@ pub fn family_id() -> String {
         .unwrap_or_else(|_| "default".to_string())
 }
 
+/// Look up the canonical primal name for a capability domain.
+#[must_use]
+pub fn primal_name_for_domain(domain: &str) -> Option<&'static str> {
+    DEPENDENCIES
+        .iter()
+        .find(|d| d.capability_domain == domain)
+        .map(|d| d.name)
+}
+
 // ── Socket resolution ───────────────────────────────────────────────
 
 /// Socket directories in XDG-compliant priority order.

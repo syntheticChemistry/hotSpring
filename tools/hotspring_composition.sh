@@ -207,10 +207,10 @@ dispatch_background_validation() {
     fi
 
     log "launching background SEMF validation (beta=$BETA, L=$LATTICE_L)"
-    # Build and run the guideStone in bare mode as a proxy for real computation
+    # Build and run the unibin certify in bare mode as a proxy for real computation
     (
         cd "$barracuda_dir"
-        cargo run --release --bin hotspring_guidestone 2>&1 \
+        cargo run --release --bin hotspring_unibin -- certify 2>&1 \
             | grep -E '\[PASS\]|\[FAIL\]|\[SKIP\]|Result:' \
             > "$COMPUTE_RESULT_FILE" 2>/dev/null
     ) &

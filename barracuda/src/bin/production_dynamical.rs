@@ -31,8 +31,9 @@
 //! ```
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_hmc::dynamical::{
-    GpuDynHmcPipelines, GpuDynHmcState, gpu_dynamical_hmc_trajectory,
+use hotspring_barracuda::lattice::gpu_hmc::dynamical::GpuDynHmcState;
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuDynHmcStreamingPipelines, gpu_dynamical_hmc_trajectory_streaming,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::production_support::std_dev;
@@ -174,7 +175,7 @@ fn main() {
     };
     println!("  GPU: {}", gpu.adapter_name);
 
-    let pipelines = GpuDynHmcPipelines::new(&gpu);
+    let pipelines = GpuDynHmcStreamingPipelines::new(&gpu);
     let state = GpuDynHmcState::from_lattice(&gpu, &lattice, args.beta, args.mass, 1e-8, 1000);
 
     let mut seed = args.seed;
@@ -192,8 +193,10 @@ fn main() {
 
     let mut accepted_therm = 0;
     for i in 0..args.n_therm {
-        let result =
-            gpu_dynamical_hmc_trajectory(&gpu, &pipelines, &state, args.n_md, args.dt, &mut seed);
+        let result = gpu_dynamical_hmc_trajectory_streaming(
+            &gpu, &pipelines, &state, args.n_md, args.dt, i as u32, &mut seed,
+        )
+        .expect("HMC trajectory failed");
         if result.accepted {
             accepted_therm += 1;
         }
@@ -226,8 +229,11 @@ fn main() {
 
     for i in 0..args.n_meas {
         let traj_start = Instant::now();
-        let result =
-            gpu_dynamical_hmc_trajectory(&gpu, &pipelines, &state, args.n_md, args.dt, &mut seed);
+        let result = gpu_dynamical_hmc_trajectory_streaming(
+            &gpu, &pipelines, &state, args.n_md, args.dt,
+            (args.n_therm + i) as u32, &mut seed,
+        )
+        .expect("HMC trajectory failed");
         let wall_us = traj_start.elapsed().as_micros() as u64;
 
         if result.accepted {

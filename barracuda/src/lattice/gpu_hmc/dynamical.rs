@@ -2,11 +2,10 @@
 
 //! Dynamical fermion GPU HMC — full QCD with staggered quarks.
 
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
+#[expect(deprecated, reason = "gpu_dot_re still used in CG internals pending resident migration")]
 use super::{
-    GpuF64, GpuHmcPipelines, GpuHmcState, flatten_momenta, gpu_dirac_dispatch, gpu_dot_re,
-    gpu_fermion_force_dispatch, gpu_force_dispatch, gpu_kinetic_energy, gpu_link_update_dispatch,
-    gpu_mom_update_dispatch, gpu_plaquette, gpu_wilson_action, make_link_mom_params,
+    GpuF64, GpuHmcPipelines, GpuHmcState, gpu_dirac_dispatch, gpu_dot_re,
+    gpu_fermion_force_dispatch, gpu_force_dispatch, gpu_mom_update_dispatch, make_link_mom_params,
 };
 
 /// WGSL shader: staggered Dirac operator D·ψ.
@@ -192,118 +191,6 @@ pub struct GpuDynHmcResult {
     pub plaquette: f64,
     /// Total CG iterations across all solves in this trajectory.
     pub cg_iterations: usize,
-}
-
-/// Run one GPU dynamical fermion Omelyan HMC trajectory.
-///
-/// Gauge + fermion force computed on GPU. CG solver runs entirely on GPU.
-/// CPU only: random momenta/pseudofermion generation, Metropolis decision.
-pub fn gpu_dynamical_hmc_trajectory(
-    gpu: &GpuF64,
-    pipelines: &GpuDynHmcPipelines,
-    state: &GpuDynHmcState,
-    n_md_steps: usize,
-    dt: f64,
-    seed: &mut u64,
-) -> GpuDynHmcResult {
-    let vol = state.gauge.volume;
-    let n_links = state.gauge.n_links;
-
-    let momenta: Vec<super::super::su3::Su3Matrix> = (0..n_links)
-        .map(|_| super::super::su3::Su3Matrix::random_algebra(seed))
-        .collect();
-    let mom_flat = flatten_momenta(&momenta);
-    gpu.upload_f64(&state.gauge.mom_buf, &mom_flat);
-
-    for phi_buf in &state.phi_bufs {
-        let phi_flat = gen_random_fermion(vol, seed);
-        gpu.upload_f64(phi_buf, &phi_flat);
-    }
-
-    {
-        let mut enc = gpu.begin_encoder("dyn_backup_links");
-        enc.copy_buffer_to_buffer(
-            &state.gauge.link_buf,
-            0,
-            &state.gauge.link_backup,
-            0,
-            (n_links * 18 * 8) as u64,
-        );
-        gpu.submit_encoder(enc);
-    }
-
-    // EVOLUTION(B2): still using discrete `gpu_wilson_action` / `gpu_kinetic_energy`
-    // (deprecated readbacks) for Metropolis scalars on this path — not `TensorSession`.
-    // HotSpring GAP-HS-027: upstream barraCuda `TensorSession` adoption remains deferred;
-    // RHMC has GPU-resident `H` via `uni_hamiltonian::compute_h_gpu`, but dynamical
-    // / resident_CG / Hasenbusch are separate — need TensorSession fusion or a port.
-    #[expect(deprecated, reason = "transitional — migration to new API pending")]
-    let s_gauge_old = gpu_wilson_action(gpu, &pipelines.gauge, &state.gauge);
-    let t_old = gpu_kinetic_energy(gpu, &pipelines.gauge, &state.gauge);
-    let (s_ferm_old, cg_iters_old) = gpu_fermion_action_all(gpu, pipelines, state);
-    let h_old = s_gauge_old + t_old + s_ferm_old;
-
-    let mut total_cg = cg_iters_old;
-
-    let lam = crate::tolerances::OMELYAN_LAMBDA;
-
-    for step in 0..n_md_steps {
-        gpu_total_force_dispatch(gpu, pipelines, state, lam * dt);
-        gpu_link_update_dispatch(gpu, &pipelines.gauge, &state.gauge, 0.5 * dt);
-        gpu_total_force_dispatch(gpu, pipelines, state, 2.0f64.mul_add(-lam, 1.0) * dt);
-        gpu_link_update_dispatch(gpu, &pipelines.gauge, &state.gauge, 0.5 * dt);
-        let cg_step = gpu_total_force_dispatch(gpu, pipelines, state, lam * dt);
-        total_cg += cg_step;
-
-        if step == 0 {
-            // Already counted in step 5 of previous iteration (but no previous)
-        }
-    }
-
-    #[expect(deprecated, reason = "transitional — migration to new API pending")]
-    let s_gauge_new = gpu_wilson_action(gpu, &pipelines.gauge, &state.gauge);
-    let t_new = gpu_kinetic_energy(gpu, &pipelines.gauge, &state.gauge);
-    let (s_ferm_new, cg_iters_new) = gpu_fermion_action_all(gpu, pipelines, state);
-    let h_new = s_gauge_new + t_new + s_ferm_new;
-    total_cg += cg_iters_new;
-
-    let delta_h = h_new - h_old;
-
-    let r: f64 = super::super::constants::lcg_uniform_f64(seed);
-    let accepted = delta_h <= 0.0 || r < (-delta_h).exp();
-
-    if !accepted {
-        let mut enc = gpu.begin_encoder("dyn_restore_links");
-        enc.copy_buffer_to_buffer(
-            &state.gauge.link_backup,
-            0,
-            &state.gauge.link_buf,
-            0,
-            (n_links * 18 * 8) as u64,
-        );
-        gpu.submit_encoder(enc);
-    }
-
-    #[expect(deprecated, reason = "transitional — migration to new API pending")]
-    let plaquette = gpu_plaquette(gpu, &pipelines.gauge, &state.gauge);
-
-    GpuDynHmcResult {
-        accepted,
-        delta_h,
-        plaquette,
-        cg_iterations: total_cg,
-    }
-}
-
-pub(super) fn gen_random_fermion(vol: usize, seed: &mut u64) -> Vec<f64> {
-    let n = vol * 6;
-    let mut flat = vec![0.0_f64; n];
-    for v in &mut flat {
-        let u1 = super::super::constants::lcg_uniform_f64(seed).max(1e-30);
-        let u2 = super::super::constants::lcg_uniform_f64(seed);
-        *v = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
-    }
-    flat
 }
 
 /// Compute `S_f` = φ†(D†D)⁻¹φ for a single pseudofermion field.

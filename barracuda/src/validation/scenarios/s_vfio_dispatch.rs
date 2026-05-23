@@ -22,8 +22,6 @@
 //!   - Tesla K80 (GK210, SM37) at BDF 4b:00.0
 //!   - RTX 5060 (GB206, SM120) at env `HOTSPRING_RTX5060_BDF` (optional)
 
-use base64::Engine as _;
-
 use crate::validation::ValidationHarness;
 use crate::validation::scenarios::registry::{Scenario, ScenarioMeta, Tier, Track};
 
@@ -188,8 +186,7 @@ pub fn run(v: &mut ValidationHarness) {
                 if vfio_opened {
                     let roundtrip_params = serde_json::json!({
                         "bdf": target.bdf,
-                        "data_b64": base64::engine::general_purpose::STANDARD
-                            .encode(b"hotspring-pbdma-probe"),
+                        "data_b64": crate::base64_encode::encode(b"hotspring-pbdma-probe"),
                     });
                     match nucleus.call_by_capability(
                         "compute",

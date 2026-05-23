@@ -12,7 +12,7 @@
 //!   - Production flow: symmetric N⁴ and asymmetric Ns³×Nt geometries
 //!     at β = {5.9, 6.0, 6.2} with `gpu_hmc_trajectory_streaming`
 //!   - Includes 8³×16 (T≈125 MeV) and 16³×32 (T≈62 MeV) finite-T lattices
-//!   - Dynamical fermion extension via `gpu_dynamical_hmc_trajectory`
+//!   - Dynamical fermion extension via `gpu_dynamical_hmc_trajectory_streaming`
 //!
 //! **Paper 44** (Conservative BGK dielectric):
 //!   - Standard + completed Mermin (CPU + GPU)

@@ -1,11 +1,11 @@
 #!/bin/sh
 set -eu
 
-# hotSpring Primal Proof Validation — genomeBin Depot Workflow (v0.9.17)
+# hotSpring Primal Proof Validation — genomeBin Depot Workflow (v0.9.25)
 #
 # Runs the full primal-proof chain:
 #   1. Pre-flight: primalspring certify (composition base check)
-#   2. Domain: hotspring_guidestone (QCD physics + guideStone properties)
+#   2. Domain: hotspring_unibin certify (QCD physics + guideStone properties)
 #
 # Requires a running NUCLEUS (deployed via plasmidBin/nucleus_launcher.sh).
 # See primalSpring/wateringHole/PLASMINBIN_DEPOT_PATTERN.md for depot setup.
@@ -48,7 +48,7 @@ if [ -n "$FAMILY_ID" ] && [ -z "$NESTGATE_JWT_SECRET" ]; then
 fi
 
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║  hotSpring Primal Proof Validation (v0.9.17)               ║"
+echo "║  hotSpring Primal Proof Validation (v0.9.25)               ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo
 echo "  Family ID:  ${FAMILY_ID:-<none — bare mode>}"
@@ -83,16 +83,16 @@ if [ "$FULL" = "1" ]; then
     echo
 fi
 
-# ── Step 2: Domain — hotspring_guidestone ─────────────────────────
-echo "━━━ Step 2: Domain — hotspring_guidestone ━━━"
+# ── Step 2: Domain — hotspring_unibin certify ────────────────────
+echo "━━━ Step 2: Domain — hotspring_unibin certify ━━━"
 echo
 
 DOMAIN_EXIT=0
 DOMAIN_OUTPUT_FILE=$(mktemp)
 cd "$BARRACUDA"
-cargo build --release --bin hotspring_guidestone 2>&1
+cargo build --release --bin hotspring_unibin 2>&1
 cd "$ROOT"
-"$BARRACUDA/target/release/hotspring_guidestone" 2>&1 | tee "$DOMAIN_OUTPUT_FILE" || DOMAIN_EXIT=$?
+"$BARRACUDA/target/release/hotspring_unibin" certify 2>&1 | tee "$DOMAIN_OUTPUT_FILE" || DOMAIN_EXIT=$?
 
 BARE_ONLY=0
 if grep -q "bare certification only" "$DOMAIN_OUTPUT_FILE" 2>/dev/null; then

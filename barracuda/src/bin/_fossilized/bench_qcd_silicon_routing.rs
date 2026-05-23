@@ -56,7 +56,7 @@ struct GpuCtx {
 }
 
 fn init_gpu(adapter: &wgpu::Adapter) -> GpuCtx {
-    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+    let (device, queue) = hotspring_barracuda::block_on::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: None,
         required_features: wgpu::Features::SHADER_F16,
         required_limits: wgpu::Limits {
@@ -888,7 +888,7 @@ fn main() {
         ..Default::default()
     });
     let all_adapters: Vec<wgpu::Adapter> =
-        pollster::block_on(instance.enumerate_adapters(wgpu::Backends::VULKAN));
+        hotspring_barracuda::block_on::block_on(instance.enumerate_adapters(wgpu::Backends::VULKAN));
     let adapters: Vec<&wgpu::Adapter> = all_adapters
         .iter()
         .filter(|a| a.get_info().device_type == wgpu::DeviceType::DiscreteGpu)

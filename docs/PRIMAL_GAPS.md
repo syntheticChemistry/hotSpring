@@ -1777,7 +1777,7 @@ Next: hardware validation on Titan V and K80.
   - **coralReef:** `sum_reduce_subgroup_f64.wgsl` causes assertion panic killing daemon (GAP for coralReef team).
   - **toadStool:** `compute.dispatch.submit` returns no structured error on invalid binary (empty result, no error field).
   - **plasmidBin:** ecoBin pipeline lag — pre-subgroup-ops / pre-S259 harvests. Automated CI harvest would prevent.
-- **Validation:** 595/595 lib tests pass (default). Zero clippy warnings.
+- **Validation:** 596/596 lib tests pass (default). Zero clippy warnings.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md`
 
 ---
@@ -1794,7 +1794,7 @@ Next: hardware validation on Titan V and K80.
 - **Upstream gaps discovered:**
   - **GAP-PB-001:** `skunkbat` missing checksum entry in `checksums.toml` for `x86_64-unknown-linux-musl` (plasmidBin/primalSpring).
   - **GAP-PB-002:** barracuda does not implement `health.version` RPC (barraCuda team).
-- **Validation:** 595/595 lib tests pass. Zero clippy warnings. 13/13 primals deployed. 3/3 compute trio live on IPC.
+- **Validation:** 596/596 lib tests pass. Zero clippy warnings. 13/13 primals deployed. 3/3 compute trio live on IPC.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md`
 
 ### GAP-HS-102 — Upstream Absorption + Deep Debt Sprint (May 14, 2026)
@@ -1815,7 +1815,7 @@ Next: hardware validation on Titan V and K80.
      already wired by biomeGate. No stale `*_cpu` scalar names in codebase.
   5. **coralReef v0.1.0 alignment confirmed:** IPC-only (no direct Rust dependency).
      Blackwell SM120, naga::Module ingest, dual-vendor all accessible via IPC.
-- **Validation:** 595/595 lib tests pass. Zero clippy warnings (all-targets barracuda-local).
+- **Validation:** 596/596 lib tests pass. Zero clippy warnings (all-targets barracuda-local).
   Zero unfulfilled lint expectations. `cargo fmt --check` clean.
 
 ### GAP-HS-103 — Wave 17 Signal Adoption + Deep Debt Sprint (May 16, 2026)
@@ -1864,7 +1864,7 @@ Next: hardware validation on Titan V and K80.
 - **Papers remaining:** ~25 queued (Paper 23, Track 5 [25-31], Tier 4 [32-42], LTEE B9).
 - **Datasets partial:** Militzer FPEOS (partial), atoMEC (7/9), Zenodo surrogate (optional 6GB).
 
-- **Validation:** 595/595 lib tests pass. Zero clippy warnings. `cargo fmt --check` clean.
+- **Validation:** 596/596 lib tests pass. Zero clippy warnings. `cargo fmt --check` clean.
 
 ### GAP-HS-104 — Wave 20 Schema Standardization (May 16, 2026)
 

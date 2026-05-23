@@ -123,8 +123,14 @@ impl Drop for Bar0View {
     }
 }
 
-// SAFETY: BAR0 is a hardware-memory-mapped region; Send is appropriate for
-// experiment binaries that transfer ownership between threads.
+// SAFETY: BAR0View holds an immutable mmap of a PCI BAR0 resource file.
+// The kernel guarantees physical memory backing is stable for the file's
+// lifetime. No interior mutability: concurrent reads of MMIO registers
+// are naturally idempotent (hardware provides the ordering guarantees via
+// volatile reads). Ownership transfer between threads is safe because:
+// 1. The mapping is read-only — no data races on write.
+// 2. Drop calls munmap exactly once (RAII, not reference-counted).
+// 3. No pointers alias outside this struct.
 unsafe impl Send for Bar0View {}
 
 // ── Read-write MMIO ──────────────────────────────────────────────────────────
@@ -214,5 +220,105 @@ impl Drop for Bar0Map {
     }
 }
 
-// SAFETY: same rationale as Bar0View.
+// SAFETY: Bar0Map holds a read-write mmap of a PCI BAR0 resource file.
+// Ownership transfer between threads is safe because:
+// 1. Writes go through volatile stores — no Rust-level data races.
+// 2. MMIO ordering is guaranteed by the hardware (PCIe posted writes
+//    are serialized by the device's BAR decoder).
+// 3. Drop calls munmap exactly once (RAII).
+// 4. Callers must ensure no concurrent kernel driver writes to the
+//    same BAR0 region (enforced by VFIO exclusion at the OS level).
 unsafe impl Send for Bar0Map {}
+
+// ── Domain-validated wrapper ─────────────────────────────────────────────────
+
+/// A named BAR0 offset range (e.g. PMC, GR, FECS).
+#[derive(Debug, Clone, Copy)]
+pub struct Bar0Domain {
+    pub name: &'static str,
+    pub start: u32,
+    pub end: u32,
+}
+
+/// Validates MMIO offsets against a set of allowed register domains before
+/// forwarding to the underlying [`Bar0Map`].
+///
+/// Prevents accidental out-of-range MMIO from experiments that probe
+/// GPU engines. Callers declare which domains they intend to touch at
+/// construction time; any access outside those domains is rejected.
+///
+/// # memmap2 evaluation
+///
+/// `memmap2::MmapRaw` was evaluated as an alternative to raw `rustix::mm::mmap`.
+/// It provides RAII but does not support `MAP_SHARED` on `/sys` resource files
+/// reliably (it targets regular files). The current `rustix` approach is more
+/// direct and already has RAII via `Drop`. No migration warranted.
+pub struct SafeBar0 {
+    inner: Bar0Map,
+    domains: Vec<Bar0Domain>,
+}
+
+impl SafeBar0 {
+    /// Wrap an existing [`Bar0Map`] with domain validation.
+    pub fn new(inner: Bar0Map, domains: Vec<Bar0Domain>) -> Self {
+        Self { inner, domains }
+    }
+
+    /// Open a BAR0 mapping with domain validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `io::Error` if the underlying mmap fails.
+    pub fn open(path: &str, domains: Vec<Bar0Domain>) -> io::Result<Self> {
+        let inner = Bar0Map::open(path)?;
+        Ok(Self { inner, domains })
+    }
+
+    fn check_offset(&self, offset: u32, width: u32) -> Result<(), String> {
+        let end = offset.checked_add(width).ok_or_else(|| {
+            format!("offset {offset:#x} + {width} overflows")
+        })?;
+        for d in &self.domains {
+            if offset >= d.start && end <= d.end {
+                return Ok(());
+            }
+        }
+        let domain_list: Vec<&str> = self.domains.iter().map(|d| d.name).collect();
+        Err(format!(
+            "offset {offset:#x}..{end:#x} outside allowed domains: {domain_list:?}"
+        ))
+    }
+
+    /// Read a `u32` register, validating the offset is within an allowed domain.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if the offset is outside all allowed domains.
+    pub fn r32(&self, offset: u32) -> Result<u32, String> {
+        self.check_offset(offset, 4)?;
+        Ok(self.inner.r32(offset))
+    }
+
+    /// Write a `u32` register, validating the offset is within an allowed domain.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if the offset is outside all allowed domains.
+    pub fn w32(&self, offset: u32, val: u32) -> Result<(), String> {
+        self.check_offset(offset, 4)?;
+        self.inner.w32(offset, val);
+        Ok(())
+    }
+
+    /// Total mapping size in bytes.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Access the underlying [`Bar0Map`] directly (bypassing domain checks).
+    #[must_use]
+    pub fn inner(&self) -> &Bar0Map {
+        &self.inner
+    }
+}

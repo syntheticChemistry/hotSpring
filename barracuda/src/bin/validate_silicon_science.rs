@@ -383,7 +383,7 @@ fn dispatch_tmu(
         cache: None,
     });
 
-    let err = pollster::block_on(scope.pop());
+    let err = hotspring_barracuda::block_on::block_on(scope.pop());
     if let Some(e) = err {
         eprintln!("  TMU validation error: {e}");
         return None;

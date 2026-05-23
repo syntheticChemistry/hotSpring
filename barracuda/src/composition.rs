@@ -37,18 +37,51 @@ pub enum AtomicType {
     FullNucleus,
 }
 
-/// Capability domains required by each atomic fragment.
-/// Single source of truth: `niche::DEPENDENCIES` provides the name→domain mapping.
-const TOWER_DOMAINS: &[&str] = &["crypto", "discovery"];
-const NODE_DOMAINS: &[&str] = &["crypto", "discovery", "compute", "math", "shader"];
-const NEST_DOMAINS: &[&str] = &[
-    "crypto",
+/// Roles required by each atomic fragment. Roles are composition-specific
+/// knowledge; the *domains* they resolve to come from [`niche::DEPENDENCIES`].
+const TOWER_ROLES: &[&str] = &["security", "discovery"];
+const NODE_ROLES: &[&str] = &["security", "discovery", "shader_compile", "compute", "math"];
+const NEST_ROLES: &[&str] = &[
+    "security",
     "discovery",
     "storage",
     "dag",
     "ledger",
     "attribution",
 ];
+
+/// Derive capability domains from [`niche::DEPENDENCIES`] for a set of roles.
+fn domains_for_roles(roles: &[&str]) -> Vec<&'static str> {
+    roles
+        .iter()
+        .filter_map(|role| {
+            niche::DEPENDENCIES
+                .iter()
+                .find(|d| d.role == *role)
+                .map(|d| d.capability_domain)
+        })
+        .collect()
+}
+
+use std::sync::LazyLock;
+
+static TOWER_DOMAINS: LazyLock<Vec<&str>> = LazyLock::new(|| domains_for_roles(TOWER_ROLES));
+static NODE_DOMAINS: LazyLock<Vec<&str>> = LazyLock::new(|| domains_for_roles(NODE_ROLES));
+static NEST_DOMAINS: LazyLock<Vec<&str>> = LazyLock::new(|| domains_for_roles(NEST_ROLES));
+static NUCLEUS_DOMAINS: LazyLock<Vec<&str>> = LazyLock::new(|| {
+    let mut all = domains_for_roles(TOWER_ROLES);
+    for d in domains_for_roles(NODE_ROLES) {
+        if !all.contains(&d) {
+            all.push(d);
+        }
+    }
+    for d in domains_for_roles(NEST_ROLES) {
+        if !all.contains(&d) {
+            all.push(d);
+        }
+    }
+    all
+});
 
 /// Look up capability domain for a dependency name via [`niche::DEPENDENCIES`].
 #[cfg(test)]
@@ -70,22 +103,12 @@ fn dependency_for_domain(domain: &str) -> Option<&'static str> {
 impl AtomicType {
     /// Capability domains required for this atomic to be valid.
     #[must_use]
-    pub const fn required_domains(&self) -> &[&str] {
+    pub fn required_domains(&self) -> &[&str] {
         match self {
-            Self::Tower => TOWER_DOMAINS,
-            Self::Node => NODE_DOMAINS,
-            Self::Nest => NEST_DOMAINS,
-            Self::FullNucleus => &[
-                "crypto",
-                "discovery",
-                "compute",
-                "math",
-                "shader",
-                "storage",
-                "dag",
-                "ledger",
-                "attribution",
-            ],
+            Self::Tower => &TOWER_DOMAINS,
+            Self::Node => &NODE_DOMAINS,
+            Self::Nest => &NEST_DOMAINS,
+            Self::FullNucleus => &NUCLEUS_DOMAINS,
         }
     }
 
@@ -191,15 +214,15 @@ pub fn validate_atomic(
     }
 }
 
-/// Validate a capability exists on a specific primal.
+/// Validate a capability exists on the primal serving a given domain.
 pub fn validate_capability(
     ctx: &NucleusContext,
-    primal: &str,
+    domain: &str,
     capability: &str,
     harness: &mut ValidationHarness,
 ) -> bool {
-    let label = format!("{primal} has {capability}");
-    let Some(ep) = ctx.get(primal) else {
+    let label = format!("{domain} provider has {capability}");
+    let Some(ep) = ctx.get_by_capability(domain) else {
         harness.check_bool(&label, false);
         return false;
     };

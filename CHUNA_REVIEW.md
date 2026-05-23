@@ -4,9 +4,9 @@
 > The original reproduction data sheet is preserved in `whitePaper/baseCamp/chuna_*.md`.
 > For the full paper queue across 25 papers, see [`specs/PAPER_REVIEW_QUEUE.md`](specs/PAPER_REVIEW_QUEUE.md).
 
-**Date**: April 2026 (v0.6.32 — hotSpring-guideStone-v0.7.0)
+**Date**: May 2026 (v0.6.32 — hotSpring-guideStone-v0.7.0)
 **Author**: Kevin Mok (mokkevin@msu.edu)
-**Hardware**: biomeGate — Threadripper 3970X, RTX 3090 (24 GB), RX 6950 XT (16 GB), ~$4K used parts
+**Hardware**: biomeGate — Threadripper 3970X, 2× Titan V (GV100, 12 GB HBM2), RTX 5060 (Blackwell). Previous: RTX 3090 (retired), RX 6950 XT.
 **License**: AGPL-3.0
 
 ---
@@ -21,7 +21,7 @@ is a production tool for lattice QCD research — not a paper demo.
 **8 production binaries** via `validation/chuna-engine`.
 **CPU-only path**: All validation works without a GPU (`HOTSPRING_NO_GPU=1`).
 **Python bridge**: `control/hotspring_reader/` loads all output into NumPy arrays.
-**guideStone certified**: 5 properties + cross-substrate parity + optional NUCLEUS provenance.
+**guideStone certified**: Level 6 (6 properties) + cross-substrate parity + NUCLEUS deployment validation.
 
 | Paper | Citation | What we reproduced | Detailed artifact |
 |-------|----------|--------------------|----|
@@ -188,8 +188,8 @@ families (Experiment 046).
 5. DSF vs MD cross-validation — against Murillo Group open plasma database
 6. Precision stability audit — stable at f32/DF64/f64
 7. NPU steering with Akida AKD1000 — adaptive parameter control with learned trust thresholds
-8. **Cross-spring shader evolution**: barraCuda's 791 WGSL shaders include contributions
-   from all 5 springs — hotSpring precision/physics, wetSpring bio-stats,
+8. **Cross-spring shader evolution**: barraCuda's 128 WGSL shaders (164+ ecosystem) include
+   contributions from all 5 springs — hotSpring precision/physics, wetSpring bio-stats,
    neuralSpring ML ops, groundSpring validation, airSpring hydrology — all
    available to hotSpring through a single `barracuda` dependency
 

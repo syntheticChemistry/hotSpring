@@ -94,10 +94,10 @@ fn main() {
 
     // ── Capability-based routing ──
     println!("═══ Phase 3: Capability Validation ═══");
-    validate_capability(&ctx, "beardog", "crypto.sign_ed25519", &mut harness);
-    validate_capability(&ctx, "songbird", "discovery.find_primals", &mut harness);
-    validate_capability(&ctx, "toadstool", "compute.dispatch.submit", &mut harness);
-    validate_capability(&ctx, "coralreef", "shader.compile.wgsl", &mut harness);
+    validate_capability(&ctx, "crypto", "crypto.sign_ed25519", &mut harness);
+    validate_capability(&ctx, "discovery", "discovery.find_primals", &mut harness);
+    validate_capability(&ctx, "compute", "compute.dispatch.submit", &mut harness);
+    validate_capability(&ctx, "shader", "shader.compile.wgsl", &mut harness);
     println!();
 
     // ── by_capability resolution ──

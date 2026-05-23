@@ -38,7 +38,7 @@ fn main() {
     println!("  ── Compute Dispatch (ToadStool) ──");
     if let Some(ts) = ctx.by_domain("compute") {
         if ts.alive {
-            let cap_result = ctx.call("toadstool", "compute.capabilities", &serde_json::json!({}));
+            let cap_result = ctx.call_by_capability("compute", "compute.capabilities", serde_json::json!({}));
             match cap_result {
                 Ok(resp) => {
                     let has_caps = resp.get("result").is_some();
@@ -65,7 +65,7 @@ fn main() {
     println!("  ── Sovereign Compile (coralReef) ──");
     if let Some(cr) = ctx.by_domain("shader") {
         if cr.alive {
-            let compile_result = ctx.call("coralreef", "shader.list", &serde_json::json!({}));
+            let compile_result = ctx.call_by_capability("shader", "shader.list", serde_json::json!({}));
             match compile_result {
                 Ok(resp) => {
                     let has_list = resp.get("result").is_some();
@@ -82,8 +82,8 @@ fn main() {
 
     // ── Capability assertions ──
     println!("  ── Capability assertions ──");
-    validate_capability(&ctx, "toadstool", "compute.dispatch.submit", &mut harness);
-    validate_capability(&ctx, "coralreef", "shader.compile.wgsl", &mut harness);
+    validate_capability(&ctx, "compute", "compute.dispatch.submit", &mut harness);
+    validate_capability(&ctx, "shader", "shader.compile.wgsl", &mut harness);
 
     // ── Science parity: local Rust vs IPC compute ──
     println!("  ── Science Parity (Rust vs IPC) ──");

@@ -45,8 +45,10 @@
 // resolve the same way as in `src/bin` targets.
 extern crate self as hotspring_barracuda;
 
-/// Minimal zero-dependency base64 encoder (RFC 4648).
+/// Minimal zero-dependency base64 codec (RFC 4648).
 pub mod base64_encode;
+/// Minimal inline `block_on` — replaces `pollster` crate.
+pub mod block_on;
 /// Benchmark harness (RAPL energy, `nvidia-smi`, JSON reports).
 #[cfg(feature = "barracuda-local")]
 pub mod bench;

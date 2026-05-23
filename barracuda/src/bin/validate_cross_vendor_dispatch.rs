@@ -19,15 +19,9 @@ fn glowplug_socket() -> String {
     if let Ok(p) = std::env::var("TOADSTOOL_SOCKET") {
         return p;
     }
-    if let Ok(p) = std::env::var("CORALREEF_GLOWPLUG_SOCKET") {
-        eprintln!("warning: CORALREEF_GLOWPLUG_SOCKET is deprecated — use TOADSTOOL_SOCKET");
-        return p;
-    }
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
         .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().into_owned());
-    let family = std::env::var("FAMILY_ID")
-        .or_else(|_| std::env::var("CORALREEF_FAMILY_ID"))
-        .unwrap_or_else(|_| "default".into());
+    let family = std::env::var("FAMILY_ID").unwrap_or_else(|_| "default".into());
     format!("{runtime_dir}/biomeos/compute-{family}.sock")
 }
 

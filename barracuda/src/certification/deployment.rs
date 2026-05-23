@@ -6,7 +6,7 @@
 //! - Deploy graphs are well-formed and reference all required primals
 //! - biomeOS `composition.status` is reachable and healthy
 //! - hotSpring methods can be dynamically registered via `method.register`
-//! - skunkBat audit forwarding is wired
+//! - Defense provider (audit forwarding) is wired
 
 use primalspring::validation::ValidationResult;
 
@@ -28,7 +28,7 @@ pub fn validate_deployment(v: &mut ValidationResult) {
     validate_deploy_graph_coverage(v);
     validate_biome_status(v);
     validate_method_registration(v);
-    validate_skunkbat_wiring(v);
+    validate_defense_wiring(v);
 }
 
 fn validate_deploy_graph_coverage(v: &mut ValidationResult) {
@@ -62,14 +62,16 @@ fn validate_deploy_graph_coverage(v: &mut ValidationResult) {
             .unwrap_or("unknown");
 
         if let Ok(contents) = std::fs::read_to_string(graph_path) {
-            let has_skunkbat = contents.contains("skunkbat");
+            let defense_primal =
+                crate::niche::primal_name_for_domain("defense").unwrap_or("defense");
+            let has_defense = contents.contains(defense_primal);
             v.check_bool(
-                &format!("l6:graph_{name}:has_skunkbat"),
-                has_skunkbat,
-                if has_skunkbat {
-                    "skunkBat node present"
+                &format!("l6:graph_{name}:has_defense"),
+                has_defense,
+                if has_defense {
+                    "defense provider present"
                 } else {
-                    "missing skunkBat"
+                    "missing defense provider"
                 },
             );
 
@@ -144,24 +146,25 @@ fn validate_method_registration(v: &mut ValidationResult) {
     }
 }
 
-fn validate_skunkbat_wiring(v: &mut ValidationResult) {
+fn validate_defense_wiring(v: &mut ValidationResult) {
     let graphs_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../graphs");
     let qcd_graph = graphs_dir.join("hotspring_qcd_deploy.toml");
+    let defense_primal = crate::niche::primal_name_for_domain("defense").unwrap_or("defense");
 
     if let Ok(contents) = std::fs::read_to_string(qcd_graph) {
         v.check_bool(
-            "l6:skunkbat:in_qcd_deploy_graph",
-            contents.contains("skunkbat"),
-            "skunkBat node in QCD graph",
+            "l6:defense:in_qcd_deploy_graph",
+            contents.contains(defense_primal),
+            "defense provider in QCD graph",
         );
         v.check_bool(
-            "l6:skunkbat:defense_capability",
+            "l6:defense:capability_declared",
             contents.contains("\"defense\""),
             "defense capability declared",
         );
     } else {
         v.check_bool(
-            "l6:skunkbat:qcd_graph_readable",
+            "l6:defense:qcd_graph_readable",
             false,
             "graph file not found",
         );

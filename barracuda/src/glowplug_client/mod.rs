@@ -30,7 +30,6 @@ mod types;
 
 pub use types::*;
 
-use base64::Engine;
 use std::path::{Path, PathBuf};
 
 use crate::ember_types::{
@@ -306,7 +305,7 @@ impl GlowplugClient {
             "device.vfio.roundtrip",
             &serde_json::json!({
                 "bdf": bdf,
-                "data_b64": base64::engine::general_purpose::STANDARD.encode(data),
+                "data_b64": crate::base64_encode::encode(data),
             }),
         )
     }
@@ -433,9 +432,8 @@ fn build_dispatch_params(
     output_sizes: &[u64],
     options: &GlowplugDispatchOptions,
 ) -> serde_json::Value {
-    let b64 = base64::engine::general_purpose::STANDARD;
-    let shader_b64 = b64.encode(kernel);
-    let inputs: Vec<String> = buffers.iter().map(|b| b64.encode(b)).collect();
+    let shader_b64 = crate::base64_encode::encode(kernel);
+    let inputs: Vec<String> = buffers.iter().map(|b| crate::base64_encode::encode(b)).collect();
     serde_json::json!({
         "bdf": bdf,
         "shader": shader_b64,
@@ -455,14 +453,12 @@ fn decode_dispatch_outputs(result: &serde_json::Value) -> Result<Vec<Vec<u8>>, G
         .ok_or_else(|| {
             GlowplugError::InvalidPayload("dispatch result missing outputs array".into())
         })?;
-    let b64 = base64::engine::general_purpose::STANDARD;
     let mut out = Vec::with_capacity(outputs.len());
     for (i, o) in outputs.iter().enumerate() {
         let s = o.as_str().ok_or_else(|| {
             GlowplugError::InvalidPayload(format!("outputs[{i}] is not a base64 string"))
         })?;
-        let bytes = b64
-            .decode(s.as_bytes())
+        let bytes = crate::base64_encode::decode(s.as_bytes())
             .map_err(|e| GlowplugError::OutputDecode(e.to_string()))?;
         out.push(bytes);
     }

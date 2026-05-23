@@ -6,7 +6,6 @@
 //! `FleetEmberHub` manages a stable client per socket. `flood_test`
 //! stress-tests an ember with concurrent RPCs.
 
-use base64::Engine;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -252,7 +251,6 @@ impl EmberClient {
         start_tag: u32,
         secure: bool,
     ) -> Result<FalconUploadResult, HotSpringError> {
-        let b64 = base64::engine::general_purpose::STANDARD;
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.falcon.upload_imem",
@@ -260,7 +258,7 @@ impl EmberClient {
                 "bdf": bdf,
                 "base": base,
                 "imem_addr": imem_addr,
-                "code_b64": b64.encode(code),
+                "code_b64": crate::base64_encode::encode(code),
                 "start_tag": start_tag,
                 "secure": secure,
             }),
@@ -277,7 +275,6 @@ impl EmberClient {
         dmem_addr: u32,
         data: &[u8],
     ) -> Result<FalconUploadResult, HotSpringError> {
-        let b64 = base64::engine::general_purpose::STANDARD;
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.falcon.upload_dmem",
@@ -285,7 +282,7 @@ impl EmberClient {
                 "bdf": bdf,
                 "base": base,
                 "dmem_addr": dmem_addr,
-                "data_b64": b64.encode(data),
+                "data_b64": crate::base64_encode::encode(data),
             }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
@@ -362,8 +359,7 @@ impl EmberClient {
         )?;
         let result = jsonrpc_ok_result(&v)?;
         let parsed: PraminReadResult = serde_json::from_value(result)?;
-        let b64 = base64::engine::general_purpose::STANDARD;
-        b64.decode(parsed.data_b64.as_bytes())
+        crate::base64_encode::decode(parsed.data_b64.as_bytes())
             .map_err(|e| HotSpringError::Ipc(format!("pramin.read base64 decode: {e}")))
     }
 
@@ -374,14 +370,13 @@ impl EmberClient {
         vram_addr: u64,
         data: &[u8],
     ) -> Result<PraminWriteResult, HotSpringError> {
-        let b64 = base64::engine::general_purpose::STANDARD;
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.pramin.write",
             &serde_json::json!({
                 "bdf": bdf,
                 "vram_addr": vram_addr,
-                "data_b64": b64.encode(data),
+                "data_b64": crate::base64_encode::encode(data),
             }),
         )?;
         let result = jsonrpc_ok_result(&v)?;

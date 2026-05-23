@@ -7,4 +7,4 @@
 
 pub mod bar0;
 
-pub use bar0::{Bar0Map, Bar0View};
+pub use bar0::{Bar0Domain, Bar0Map, Bar0View, SafeBar0};

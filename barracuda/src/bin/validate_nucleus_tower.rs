@@ -36,10 +36,10 @@ fn main() {
         if bd.alive {
             let test_msg = "hotSpring tower validation probe";
             let msg_b64 = base64_encode::encode(test_msg.as_bytes());
-            let sign_result = ctx.call(
-                "beardog",
+            let sign_result = ctx.call_by_capability(
+                "crypto",
                 "crypto.sign_ed25519",
-                &serde_json::json!({ "message": msg_b64 }),
+                serde_json::json!({ "message": msg_b64 }),
             );
             match sign_result {
                 Ok(resp) => {
@@ -57,9 +57,9 @@ fn main() {
 
     // ── Capability checks ──
     println!("  ── Capability assertions ──");
-    validate_capability(&ctx, "beardog", "crypto.sign_ed25519", &mut harness);
-    validate_capability(&ctx, "beardog", "crypto.verify_ed25519", &mut harness);
-    validate_capability(&ctx, "songbird", "discovery.find_primals", &mut harness);
+    validate_capability(&ctx, "crypto", "crypto.sign_ed25519", &mut harness);
+    validate_capability(&ctx, "crypto", "crypto.verify_ed25519", &mut harness);
+    validate_capability(&ctx, "discovery", "discovery.find_primals", &mut harness);
     println!();
 
     if ctx.discovered.is_empty() {

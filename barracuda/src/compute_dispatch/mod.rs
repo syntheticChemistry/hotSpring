@@ -197,31 +197,6 @@ pub fn submit_binary(
     extract_job_id(&resp)
 }
 
-/// Legacy name-based submission.  Kept for workloads where toadStool
-/// resolves shaders by catalog name (requires toadStool-side shader registry).
-#[deprecated(note = "prefer compile_and_submit() or submit_binary()")]
-pub fn submit_workload(
-    nucleus: &NucleusContext,
-    shader_name: &str,
-    input_data: &[f64],
-) -> Result<String, HotSpringError> {
-    let input_hash = blake3_hex(&serde_json::to_vec(&input_data).unwrap_or_default());
-
-    let params = serde_json::json!({
-        "shader": shader_name,
-        "input": {
-            "data": input_data,
-            "format": "f64_array",
-        },
-        "input_hash": input_hash,
-        "spring": "hotSpring",
-    });
-
-    let resp = nucleus.call_by_capability("compute", "compute.dispatch.submit", params)?;
-
-    extract_job_id(&resp)
-}
-
 /// Extract `job_id` from a `compute.dispatch.submit` response envelope.
 fn extract_job_id(resp: &serde_json::Value) -> Result<String, HotSpringError> {
     let result = parse_jsonrpc_response(resp, "compute.dispatch.submit")?;
@@ -282,7 +257,7 @@ pub fn publish_result(
             "message": result_hash,
             "key_purpose": "result_signing",
         });
-        let _sign_resp = nucleus.call_by_capability("security", "crypto.sign_ed25519", sign_params);
+        let _sign_resp = nucleus.call_by_capability("crypto", "crypto.sign_ed25519", sign_params);
 
         let announce_params = serde_json::json!({
             "topic": topic,
@@ -356,11 +331,7 @@ pub fn validate_dispatch(
     let input_hash = blake3_hex(&serde_json::to_vec(&test_input).unwrap_or_default());
 
     let submit_start = std::time::Instant::now();
-    #[expect(
-        deprecated,
-        reason = "validates legacy submit path alongside compile_and_submit"
-    )]
-    let job_id = match submit_workload(nucleus, "vector_add_f64", &test_input) {
+    let job_id = match dispatch_node_compute(nucleus, VALIDATE_VECTOR_ADD_WGSL, &test_input, None) {
         Ok(id) => {
             result.submit_succeeded = true;
             log::info!("compute.dispatch.submit: job_id={id}");
@@ -434,6 +405,21 @@ pub fn validate_dispatch(
 
     result
 }
+
+/// Minimal WGSL shader for dispatch validation: element-wise vector addition.
+const VALIDATE_VECTOR_ADD_WGSL: &str = r#"
+@group(0) @binding(0) var<storage, read> a: array<f32>;
+@group(0) @binding(1) var<storage, read> b: array<f32>;
+@group(0) @binding(2) var<storage, read_write> out: array<f32>;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let i = gid.x;
+    if i < arrayLength(&a) {
+        out[i] = a[i] + b[i];
+    }
+}
+"#;
 
 /// WGSL shaders that require coralReef's `membar.{cta,gl}` emitter.
 ///

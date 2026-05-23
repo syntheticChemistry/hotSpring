@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #![expect(deprecated, reason = "transitional — migration to new API pending")]
+#![allow(dead_code)]
 
 //! Legacy multi-shift CG with per-iteration CPU readback of dot products.
 //!

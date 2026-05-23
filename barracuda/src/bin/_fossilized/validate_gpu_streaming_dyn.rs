@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Validate streaming dynamical fermion GPU HMC.
 //!
@@ -140,7 +140,8 @@ fn main() {
             dt,
             i as u32,
             &mut seed_stream,
-        );
+        )
+        .expect("dynamical streaming HMC trajectory");
         stream_plaqs.push(res.plaquette);
         if res.accepted {
             stream_accepts += 1;
@@ -206,7 +207,8 @@ fn main() {
                 dt,
                 i as u32,
                 &mut seed_b,
-            );
+            )
+            .expect("dynamical streaming HMC trajectory");
             plaqs_b.push(res.plaquette);
         }
         let mean_b: f64 = plaqs_b.iter().sum::<f64>() / plaqs_b.len() as f64;
@@ -243,7 +245,8 @@ fn main() {
             0.05,
             i as u32,
             &mut seed_q,
-        );
+        )
+        .expect("streaming HMC trajectory");
         quench_plaqs.push(res.plaquette);
     }
     let quench_mean: f64 = quench_plaqs.iter().sum::<f64>() / quench_plaqs.len() as f64;
@@ -289,7 +292,8 @@ fn main() {
             dt,
             i as u32,
             &mut seed_8,
-        );
+        )
+        .expect("dynamical streaming HMC trajectory");
         plaqs_8.push(res.plaquette);
         if res.accepted {
             acc_8 += 1;

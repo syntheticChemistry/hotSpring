@@ -5,7 +5,7 @@
 //! When Squirrel is composed into the biomeOS graph, it discovers **neuralSpring**
 //! (or another provider) as the backend for the `inference.*` capability domain.
 //! This module is a thin typed client: it routes via
-//! [`crate::primal_bridge::NucleusContext::call_by_capability`] with domain `"inference"`
+//! [`crate::primal_bridge::NucleusContext::call_by_capability`] with domain `"ai"`
 //! (same discovery rule as [`crate::composition::get_by_capability`]).
 //!
 //! **Fallback path:** until native WGSL inference ships in neuralSpring, deployments
@@ -16,7 +16,7 @@
 
 use crate::primal_bridge::NucleusContext;
 
-const INFERENCE_DOMAIN: &str = "inference";
+const INFERENCE_DOMAIN: &str = "ai";
 
 /// JSON-RPC method names for the inference domain (ecoPrimal wire contract).
 mod wire {
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn get_by_capability_finds_inference() {
-        let ctx = ctx_with_inference("inference");
+        let ctx = ctx_with_inference("ai");
         assert!(ctx.get_by_capability(INFERENCE_DOMAIN).is_some());
     }
 

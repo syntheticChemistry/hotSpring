@@ -100,15 +100,15 @@ impl WireWitnessRef {
         }
     }
 
-    /// Create a signature witness from BearDog's `crypto.sign_ed25519` response.
+    /// Create a signature witness from the crypto domain's `crypto.sign_ed25519` response.
     ///
-    /// Maps BearDog fields to WireWitnessRef per the trio witness harvest
-    /// handoff: evidence = base64 signature, encoding = "base64",
-    /// algorithm = "ed25519", tier = "local".
+    /// Resolves the crypto provider name from [`niche::DEPENDENCIES`] at runtime
+    /// rather than hardcoding a primal name.
     #[must_use]
     pub fn beardog_signature(gate_id: &str, signature_base64: &str, context: Option<&str>) -> Self {
+        let crypto_primal = crate::niche::primal_name_for_domain("crypto").unwrap_or("crypto");
         Self {
-            agent: format!("beardog:{gate_id}"),
+            agent: format!("{crypto_primal}:{gate_id}"),
             kind: "signature".into(),
             evidence: signature_base64.into(),
             witnessed_at: now_nanos(),

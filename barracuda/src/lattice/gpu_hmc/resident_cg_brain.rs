@@ -6,10 +6,10 @@ use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
 use super::resident_cg_buffers::{GpuResidentCgBuffers, encode_cg_batch, encode_reduce_chain};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
 use super::streaming::{GpuDynHmcStreamingPipelines, make_ferm_prng_params};
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
-use super::{
-    GpuF64, gpu_dirac_dispatch, gpu_dot_re, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
-    make_link_mom_params, make_prng_params,
+#[expect(deprecated, reason = "gpu_dot_re still used for final S_f = φ†x readback")]
+use super::{GpuF64, gpu_dirac_dispatch, gpu_dot_re, make_link_mom_params, make_prng_params};
+use super::resident_observables::{
+    ResidentObservableBuffers, gauge_ke_resident, plaquette_resident,
 };
 
 use super::GpuHmcPipelines;
@@ -478,14 +478,11 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gpu.submit_encoder(enc);
     }
 
-    // EVOLUTION(B2): still using discrete `gpu_wilson_action` / `gpu_kinetic_energy`
-    // (deprecated readbacks) for Metropolis scalars on this path — not `TensorSession`.
-    // HotSpring GAP-HS-027: upstream barraCuda `TensorSession` adoption remains deferred;
-    // RHMC has GPU-resident `H` via `uni_hamiltonian::compute_h_gpu`, but dynamical
-    // / resident_CG / Hasenbusch are separate — need TensorSession fusion or a port.
-    #[expect(deprecated, reason = "transitional — migration to new API pending")]
-    let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
-    let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
+    let obs = ResidentObservableBuffers::new(gpu, &streaming_pipelines.reduce_pipeline, gs);
+    let (plaq_sum_old, ke_old) =
+        gauge_ke_resident(gpu, &dp.gauge, gs, &streaming_pipelines.reduce_pipeline, &obs)
+            .expect("gauge_ke_resident readback failed");
+    let s_gauge_old = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_sum_old);
     let cg_beta = gs.beta;
     let cg_mass = state.mass;
     let cg_traj_idx = traj_id as usize;
@@ -503,7 +500,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         cg_mass,
         cg_traj_idx,
     );
-    let h_old = s_gauge_old + t_old + s_ferm_old;
+    let h_old = s_gauge_old + ke_old + s_ferm_old;
     let mut total_cg = cg_iters_old;
 
     let lam = crate::tolerances::OMELYAN_LAMBDA;
@@ -556,9 +553,10 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         total_cg += cg1 + cg2 + cg3;
     }
 
-    #[expect(deprecated, reason = "transitional — migration to new API pending")]
-    let s_gauge_new = gpu_wilson_action(gpu, &dp.gauge, gs);
-    let t_new = gpu_kinetic_energy(gpu, &dp.gauge, gs);
+    let (plaq_sum_new, ke_new) =
+        gauge_ke_resident(gpu, &dp.gauge, gs, &streaming_pipelines.reduce_pipeline, &obs)
+            .expect("gauge_ke_resident readback failed");
+    let s_gauge_new = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_sum_new);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_brain_all(
         gpu,
         dp,
@@ -572,7 +570,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         cg_mass,
         cg_traj_idx,
     );
-    let h_new = s_gauge_new + t_new + s_ferm_new;
+    let h_new = s_gauge_new + ke_new + s_ferm_new;
     total_cg += cg_iters_new;
 
     let delta_h = h_new - h_old;
@@ -592,8 +590,8 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gpu.submit_encoder(enc);
     }
 
-    #[expect(deprecated, reason = "transitional — migration to new API pending")]
-    let plaquette = gpu_plaquette(gpu, &dp.gauge, gs);
+    let plaquette = plaquette_resident(gpu, &dp.gauge, gs, &streaming_pipelines.reduce_pipeline, &obs)
+        .expect("plaquette_resident readback failed");
 
     GpuDynHmcResult {
         accepted,

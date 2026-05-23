@@ -3,10 +3,11 @@
 #
 # This installs modprobe.d, udev rules, sudoers, and the sysfs write
 # helper so that on every boot:
-#   02:00.0 Titan V   → vfio-pci (oracle, swappable to nouveau via toadstool-ember)
-#   4b:00.0 K80 die#1 → vfio-pci (sovereign target, cold)
-#   4c:00.0 K80 die#2 → vfio-pci (reagent target, cold)
-#   21:00.0 RTX 5060  → nvidia (display + shared compute)
+#   02:00.0 Titan V #1 → vfio-pci (oracle, swappable to nouveau via toadstool-ember)
+#   03:00.0 Titan V #2 → vfio-pci (compute)
+#   21:00.0 RTX 5060   → nvidia (display + shared compute)
+#
+# Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell). K80 retired (Exp 199).
 #
 # Usage: sudo ./scripts/boot/install-boot-config.sh
 
@@ -19,21 +20,17 @@ echo ""
 
 # Step 1: Install sysfs write helper (D-state-safe replacement for tee)
 echo "[1] Installing toadstool-sysfs-write helper..."
-if [ -f "$SCRIPT_DIR/coralreef-sysfs-write" ]; then
-    cp "$SCRIPT_DIR/coralreef-sysfs-write" /usr/local/bin/toadstool-sysfs-write
+if [ -f "$SCRIPT_DIR/toadstool-sysfs-write" ]; then
+    cp "$SCRIPT_DIR/toadstool-sysfs-write" /usr/local/bin/toadstool-sysfs-write
 else
-    cp "$SCRIPT_DIR/toadstool-sysfs-write" /usr/local/bin/toadstool-sysfs-write 2>/dev/null || {
-        echo "  WARN: no sysfs-write helper found, skipping"
-    }
+    echo "  WARN: no sysfs-write helper found, skipping"
 fi
 chmod 755 /usr/local/bin/toadstool-sysfs-write 2>/dev/null || true
 echo "  -> /usr/local/bin/toadstool-sysfs-write"
 
 # Step 2: Install sudoers (uses sysfs-write helper instead of tee)
 echo "[2] Installing sudoers config..."
-if [ -f "$SCRIPT_DIR/coralreef-sudoers" ]; then
-    cp "$SCRIPT_DIR/coralreef-sudoers" /etc/sudoers.d/toadstool
-elif [ -f "$SCRIPT_DIR/toadstool-sudoers" ]; then
+if [ -f "$SCRIPT_DIR/toadstool-sudoers" ]; then
     cp "$SCRIPT_DIR/toadstool-sudoers" /etc/sudoers.d/toadstool
 fi
 if [ -f /etc/sudoers.d/toadstool ]; then
@@ -49,8 +46,8 @@ fi
 
 # Step 3: Install modprobe config
 echo "[3] Installing modprobe config..."
-if [ -f "$SCRIPT_DIR/coralreef-dual-titanv.conf" ]; then
-    cp "$SCRIPT_DIR/coralreef-dual-titanv.conf" /etc/modprobe.d/toadstool-dual-titanv.conf
+if [ -f "$SCRIPT_DIR/toadstool-dual-titanv.conf" ]; then
+    cp "$SCRIPT_DIR/toadstool-dual-titanv.conf" /etc/modprobe.d/toadstool-dual-titanv.conf
     echo "  -> /etc/modprobe.d/toadstool-dual-titanv.conf"
 fi
 
@@ -61,15 +58,14 @@ fi
 
 # Step 4: Install udev rules (VFIO binding + permissions)
 echo "[4] Installing udev rules..."
-for f in 99-coralreef-vfio.rules 99-coralreef-permissions.rules; do
+for f in 99-toadstool-vfio.rules 99-toadstool-permissions.rules; do
     src="$SCRIPT_DIR/$f"
-    dst="/etc/udev/rules.d/${f/coralreef/toadstool}"
     if [ -f "$src" ]; then
-        cp "$src" "$dst"
-        echo "  -> $dst"
+        cp "$src" "/etc/udev/rules.d/$f"
+        echo "  -> /etc/udev/rules.d/$f"
     fi
 done
-# Clean up legacy udev rules
+# Clean up legacy coralreef udev rules
 rm -f /etc/udev/rules.d/99-coralreef-vfio.rules /etc/udev/rules.d/99-coralreef-permissions.rules 2>/dev/null || true
 
 # Step 5: Reload udev
@@ -111,17 +107,10 @@ else
     echo "[5b] PLX keepalive: handled by toadstool-ember (plx-keepalive.service not present)"
 fi
 
-# Step 5c: Install wake-and-run helper
-cp "$SCRIPT_DIR/k80-wake-and-run.sh" /usr/local/bin/k80-wake-and-run.sh
-chmod 755 /usr/local/bin/k80-wake-and-run.sh
-echo "  -> /usr/local/bin/k80-wake-and-run.sh"
-
 # Step 6: Update kernel cmdline vfio-pci.ids (Pop!_OS kernelstub)
-# Titan V (1d81+10f2) and K80 (102d) MUST be claimed at boot via cmdline.
-# K80 is behind a PLX PEX 8747 switch — any re-probe kills the PCIe link.
-# DO NOT rely on udev drivers_probe for K80; cmdline binding is required.
+# Both Titan V GPUs (1d81+10f2) MUST be claimed at boot via cmdline.
 echo "[6] Updating kernel cmdline vfio-pci.ids..."
-VFIO_IDS="10de:1d81,10de:10f2,10de:102d"
+VFIO_IDS="10de:1d81,10de:10f2"
 if command -v kernelstub >/dev/null 2>&1; then
     CURRENT_IDS=$(grep -oP 'vfio-pci\.ids=\K[^ ]+' /proc/cmdline 2>/dev/null || echo "")
     if [ "$CURRENT_IDS" != "$VFIO_IDS" ]; then
@@ -152,11 +141,8 @@ echo ""
 echo "=== Installation complete ==="
 echo ""
 echo "After reboot:"
-echo "  02:00.0 Titan V   -> vfio-pci (oracle, IOMMU group 69)"
-echo "  4b:00.0 K80 die#1 -> vfio-pci (sovereign, IOMMU group 35)"
-echo "  4c:00.0 K80 die#2 -> vfio-pci (reagent, IOMMU group 36)"
-echo "  21:00.0 RTX 5060  -> nvidia (display + shared compute)"
-echo ""
-echo "K80 init via toadstool-ember warm handoff or sovereign cold-boot pipeline."
+echo "  02:00.0 Titan V #1 -> vfio-pci (oracle, IOMMU group 69)"
+echo "  03:00.0 Titan V #2 -> vfio-pci (compute)"
+echo "  21:00.0 RTX 5060   -> nvidia (display + shared compute)"
 echo ""
 echo "Run 'sudo reboot' to apply."

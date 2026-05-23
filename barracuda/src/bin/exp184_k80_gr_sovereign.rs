@@ -42,203 +42,23 @@
 //!
 //! Requires toadstool-ember running and holding the VFIO fd for the target BDF.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use hotspring_barracuda::ember_types::MmioBatchOp;
-use hotspring_barracuda::fleet_client::{
-    EmberClient, FleetDiscovery, discover_diesel_ember_socket,
+
+#[path = "../bin_helpers/k80_gr_sovereign/mod.rs"]
+mod k80_gr_sovereign;
+
+use k80_gr_sovereign::{
+    BOOT0, FECS_BASE, FECS_BOOTVEC, FECS_CMD_INIT, FECS_CPUCTL, FECS_DMEMC, FECS_DMEMD,
+    FECS_DMEM_FW_OFFSET, FECS_HWCFG, FECS_MB0, FECS_MB1, FECS_PC, FECS_RESET, FECS_SCTL,
+    GPC0_BOOT0, GPC1_BOOT0, GPCCS_BASE, GPCCS_BOOTVEC, GPCCS_CPUCTL, GPCCS_DMEMC, GPCCS_DMEMD,
+    GPCCS_DMEM_FW_OFFSET, GPCCS_HWCFG, GPCCS_MB0, GPCCS_MB1, GPCCS_PC, GR_CTX_SIZE, GR_READY,
+    IMEM_WORDS_PER_PAGE, MC_UNK260, PMC_ENABLE, PMC_GR_BIT, PTIMER_LO, connect_ember,
+    csdata_batch_ops, extract_arg, load_fw_words, load_mmio_init, r32, upload_dmem, upload_imem,
+    validate_csdata_layout, w32,
 };
-
-// ── PMC / MC registers ─────────────────────────────────────────────────────
-const BOOT0: u32 = 0x000000;
-const PMC_ENABLE: u32 = 0x000200;
-const MC_UNK260: u32 = 0x000260;
-const PTIMER_LO: u32 = 0x009400; // TIME_0: increments ~32M/sec, readable while running
-
-// ── GR engine PMC_ENABLE bitmask ──────────────────────────────────────────
-const PMC_GR_BIT: u32 = 1 << 12; // bit 12 = GR engine (PGRAPH)
-
-// ── PGRAPH / GR engine registers ──────────────────────────────────────────
-const GR_READY: u32 = 0x409800; // FECS boot-ready flag (bit 31)
-const GR_CTX_SIZE: u32 = 0x409804; // context buffer size (set by FECS at boot)
-
-// ── FECS Falcon registers (base 0x409000) ─────────────────────────────────
-const FECS_BASE: u32 = 0x409000;
-const FECS_CPUCTL: u32 = FECS_BASE + 0x100;
-const FECS_BOOTVEC: u32 = FECS_BASE + 0x104;
-const FECS_PC: u32 = FECS_BASE + 0x110;
-const FECS_SCTL: u32 = FECS_BASE + 0x240;
-// GK110B: HWCFG at 0x10C (DMACTL in newer Falcon, repurposed in Kepler)
-const FECS_HWCFG: u32 = FECS_BASE + 0x10C; // 0x40910C
-// IMEMC/IMEMD/IMETTAG are handled internally by ember.falcon.upload_imem
-const FECS_DMEMC: u32 = FECS_BASE + 0x1C0;
-const FECS_DMEMD: u32 = FECS_BASE + 0x1C4;
-const FECS_MB0: u32 = FECS_BASE + 0x040;
-const FECS_MB1: u32 = FECS_BASE + 0x044;
-
-// ── GPCCS Falcon registers (broadcast PIO at 0x41A000) ────────────────────
-const GPCCS_BASE: u32 = 0x41A000;
-const GPCCS_CPUCTL: u32 = GPCCS_BASE + 0x100;
-const GPCCS_BOOTVEC: u32 = GPCCS_BASE + 0x104;
-const GPCCS_PC: u32 = GPCCS_BASE + 0x110;
-const GPCCS_HWCFG: u32 = GPCCS_BASE + 0x10C; // 0x41A10C
-// IMEMC/IMEMD/IMETTAG are handled internally by ember.falcon.upload_imem
-const GPCCS_DMEMC: u32 = GPCCS_BASE + 0x1C0;
-const GPCCS_DMEMD: u32 = GPCCS_BASE + 0x1C4;
-const GPCCS_MB0: u32 = GPCCS_BASE + 0x040;
-const GPCCS_MB1: u32 = GPCCS_BASE + 0x044;
-
-// ── GPC status ────────────────────────────────────────────────────────────
-const GPC0_BOOT0: u32 = 0x418000;
-const GPC1_BOOT0: u32 = 0x428000;
-
-// ── FECS reset handshake (GR wrapper, not Falcon CPUCTL) ──────────────────
-// nouveau's gf100_gr_fecs_reset: arms FECS's internal PRIV ring master unit
-// BEFORE MC_UNK260=0. Sequence: 0x70 → 0x30 → poll bit4=0 → 0x10.
-const FECS_RESET: u32 = FECS_BASE + 0x614; // 0x409614 — promoted to sovereign_stages.rs Phase 2b
-
-// ── FECS init command ─────────────────────────────────────────────────────
-// FECS reads MB0 exactly once at startup. MB0=4 → INIT_CTXSW:
-//   train PRIV ring, establish GPC links, set GR_READY.
-// Promoted from exp184 discovery → sovereign_stages.rs `FECS_CMD_INIT`.
-const FECS_CMD_INIT: u32 = 0x0000_0004;
-
-// ── DMEMC auto-increment flags ─────────────────────────────────────────────
-const DMEMC_AINCW: u32 = 0x0100_0000; // bit 24: auto-increment write pointer
-
-// ── FECS DMEM layout (r_hub = 0x600 from gk110b_grctx) ───────────────────
-const FECS_DMEM_FW_OFFSET: u32 = 0x600;
-
-// ── GPCCS DMEM layout (r_gpc ≈ 0x7ff → aligned to 0x800) ────────────────
-const GPCCS_DMEM_FW_OFFSET: u32 = 0x800;
-
-// ── IMEM page geometry (for display — PIO is handled internally by ember) ─
-const IMEM_WORDS_PER_PAGE: usize = 64; // 256 bytes / 4 bytes per word
-
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
-}
-
-fn load_fw_bytes(dir: &Path, name: &str) -> Vec<u8> {
-    let path = dir.join(name);
-    std::fs::read(&path).unwrap_or_else(|e| {
-        eprintln!("FATAL: cannot read {}: {e}", path.display());
-        std::process::exit(1);
-    })
-}
-
-fn load_fw_words(dir: &Path, name: &str) -> Vec<u32> {
-    let bytes = load_fw_bytes(dir, name);
-    bytes
-        .chunks(4)
-        .map(|c| {
-            u32::from_le_bytes([
-                *c.first().unwrap_or(&0),
-                *c.get(1).unwrap_or(&0),
-                *c.get(2).unwrap_or(&0),
-                *c.get(3).unwrap_or(&0),
-            ])
-        })
-        .collect()
-}
-
-fn load_mmio_init(dir: &Path, name: &str) -> Vec<(u32, u32)> {
-    let bytes = load_fw_bytes(dir, name);
-    bytes
-        .chunks(8)
-        .filter(|c| c.len() == 8)
-        .map(|c| {
-            let addr = u32::from_le_bytes([c[0], c[1], c[2], c[3]]);
-            let val = u32::from_le_bytes([c[4], c[5], c[6], c[7]]);
-            (addr, val)
-        })
-        .collect()
-}
-
-// ── Ember RPC helpers ──────────────────────────────────────────────────────
-
-/// Read a BAR0 register via ember, returning 0xDEAD_DEAD on error.
-fn r32(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
-    match ember.mmio_read(bdf, offset) {
-        Ok(r) => r.value,
-        Err(e) => {
-            eprintln!("  WARN: ember.mmio.read({offset:#010x}): {e}");
-            0xDEAD_DEAD
-        }
-    }
-}
-
-/// Write a BAR0 register via ember, ignoring errors (GPU may be in D3cold).
-fn w32(ember: &EmberClient, bdf: &str, offset: u32, value: u32) {
-    if let Err(e) = ember.mmio_write(bdf, offset, value) {
-        eprintln!("  WARN: ember.mmio.write({offset:#010x}, {value:#010x}): {e}");
-    }
-}
-
-/// Build a CSDATA batch: one DMEMC setup write followed by N DMEMD word writes.
-/// The AINCW flag auto-increments the DMEM address on each DMEMD write.
-fn csdata_batch_ops(dmemc: u32, dmemd: u32, words: &[u32], byte_offset: u32) -> Vec<MmioBatchOp> {
-    let mut ops = Vec::with_capacity(1 + words.len());
-    ops.push(MmioBatchOp::write(dmemc, DMEMC_AINCW | byte_offset));
-    for &w in words {
-        ops.push(MmioBatchOp::write(dmemd, w));
-    }
-    ops
-}
-
-/// PIO-upload firmware code to Falcon IMEM via ember.falcon.upload_imem.
-///
-/// Note: ember handles the page-by-page IMEMC/IMEMD/IMETTAG protocol internally.
-fn upload_imem(ember: &EmberClient, bdf: &str, base: u32, imem_words: &[u32]) {
-    // Convert words to bytes for the RPC (ember does the page-by-page PIO)
-    let bytes: Vec<u8> = imem_words.iter().flat_map(|w| w.to_le_bytes()).collect();
-    match ember.falcon_upload_imem(bdf, base, 0, &bytes, 0, false) {
-        Ok(r) if r.ok => {}
-        Ok(r) => eprintln!("  WARN: falcon.upload_imem ok=false bytes={:?}", r.bytes),
-        Err(e) => eprintln!("  WARN: falcon.upload_imem error: {e}"),
-    }
-}
-
-/// PIO-upload firmware data to Falcon DMEM at byte_offset via ember.falcon.upload_dmem.
-fn upload_dmem(ember: &EmberClient, bdf: &str, base: u32, byte_offset: u32, data_words: &[u32]) {
-    let bytes: Vec<u8> = data_words.iter().flat_map(|w| w.to_le_bytes()).collect();
-    match ember.falcon_upload_dmem(bdf, base, byte_offset, &bytes) {
-        Ok(r) if r.ok => {}
-        Ok(r) => eprintln!("  WARN: falcon.upload_dmem ok=false bytes={:?}", r.bytes),
-        Err(e) => eprintln!("  WARN: falcon.upload_dmem error: {e}"),
-    }
-}
-
-/// Discover and connect to the toadstool-ember instance for a given BDF.
-///
-/// Search order: diesel engine scan → fleet discovery → slug-based socket → legacy.
-/// Accepts `--ember-socket` CLI override to skip discovery.
-fn connect_ember(bdf: &str, override_socket: Option<&str>) -> EmberClient {
-    if let Some(sock) = override_socket {
-        return EmberClient::connect(sock);
-    }
-    if let Some(sock) = discover_diesel_ember_socket(bdf) {
-        eprintln!("  diesel engine: found ember at {}", sock.display());
-        return EmberClient::connect(sock.to_string_lossy().as_ref());
-    }
-    if let Ok(disc) = FleetDiscovery::load_default() {
-        if let Some(sock) = disc.file().routes.get(bdf) {
-            return EmberClient::connect(sock);
-        }
-    }
-    for candidate in hotspring_barracuda::fleet_client::ember_socket_candidates(bdf) {
-        if candidate.exists() {
-            return EmberClient::connect(candidate.to_string_lossy().as_ref());
-        }
-    }
-    eprintln!(
-        "FATAL: no ember socket found for BDF {bdf}.\n\
-         Start toadstool-ember (diesel engine) and verify: toadstool device list\n\
-         Override with: --ember-socket /path/to/ember.sock"
-    );
-    std::process::exit(1);
-}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -319,20 +139,7 @@ fn main() {
     );
     println!("    mmio_init:    {} register writes", mmio_init.len());
 
-    let hub_bytes = (hub_csdata.len() as u32) * 4;
-    let gpccs_bytes = (gpccs_csdata.len() as u32) * 4;
-    if hub_bytes > FECS_DMEM_FW_OFFSET {
-        eprintln!("FATAL: hub_csdata ({hub_bytes}B) overflows FECS DMEM fw offset");
-        std::process::exit(1);
-    }
-    if gpccs_bytes > GPCCS_DMEM_FW_OFFSET {
-        eprintln!("FATAL: gpccs_csdata ({gpccs_bytes}B) overflows GPCCS DMEM fw offset");
-        std::process::exit(1);
-    }
-    println!(
-        "    Layout OK: hub ends {hub_bytes:#06x} < fw@{FECS_DMEM_FW_OFFSET:#06x}  \
-              gpccs ends {gpccs_bytes:#06x} < fw@{GPCCS_DMEM_FW_OFFSET:#06x}  ✓"
-    );
+    validate_csdata_layout(&hub_csdata, &gpccs_csdata);
 
     // ── Phase 0: Pre-condition check ──────────────────────────────────────
     println!("\n━━━ Phase 0: Pre-conditions (via ember.mmio.read) ━━━\n");

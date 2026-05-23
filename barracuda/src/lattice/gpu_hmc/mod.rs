@@ -32,13 +32,13 @@
 //! | `brain_rhmc` | RHMC with dual-GPU brain routing |
 //! | `streaming` | Zero-dispatch-overhead batched encoder pipelines |
 //!
-//! ## Legacy (per-iteration GPU→CPU readback — deprecated)
+//! ## Legacy (per-iteration GPU→CPU readback — trajectory functions excised)
 //!
 //! | Module | Responsibility |
 //! |--------|---------------|
-//! | `dynamical` | Dynamical fermion HMC (`gpu_cg_solve_internal`: per-iter readback) |
-//! | `gpu_rhmc` | RHMC with `gpu_shifted_cg_solve` (per-iter readback; solver in `rhmc_shifted_cg`) |
-//! | `hasenbusch` | Hasenbusch 2-mass splitting (`gpu_cg_solve_mass`: per-iter readback) |
+//! | `dynamical` | Fermion action/CG helpers (still used by streaming for S_f computation) |
+//! | `gpu_rhmc` | RHMC types + decoupled dispatch helpers (trajectory excised) |
+//! | `hasenbusch` | Hasenbusch types only (trajectory + helpers excised) |
 //!
 //! ## Shared infrastructure
 //!
@@ -85,17 +85,15 @@ pub mod uni_hamiltonian;
 pub mod unidirectional_cortex;
 pub mod unidirectional_rhmc;
 
-pub use dynamical::gpu_dynamical_hmc_trajectory;
 pub use dynamical::{
     GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, WGSL_AXPY, WGSL_COMPLEX_DOT_RE,
     WGSL_DIRAC_STAGGERED, WGSL_FERMION_FORCE, WGSL_RANDOM_MOMENTA, WGSL_XPAY,
 };
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
 pub use gpu_rhmc::{
     GpuRhmcPipelines, GpuRhmcResult, GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES,
-    WGSL_MULTI_SHIFT_ZETA, gpu_multi_shift_cg_solve, gpu_rhmc_trajectory,
+    WGSL_MULTI_SHIFT_ZETA,
 };
-pub use hasenbusch::{GpuHasenbuschBuffers, GpuHasenbuschConfig, gpu_hasenbusch_hmc_trajectory};
+pub use hasenbusch::{GpuHasenbuschBuffers, GpuHasenbuschConfig};
 pub use observables::{BidirectionalStream, StreamObservables};
 pub use resident_cg::{
     AsyncCgReadback, BrainInterrupt, CgResidualUpdate, GpuResidentCgBuffers,
@@ -122,10 +120,7 @@ pub use unidirectional_cortex::{
 };
 pub use unidirectional_rhmc::gpu_rhmc_trajectory_unidirectional;
 
-#[expect(
-    deprecated,
-    reason = "transitional — re-export of deprecated gpu_dot_re for legacy callers"
-)]
+#[expect(deprecated, reason = "gpu_dot_re still used for fermion action and legacy CG")]
 pub(super) use fermion_bridge::{gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch};
 pub use fp64_substrate::substrate_fp64_strategy;
 pub use gauge_layout::{build_neighbors, flatten_links, flatten_momenta, unflatten_links_into};
@@ -467,94 +462,6 @@ impl GpuHmcState {
     }
 }
 
-/// Run one pure-GPU Omelyan HMC trajectory.
-///
-/// # Deprecated — use `gpu_hmc_trajectory_streaming` instead
-///
-/// This path reads back O(V) plaquette and kinetic energy values per
-/// trajectory via `gpu_wilson_action` / `gpu_kinetic_energy`, then sums
-/// on CPU. The streaming path keeps all scalars GPU-resident.
-#[deprecated(note = "use gpu_hmc_trajectory_streaming for GPU-resident observables")]
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
-pub fn gpu_hmc_trajectory(
-    gpu: &GpuF64,
-    pipelines: &GpuHmcPipelines,
-    state: &GpuHmcState,
-    n_md_steps: usize,
-    dt: f64,
-    seed: &mut u64,
-) -> GpuHmcResult {
-    let n_links = state.n_links;
-
-    let momenta: Vec<super::su3::Su3Matrix> = (0..n_links)
-        .map(|_| super::su3::Su3Matrix::random_algebra(seed))
-        .collect();
-    let mom_flat = flatten_momenta(&momenta);
-    gpu.upload_f64(&state.mom_buf, &mom_flat);
-
-    {
-        let mut enc = gpu.begin_encoder("backup_links");
-        enc.copy_buffer_to_buffer(
-            &state.link_buf,
-            0,
-            &state.link_backup,
-            0,
-            (n_links * 18 * 8) as u64,
-        );
-        gpu.submit_encoder(enc);
-    }
-
-    let s_old = gpu_wilson_action(gpu, pipelines, state);
-    let t_old = gpu_kinetic_energy(gpu, pipelines, state);
-    let h_old = s_old + t_old;
-
-    let lam = crate::tolerances::OMELYAN_LAMBDA;
-
-    for step in 0..n_md_steps {
-        gpu_force_dispatch(gpu, pipelines, state);
-        gpu_mom_update_dispatch(gpu, pipelines, state, lam * dt);
-        gpu_link_update_dispatch(gpu, pipelines, state, 0.5 * dt);
-        gpu_force_dispatch(gpu, pipelines, state);
-        gpu_mom_update_dispatch(gpu, pipelines, state, 2.0f64.mul_add(-lam, 1.0) * dt);
-        gpu_link_update_dispatch(gpu, pipelines, state, 0.5 * dt);
-        gpu_force_dispatch(gpu, pipelines, state);
-        gpu_mom_update_dispatch(gpu, pipelines, state, lam * dt);
-
-        if step < n_md_steps - 1 {
-            // Fusion of step 5/1 is an optimization for later.
-        }
-    }
-
-    let s_new = gpu_wilson_action(gpu, pipelines, state);
-    let t_new = gpu_kinetic_energy(gpu, pipelines, state);
-    let h_new = s_new + t_new;
-
-    let delta_h = h_new - h_old;
-
-    let r: f64 = super::constants::lcg_uniform_f64(seed);
-    let accepted = delta_h <= 0.0 || r < (-delta_h).exp();
-
-    if !accepted {
-        let mut enc = gpu.begin_encoder("restore_links");
-        enc.copy_buffer_to_buffer(
-            &state.link_backup,
-            0,
-            &state.link_buf,
-            0,
-            (n_links * 18 * 8) as u64,
-        );
-        gpu.submit_encoder(enc);
-    }
-
-    let plaquette = gpu_plaquette(gpu, pipelines, state);
-
-    GpuHmcResult {
-        accepted,
-        delta_h,
-        plaquette,
-    }
-}
-
 // ═══════════════════════════════════════════════════════════════════
 //  Shared dispatch helpers (used by all submodules)
 // ═══════════════════════════════════════════════════════════════════
@@ -642,59 +549,6 @@ pub(super) fn gpu_link_update_dispatch(
     gpu.dispatch(&p.link_pipeline, &bg, s.wg_links);
 }
 
-/// # Deprecated — use `compute_gauge_ke_resident` (16-byte readback)
-///
-/// Reads back O(V) per-site plaquette values and sums on CPU.
-/// The unidirectional path reduces on GPU and reads back 1 scalar.
-#[deprecated(note = "use compute_gauge_ke_resident for O(1) readback instead of O(V)")]
-pub(super) fn gpu_wilson_action(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) -> f64 {
-    let params = make_u32x4_params(s.volume as u32);
-    let param_buf = gpu.create_uniform_buffer(&params, "plaq_p");
-    let bg = gpu.create_bind_group(
-        &p.plaquette_pipeline,
-        &[&param_buf, &s.link_buf, &s.nbr_buf, &s.plaq_out_buf],
-    );
-    gpu.dispatch(&p.plaquette_pipeline, &bg, s.wg_vol);
-    let Ok(per_site) = gpu.read_back_f64(&s.plaq_out_buf, s.volume) else {
-        return f64::NAN;
-    };
-    let plaq_sum: f64 = per_site.iter().sum();
-    s.beta * 6.0f64.mul_add(s.volume as f64, -plaq_sum)
-}
-
-pub(super) fn gpu_kinetic_energy(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) -> f64 {
-    let params = make_u32x4_params(s.n_links as u32);
-    let param_buf = gpu.create_uniform_buffer(&params, "ke_p");
-    let bg = gpu.create_bind_group(
-        &p.kinetic_pipeline,
-        &[&param_buf, &s.mom_buf, &s.ke_out_buf],
-    );
-    gpu.dispatch(&p.kinetic_pipeline, &bg, s.wg_links);
-    let Ok(per_link) = gpu.read_back_f64(&s.ke_out_buf, s.n_links) else {
-        return f64::NAN;
-    };
-    per_link.iter().sum()
-}
-
-/// # Deprecated — use `compute_gauge_ke_resident` (8-byte readback)
-///
-/// Reads back O(V) per-site plaquette values and sums on CPU.
-/// The unidirectional path reduces on GPU and reads back 1 scalar.
-#[deprecated(note = "use compute_gauge_ke_resident for O(1) readback instead of O(V)")]
-pub(super) fn gpu_plaquette(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) -> f64 {
-    let params = make_u32x4_params(s.volume as u32);
-    let param_buf = gpu.create_uniform_buffer(&params, "plaq_obs");
-    let bg = gpu.create_bind_group(
-        &p.plaquette_pipeline,
-        &[&param_buf, &s.link_buf, &s.nbr_buf, &s.plaq_out_buf],
-    );
-    gpu.dispatch(&p.plaquette_pipeline, &bg, s.wg_vol);
-    let Ok(per_site) = gpu.read_back_f64(&s.plaq_out_buf, s.volume) else {
-        return f64::NAN;
-    };
-    let plaq_sum: f64 = per_site.iter().sum();
-    plaq_sum / (6.0 * s.volume as f64)
-}
 
 // ═══════════════════════════════════════════════════════════════════
 //  Utility functions

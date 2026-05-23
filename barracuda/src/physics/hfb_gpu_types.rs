@@ -232,13 +232,13 @@ pub struct GroupResources {
     pub lambda_p_buf: wgpu::Buffer,
     pub lambda_n_buf: wgpu::Buffer,
     pub delta_buf: wgpu::Buffer,
-    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
+    #[expect(dead_code, reason = "allocated for BCS v² → density GPU pipeline (shaders exist, not wired)")]
     pub v2_p_buf: wgpu::Buffer,
-    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
+    #[expect(dead_code, reason = "allocated for BCS v² → density GPU pipeline (shaders exist, not wired)")]
     pub v2_n_buf: wgpu::Buffer,
-    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
+    #[expect(dead_code, reason = "allocated for density SCF update GPU pipeline (shaders exist, not wired)")]
     pub rho_p_new_buf: wgpu::Buffer,
-    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
+    #[expect(dead_code, reason = "allocated for density SCF update GPU pipeline (shaders exist, not wired)")]
     pub rho_n_new_buf: wgpu::Buffer,
     pub mix_params_buf: wgpu::Buffer,
     pub bcs_v2_pipe: wgpu::ComputePipeline,
