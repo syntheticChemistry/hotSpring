@@ -174,15 +174,97 @@ GPU pipeline (Exp 162–219) provides the dispatch infrastructure. The existing
 
 ---
 
+## Downstream: helixVision Feed
+
+helixVision (gen4 sporeGarden product, planned) composes neuralSpring/coralForge
+(AlphaFold2/3 structure prediction, 154 checks) + wetSpring (16S/WGS) +
+petalTongue (viz) into a sovereign genomics discovery platform. This CAZyme
+work builds the **validation layer helixVision needs to trust its predictions.**
+
+### What flows downstream
+
+| Artifact | Source | helixVision use |
+|----------|--------|----------------|
+| Bonded FF shaders | barraCuda (Phase 1) | Structure relaxation, energy minimization |
+| Topology reader | hotSpring (Phase 2) | Biomolecular system setup for any FF |
+| Metadynamics bias | hotSpring (Phase 3) | Conformational exploration, structure validation |
+| Cremer-Pople CV | hotSpring (Phase 3) | Ring puckering quality metric |
+| GROMACS parity proof | hotSpring (Phase 4) | Trusted MD = trusted structure validation |
+| coralForge/IPA | neuralSpring | Predicts structures that MD then validates |
+| FEL viz (Stoddart heatmaps, 3D) | petalTongue | Interactive rendering of energy landscapes |
+| ESN surrogates | neuralSpring | ML FEL prediction from docking scores (future) |
+
+### The predict→validate→confirm→visualize loop
+
+```
+helixVision predicts structure (coralForge/AlphaFold)
+     ↓
+hotSpring validates via MD (bonded FF + metadynamics on sovereign GPU)
+     ↓
+GROMACS confirms hotSpring MD is correct (industry parity anchor)
+     ↓
+petalTongue renders FEL + 3D structure (ludoSpring)
+```
+
+### neuralSpring reusable systems
+
+- **coralForge** Evoformer + IPA + diffusion — structure prediction core
+- **ESN reservoir** — candidate ML surrogate for FEL-from-docking
+- **petalTongue push client** — data channel pattern for viz scenarios
+- **Heatmap + Scatter3D channels** — Stoddart diagram + CV trajectory overlays
+- **FASTA/FASTQ streaming** — sequence ingestion for wetSpring pipeline
+- **Squirrel inference routing** — trained FEL surrogate model serving
+
+### petalTongue molecular viz spec (designed, not built)
+
+petalTongue grammar-of-graphics spec includes molecular visualization:
+PDB/mmCIF atom coordinates → GeomSphere (atoms) + GeomCylinder (bonds) →
+Perspective3D with orbit camera → optional electron density isosurfaces.
+CAZyme FEL is the first concrete customer for this spec.
+
+---
+
+## Scientific Question (Detailed)
+
+**Core hypothesis:** AutoDock Vina docking scores for monosaccharide ring
+conformations in CAZyme active sites correlate with conformational energy
+landscapes from metadynamics.
+
+**Why it matters:** FEL takes 12–48 hours/system on GPU HPC. Docking takes
+~5 minutes on a laptop. If Spearman ρ holds, docking becomes a practical
+screening tool for catalytically competent sugar geometries.
+
+**Test design:**
+1. Generate all 38 Stoddart diagram conformations (chairs, boats, skew-boats,
+   half-chairs, envelopes) via CP_reconstruct.
+2. Dock each into GH active site → rank by Vina score.
+3. Compute reference FEL via GROMACS+PLUMED (Cremer-Pople θ,φ CVs).
+4. Compare: do catalytic itinerary conformations (e.g. retaining GH10:
+   ¹S₃ → [⁴H₃]‡ → ⁴C₁) score highest AND sit at FEL minima?
+5. Quantify with Spearman ρ between FEL depth and Vina score per conformation.
+
+**Scoping:** MD/MM sufficient for pre/post-TS conformations. QM/MM only needed
+for transition-state characterization (not in scope for this experiment).
+
+**Pilot system:** GH10 β-xylanase (PDB 1E0X), then survey 5–8 GH families
+(retaining vs inverting mechanisms).
+
+**Reference:** Ardèvol & Rovira (2015) JACS 137(24):7528–47, esp. Fig. 10.
+
+---
+
 ## Notes
 
 - Alistaire is domain expert for CAZyme biochemistry, QM/MM, and metadynamics.
   GROMACS validation workflow follows his guidance.
 - Mark has NSF HPC access (A100 GPUs) for scale-up when local validation
   completes.
-- Visualization (FEL surfaces, CV trajectories) → ludoSpring via petalTongue.
-  petalTongue should evolve to manage FEL rendering and interactive CV
-  exploration UI.
+- Visualization (FEL surfaces, CV trajectories, Stoddart diagram heatmaps,
+  3D molecular rendering) → ludoSpring via petalTongue. petalTongue should
+  evolve to manage FEL rendering and interactive CV exploration UI.
 - GROMACS is the industry control/validation target, not a dependency. The goal
   is to prove barraCuda+hotSpring matches GROMACS results, then exceed on
   consumer hardware via sovereign GPU dispatch.
+- GROMACS provides the full parity anchor — its own visualization/analysis
+  tools (gmx energy, gmx rdf, gmx msd, PLUMED sum_hills) produce reference
+  data that hotSpring must match before claiming parity.
