@@ -1,7 +1,7 @@
 # Experiment 219 — Catalyst Driver Pattern for TPC Sovereignty
 
-**Date**: 2026-05-22
-**Status**: INFRASTRUCTURE COMPLETE — awaiting hardware execution
+**Date**: 2026-05-22 (infra) / 2026-05-24 (HW execution + teardown profiling)
+**Status**: ✅ HARDWARE VALIDATED — catalyst pipeline completes in 26s, golden state captured
 **Hardware**: 2x NVIDIA Titan V (GV100), BDFs `0000:02:00.0`, `0000:49:00.0`
 **Dependency**: Exp 218 (nvidia-470 dual-load co-existence proved), Exp 217 (TPC wall confirmed firmware-dependent)
 
@@ -137,12 +137,106 @@ New `sovereign.catalyst_boot` RPC orchestrates:
    engine_init_path=infra/golden_state/gv100_catalyst.json
 ```
 
+## Hardware Execution Results (May 24, 2026)
+
+### Teardown Profiling Campaign
+
+Full profiling identified `capture_full` (16 MiB linear BAR0 scan) as the sole
+bottleneck — 462 seconds (7.7 min) reading 4,194,304 registers, with PCIe
+completion timeouts (~110μs each) on unmapped inter-domain gaps.
+
+**Fix**: `Bar0Snapshot::capture_domains()` reads only the 22 known Volta BAR0
+domains (641K registers) instead of the full 16 MiB. Live registers respond in
+~1μs, so the scan finishes in under 1 second.
+
+### Pipeline Timeline (optimized)
+
+| Step | Duration | Notes |
+|------|----------|-------|
+| preflight | 2,090ms | module clean, IOMMU group free, kernel healthy |
+| module_prep | 378ms | DKMS patched nvsov prepared (13/13 patches) |
+| unbind_current | 100ms | vfio-pci unbound, sibling detached |
+| deferred_insmod | 451ms | nvsov loaded + bound via driver_override |
+| seeder_bind | 50ms | nvsov confirmed bound |
+| seeder_settle | 15,000ms | RM initialization settle |
+| catalyst_capture | 0ms | pre-swap tier=WarmInfrastructure (deferred) |
+| prepare_warm_swap | 0ms | bridge pinned, FLR disabled |
+| warm_swap | 7,101ms | nvsov→vfio-pci via fire-and-poll (7s RM teardown) |
+| catalyst_full_capture | **897ms** | **83,623 alive regs** from domain-scoped scan |
+| tier_classify | 0ms | skipped (pre-swap tier used) |
+| catalyst_preserve | 40ms | frozen .ko + recipe JSON archived |
+| module_cleanup | 102ms | guarded rmmod nvsov |
+| **TOTAL** | **26,317ms** | Clean success, no timeouts |
+
+### Before / After Comparison
+
+| Metric | Before (full scan) | After (domain scan) |
+|--------|-------------------|---------------------|
+| capture_full | 462,094ms (7.7 min) | **897ms** |
+| Total pipeline | 488s+ (RPC timeout) | **26s** |
+| Pipeline result | Timeout failure | **Clean success** |
+| Alive regs captured | 174,098 | 83,623 |
+
+### Surgical NOP Patches for nv_pci_remove
+
+Replaced blanket `RetAtEntry` for `nv_pci_remove` with four surgical
+`NopCallAt` patches — allows PCI resource cleanup (`__release_region`,
+`pci_disable_device`) to execute normally while NOP-ing GPU teardown calls:
+
+| Offset | Target Function | Purpose |
+|--------|----------------|---------|
+| 0x374 | `nv_shutdown_adapter` | Skip full GPU shutdown |
+| 0x3a0 | `rm_disable_gpu_state` | Skip RM state teardown |
+| 0x1fe | `rm_cleanup_dynamic_power_mgmt` | Skip power management cleanup |
+| 0x2a0 | `rm_free_private_state` | Skip RM memory deallocation |
+
+### Key Discoveries
+
+1. **Bridge-level SBR recovery**: `setpci -s BRIDGE BRIDGE_CONTROL.W` toggling
+   bit 6 (Secondary Bus Reset) recovers GPUs from dirty catalyst states without
+   a full power cycle. PCI remove/rescan alone is insufficient.
+2. **Domain-scoped capture**: 515x speedup by reading only known register
+   domains instead of linear 16 MiB scan.
+3. **Fire-and-poll unbind**: Non-blocking unbind + sysfs polling prevents
+   toadstool-ember from entering D-state during 7s NVIDIA RM teardown.
+4. **Pipeline reordering**: BAR0 capture moved before sibling rebind to avoid
+   PCI device lock contention with RM teardown.
+
+### Captured Artifacts
+
+| Artifact | Path | Size |
+|----------|------|------|
+| BAR0 snapshot (domain-scoped) | `/tmp/toadstool-catalyst-0000-02-00-0.json` | ~28 MB |
+| Replay sequence | `/tmp/toadstool-catalyst-replay-0000-02-00-0.json` | 83,623 writes |
+| Frozen .ko | `/var/lib/toadstool/catalysts/frozen/nvsov_gv100_470.256.02_k6.17.9-*.ko` | 41 MB |
+| Recipe JSON | `/var/lib/toadstool/catalysts/recipes/gv100_nvidia470_patchset.json` | metadata |
+
+### Tier Evidence (pre-swap, while nvsov owns GPU)
+
+```
+tier = WarmInfrastructure
+pmc_enable = 0x5fecdff1
+fecs_cpuctl = 0x00000010
+fecs_pc = 0x0000009c
+gpccs_cpuctl = 0x00000010
+pmu_cpuctl = 0x00000010
+pgraph_status = 0x00000000
+tpc_alive = false
+```
+
+Tier 1 (WarmInfrastructure) confirmed — Falcon engines running (FECS, GPCCS,
+PMU all at cpuctl=0x10), but TPC stations did not survive the warm swap.
+This matches Exp 217/218 findings — TPC station creation requires GPCCS firmware
+execution, which the catalyst preserves in register state but loses during the
+unbind→rebind swap.
+
 ## Risk Analysis
 
 | Risk | Mitigation |
 |------|-----------|
-| RM init still blocked by remaining NOPs | Exclusive session — unload all nvidia, load unpatched 470 |
-| TPC state doesn't survive warm swap | Already mitigated by `disable_flr` + `pin_bridge_hierarchy` |
-| BAR0 capture misses internal GPU state | Capture PRAMIN window; use `sw_nonctx.bin` + golden diff |
-| Replayed state depends on firmware shadows | Iterate: capture → swap → classify → refine |
-| Zombie modules from failed attempts | Dynamic `module_name` override or reboot between attempts |
+| RM init still blocked by remaining NOPs | **Resolved**: selective un-NOP allows full RM init |
+| TPC state doesn't survive warm swap | **Confirmed**: Tier 1 achieved; Tier 2 requires replay investigation |
+| BAR0 capture misses internal GPU state | 83,623 alive regs captured across 22 domains |
+| Replayed state depends on firmware shadows | Next: `sovereign.catalyst_boot` replay validation |
+| Zombie modules from failed attempts | SBR bridge reset recovers without reboot |
+| Linear BAR0 scan too slow | **Resolved**: domain-scoped capture (897ms vs 462s) |

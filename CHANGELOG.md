@@ -60,6 +60,34 @@ This file covers the spring as a whole. For crate-level details see
 - **Rewiring tier**: 3 (~15-25% IPC coverage).
 - **Next**: Pull v2026.05.23 binaries on biomeGate, start NUCLEUS, run full chain.
 
+## Catalyst Driver Pattern HW Validated — Exp 219 (May 24, 2026)
+
+### Changed
+- **Domain-scoped BAR0 capture**: `Bar0Snapshot::capture_domains()` reads only
+  known Volta BAR0 domains (641K registers) instead of full 16 MiB linear scan
+  (4.2M registers). **515× faster** — 897ms vs 462s.
+- **Surgical `nv_pci_remove` patches**: Replaced blanket `RetAtEntry` with four
+  `NopCallAt` patches at offsets 0x374/0x3a0/0x1fe/0x2a0 — allows PCI resource
+  cleanup (`__release_region`, `pci_disable_device`) while NOP-ing GPU teardown
+  functions (`nv_shutdown_adapter`, `rm_disable_gpu_state`, etc.).
+- **Pipeline reordering**: BAR0 capture moved before sibling rebind to avoid
+  PCI device lock contention with NVIDIA RM teardown.
+- **Fire-and-poll unbind**: `sysfs_unbind_fire_and_poll` replaces blocking
+  unbind for the 7s NVIDIA RM teardown, keeping toadstool-ember responsive.
+
+### Added
+- `Bar0Snapshot::capture_domains()` in `warm_capture.rs`.
+- SBR bridge reset recovery path — `setpci BRIDGE_CONTROL.W` bit 6 toggle
+  recovers GPUs from dirty catalyst states without full power cycle.
+- `profile-catalyst-teardown.sh` ftrace script for kernel function profiling.
+
+### Validated
+- Catalyst pipeline completes in **26s** (first clean end-to-end success).
+- 83,623 alive registers captured across 22 Volta BAR0 domains.
+- Tier 1 (WarmInfrastructure) confirmed on live Titan V hardware.
+- 3-layer preservation operational: frozen .ko (41MB) + recipe JSON + replay
+  sequence (83K writes) persisted.
+- Zero TODO/FIXME in changed hotSpring files.
 ## nvidia-470 nvsov Dual-Load Injection — Exp 218 (May 21, 2026)
 
 ### Added
