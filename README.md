@@ -38,7 +38,7 @@ The project's trajectory is to progressively eliminate abstraction layers betwee
 
 ### Eukaryotic UniBin: `hotspring_unibin`
 
-hotSpring has evolved from the prokaryotic era of separate binaries into a eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (18 default / 24 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.27 interstadial eukaryotic wave.
+hotSpring has evolved from the prokaryotic era of separate binaries into a eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (18 default / 24 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.27 Wave 46.
 
 ```
 hotspring certify              # L0-L6 composition certification

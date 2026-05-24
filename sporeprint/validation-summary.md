@@ -1,7 +1,7 @@
 +++
 title = "hotSpring Validation Summary"
 description = "Computational physics on consumer GPU — 700/596/1,045 tests, 219 experiments, guideStone Level 6, 25 papers reproduced, $0.30 total science cost"
-date = 2026-05-21
+date = 2026-05-23
 
 [taxonomies]
 primals = ["barracuda", "toadstool", "coralreef", "beardog", "songbird", "nestgate", "rhizocrypt", "loamspine", "sweetgrass", "squirrel"]

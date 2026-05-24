@@ -67,7 +67,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   toadStool S218 also verified Phase 3 transport switch.
 - **Upstream ref:** `primalSpring/docs/PRIMAL_GAPS.md` BTSP-BARRACUDA-WIRE.
 
-### GAP-HS-007: TensorSession Not Adopted
+### GAP-HS-007: TensorSession Not Adopted — SUPERSEDED by GAP-HS-027
 
 - **Primal:** barraCuda
 - **Severity:** Low
@@ -261,7 +261,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Upstream toadStool should document minimum recommended timeout
   in public API docs.
 
-### GAP-HS-041: barraCuda stats.entropy Missing (PG-47)
+### GAP-HS-041: barraCuda stats.entropy Missing (PG-47) — RESOLVED
 
 - **Primal:** barraCuda
 - **Severity:** Low
@@ -1012,7 +1012,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 - **Primal:** toadStool / barraCuda / coralReef (cross-primal)
 - **Severity:** Medium (architectural alignment)
-- **Status:** Active — sprint in progress (May 12, 2026)
+- **Status:** Mostly complete — remaining items deferred (TensorSession: GAP-HS-027, Phase C cutover: blocked on toadStool)
 - **Description:** hotSpring's interfaces with the compute trio
   (toadStool, barraCuda, coralReef) need rewiring after the trio's
   May 2026 evolution: Phase A+B ember/glowplug absorption, barraCuda
@@ -1044,7 +1044,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
     on K80 (SM35), Titan V (SM70), RTX 5060 (SM120), RTX 4070 (Ada),
     MI50 (GFX906) once trio daemons are available on all hardware.
 
-### GAP-HS-088: Deep Debt Rewire — Capability Discovery & Code Health
+### GAP-HS-088: Deep Debt Rewire — Capability Discovery & Code Health — RESOLVED
 
 - **Primal:** hotSpring (self)
 - **Severity:** Low (code health / architectural alignment)
@@ -1082,7 +1082,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
     (`PCI_VENDOR_NVIDIA`, `PCI_VENDOR_AMD`).
 - **Validation:** 1,031 library tests pass, zero clippy warnings.
 
-### GAP-HS-089: River Delta Upstream Audit Response (May 12, 2026)
+### GAP-HS-089: River Delta Upstream Audit Response (May 12, 2026) — RESOLVED
 
 - **Primal:** hotSpring (self) / cross-primal
 - **Severity:** Medium (convergence readiness)
@@ -1114,7 +1114,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ---
 
-### GAP-HS-090 — Downstream Repo Audit + Scenario Registry Expansion (May 12 2026)
+### GAP-HS-090 — Downstream Repo Audit + Scenario Registry Expansion (May 12 2026) — RESOLVED
 
 - **Severity:** Medium
 - **Classification:** Evolution → registry expansion + cross-repo alignment
@@ -1194,7 +1194,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ---
 
-### GAP-HS-092 — IPC Transport Evolution: call_by_capability Proliferation (May 12 2026)
+### GAP-HS-092 — IPC Transport Evolution: call_by_capability Proliferation (May 12 2026) — RESOLVED
 
 - **Severity:** Low (all modules already had NUCLEUS discovery; transport now unified)
 - **Classification:** Deep Debt → IPC transport evolution
@@ -1345,7 +1345,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ---
 
-### GAP-HS-095 — VFIO Sovereign Dispatch Wiring (May 12 2026)
+### GAP-HS-095 — VFIO Sovereign Dispatch Wiring (May 12 2026) — RESOLVED
 
 - **Severity:** Critical (unblocks Titan V + K80 sovereign dispatch)
 - **Classification:** Feature evolution → in-process VFIO dispatch
@@ -1614,7 +1614,7 @@ Next: hardware validation on Titan V and K80.
 
 ---
 
-### GAP-HS-097 — Deep Debt Resolution + Evolution Sprint (May 13 2026)
+### GAP-HS-097 — Deep Debt Resolution + Evolution Sprint (May 13 2026) — RESOLVED
 
 - **Severity:** Low (code health / ecosystem compliance)
 - **Classification:** Deep Debt → evolution sprint
@@ -1651,7 +1651,7 @@ Next: hardware validation on Titan V and K80.
 - **Validation:** 591/591 lib tests pass. Zero clippy warnings.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md`
 
-### GAP-HS-098 — Niche Convergence: Wire Hygiene + Node Atomic Scenario (May 13 2026)
+### GAP-HS-098 — Niche Convergence: Wire Hygiene + Node Atomic Scenario (May 13 2026) — RESOLVED
 
 - **Severity:** Low (wire correctness + scenario coverage)
 - **Classification:** Niche convergence → atomic deployment prep
@@ -1675,7 +1675,7 @@ Next: hardware validation on Titan V and K80.
      bool_to_int_with_if, manual_let_else, map_unwrap_or, unwrap_used).
 - **Validation:** 595 (default) / 1,041 (barracuda-local) lib tests pass. Zero clippy warnings.
 
-### GAP-HS-099 — Deep Debt Resolution + Evolution Sprint (May 13 2026)
+### GAP-HS-099 — Deep Debt Resolution + Evolution Sprint (May 13 2026) — RESOLVED
 
 - **Severity:** Low (code health / ecosystem compliance)
 - **Classification:** Deep debt → evolution audit + resolution
@@ -1707,7 +1707,7 @@ Next: hardware validation on Titan V and K80.
 
 ---
 
-### GAP-HS-098 — Compute Trio Pipeline Rewire (May 13, 2026)
+### GAP-HS-098 — Compute Trio Pipeline Rewire (May 13, 2026) — RESOLVED
 
 - **Scope:** Pull + review + rewire from toadStool S255-S257, barraCuda Sprint 64-67,
   coralReef Sprint 5-6.
@@ -1762,7 +1762,7 @@ Next: hardware validation on Titan V and K80.
 
 ---
 
-### GAP-HS-100 — Local Debt Resolution + Composition Evolution (May 14, 2026)
+### GAP-HS-100 — Local Debt Resolution + Composition Evolution (May 14, 2026) — RESOLVED
 
 - **Scope:** Seven-item sprint resolving fragile composition patterns.
 - **What was implemented:**
@@ -1782,7 +1782,7 @@ Next: hardware validation on Titan V and K80.
 
 ---
 
-### GAP-HS-101 — plasmidBin Local Debt Resolution (May 14, 2026)
+### GAP-HS-101 — plasmidBin Local Debt Resolution (May 14, 2026) — RESOLVED
 
 - **Scope:** plasmidBin ecoBin harvest lag, tooling bugs, deployment gaps.
 - **What was implemented:**
@@ -1797,7 +1797,7 @@ Next: hardware validation on Titan V and K80.
 - **Validation:** 596/596 lib tests pass. Zero clippy warnings. 13/13 primals deployed. 3/3 compute trio live on IPC.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md`
 
-### GAP-HS-102 — Upstream Absorption + Deep Debt Sprint (May 14, 2026)
+### GAP-HS-102 — Upstream Absorption + Deep Debt Sprint (May 14, 2026) — RESOLVED
 
 - **Severity:** Low (lint hygiene + composition alignment)
 - **Classification:** Upstream absorption + deep debt lint evolution
@@ -1866,7 +1866,7 @@ Next: hardware validation on Titan V and K80.
 
 - **Validation:** 596/596 lib tests pass. Zero clippy warnings. `cargo fmt --check` clean.
 
-### GAP-HS-104 — Wave 20 Schema Standardization (May 16, 2026)
+### GAP-HS-104 — Wave 20 Schema Standardization (May 16, 2026) — RESOLVED
 
 - **Severity:** Low (schema alignment, no regressions)
 - **Classification:** primalSpring Wave 20 absorption
@@ -1886,7 +1886,7 @@ Next: hardware validation on Titan V and K80.
 - **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
   `cargo fmt --check` clean.
 
-### GAP-HS-105 — Deep Debt Sprint: glowplug_client Refactor + Full Audit (May 16, 2026)
+### GAP-HS-105 — Deep Debt Sprint: glowplug_client Refactor + Full Audit (May 16, 2026) — RESOLVED
 
 - **Severity:** Low (refactoring, no regressions)
 - **Classification:** Deep debt resolution
@@ -1920,7 +1920,7 @@ Next: hardware validation on Titan V and K80.
 - **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
   `cargo fmt --check` clean.
 
-### GAP-HS-106 — Wave 20 Debt Resolution (May 17, 2026)
+### GAP-HS-106 — Wave 20 Debt Resolution (May 17, 2026) — RESOLVED
 
 - **Severity:** Low (documentation drift + fossilized binary alignment)
 - **Classification:** primalSpring Wave 20 debt resolution audit
