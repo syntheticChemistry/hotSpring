@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 23, 2026 (covalent gate deployment: 219 experiments, 24 validation scenarios, biomeGate assignment confirmed, 3 new gaps HS-108/109/110)
+**Last audited:** May 24, 2026 (CAZyme FEL evolution: 220 experiments, GROMACS 2026.0 control installed, 2 new gaps HS-111/112 — biomolecular FF + petalTongue visualization)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -2039,6 +2039,44 @@ Next: hardware validation on Titan V and K80.
 - **Action:** Add optional `--sovereign` flag to `validate-primal-proof.sh`
   that probes `sovereign.warm_handoff` status and ember health when running
   on biomeGate hardware.
+
+### GAP-HS-111 — Biomolecular Force Field Evolution for CAZyme FEL (May 24, 2026)
+
+- **Primal:** barraCuda / hotSpring
+- **Severity:** Medium (feature gap, not regression)
+- **Status:** Active — Exp 220 Phase 0 started
+- **Description:** barraCuda has full nonbonded MD primitives (LJ, Coulomb,
+  PPPM, cell/Verlet lists, VV, thermostats, observables) but lacks bonded
+  force field terms (harmonic bonds, harmonic angles, dihedral torsions,
+  improper dihedrals) required for biomolecular simulations. hotSpring needs
+  a topology/parameter reader for carbohydrate force fields (GROMOS 45a4,
+  GLYCAM06) and a metadynamics bias layer (Cremer-Pople CVs, Gaussian hill
+  deposition) for conformational energy landscape generation.
+- **Context:** CAZyme conformational energy landscape project with Alistaire
+  (domain expert) and Mark (NSF HPC access). GROMACS 2026.0 installed as
+  industry control. See Exp 220.
+- **Action:**
+  1. barraCuda: 4 new WGSL shaders (`harmonic_bond`, `harmonic_angle`,
+     `dihedral_torsion`, `improper_dihedral`)
+  2. hotSpring: topology reader for GROMOS 45a4 / GLYCAM06
+  3. hotSpring: metadynamics bias (Cremer-Pople CV + Gaussian hills)
+  4. hotSpring: parity validation against GROMACS FEL
+- **Visualization:** FEL rendering → ludoSpring via petalTongue evolution
+
+### GAP-HS-112 — petalTongue FEL Visualization Evolution (May 24, 2026)
+
+- **Primal:** petalTongue (ludoSpring)
+- **Severity:** Low (downstream dependency, not blocking hotSpring)
+- **Status:** Active — upstream notification needed
+- **Description:** Free energy landscape visualization (2D/3D surfaces over
+  Cremer-Pople θ,φ space, CV trajectory plots, convergence diagnostics)
+  is shared with ludoSpring. petalTongue should evolve to manage FEL
+  rendering and interactive CV exploration UI.
+- **Action:** Handoff to ludoSpring team. petalTongue needs:
+  1. 2D heatmap / 3D surface rendering for FEL data
+  2. CV trajectory overlay on FEL surface
+  3. Interactive Cremer-Pople ring puckering visualization
+  4. Convergence diagnostic plots (hill height vs time, FES evolution)
 
 ---
 
