@@ -24,11 +24,11 @@ Published paper (Python/FORTRAN/HPC)
 
 ---
 
-## Documents (19 files total)
+## Documents (20 files total)
 
 | File | Role | Status (May 2026) |
 |------|------|-------------------|
-| **README.md** | Index for this folder | Current; 18 domain briefing files plus this README |
+| **README.md** | Index for this folder | Current; 19 domain briefing files plus this README |
 | [`murillo_plasma.md`](murillo_plasma.md) | Dense plasma MD | 60/60 checks, paper parity |
 | [`murillo_lattice_qcd.md`](murillo_lattice_qcd.md) | Lattice QCD (quenched & dynamical) | Asymmetric 64³×8, N_f=4 infra, deconfinement at β_c≈5.69 |
 | [`chuna_gradient_flow.md`](chuna_gradient_flow.md) | Chuna 43 — SU(3) gradient flow | 11/11 core; LSCFRK; strong GPU speedup |
@@ -47,6 +47,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`self_tuning_rhmc.md`](self_tuning_rhmc.md) | Self-tuning RHMC | RhmcCalibrator; GPU spectral probes |
 | [`true_multishift_cg_validated.md`](true_multishift_cg_validated.md) | Multi-shift CG + fermion force | Production RHMC; ΔH controlled |
 | [`nucleus_composition_evolution.md`](nucleus_composition_evolution.md) | NUCLEUS primal composition evolution — three-tier validation arc | Wave 1–3; IPC composition tier |
+| [`cazyme_conformational_fel.md`](cazyme_conformational_fel.md) | CAZyme FEL — biomolecular MD sovereign validation | Tier 0-2 MATCH (<1 kJ/mol); pseudoSpore v0.6.0; lithoSpore promotion staged |
 
 ---
 

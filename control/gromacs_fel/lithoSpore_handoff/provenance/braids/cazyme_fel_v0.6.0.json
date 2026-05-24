@@ -1,0 +1,108 @@
+{
+  "_strand": "sweetGrass",
+  "_type": "braid",
+  "braid_id": "urn:braid:hotspring-cazyme-fel-v0.6.0",
+  "created": "2026-05-24T16:33:51.122976+00:00",
+  "dag_session": "urn:dag:hotspring-cazyme-fel-2026-05-24",
+  "spine_id": "urn:spine:hotspring-cazyme-fel-v0.6.0",
+  "merkle_root": "cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea",
+  "prov:wasGeneratedBy": "urn:dag:hotspring-cazyme-fel-2026-05-24",
+  "agents": [
+    {
+      "agent_id": "urn:agent:tamison",
+      "type": "prov:Person",
+      "role": "Creator",
+      "attribution": "Experiment design, hardware provision, pipeline oversight"
+    },
+    {
+      "agent_id": "urn:agent:cursor-agent",
+      "type": "prov:SoftwareAgent",
+      "role": "Operator",
+      "attribution": "Config generation, command execution, analysis scripts, documentation"
+    },
+    {
+      "agent_id": "urn:agent:gromacs-2026.0",
+      "type": "prov:SoftwareAgent",
+      "role": "Engine",
+      "attribution": "Molecular dynamics integration, force evaluation, trajectory generation"
+    },
+    {
+      "agent_id": "urn:agent:plumed-2.9.2",
+      "type": "prov:SoftwareAgent",
+      "role": "Engine",
+      "attribution": "Metadynamics bias, collective variable computation, FEL reconstruction"
+    },
+    {
+      "agent_id": "urn:agent:charmm36-jul2022",
+      "type": "prov:Entity",
+      "role": "ForceField",
+      "attribution": "Bonded/nonbonded parameters for carbohydrates and proteins"
+    },
+    {
+      "agent_id": "urn:agent:amber99sb-ildn",
+      "type": "prov:Entity",
+      "role": "ForceField",
+      "attribution": "Bonded/nonbonded parameters for alanine dipeptide"
+    }
+  ],
+  "entities": [
+    {
+      "entity_id": "urn:entity:fes-2d-ala",
+      "type": "FreeEnergyLandscape",
+      "prov:wasGeneratedBy": "evt:m1:sum_hills",
+      "content_hash": "fd096010fe9d4a32e77bcb8dd633ab8fb7f7b0253b48d8d0f597edd5ba56e5b9",
+      "description": "2D Ramachandran FEL of alanine dipeptide (phi, psi)"
+    },
+    {
+      "entity_id": "urn:entity:fes-theta-xylose",
+      "type": "FreeEnergyLandscape",
+      "prov:wasGeneratedBy": "evt:m2:sum_hills",
+      "content_hash": "38d37d861078cfa8f2aeeb302ffadb285df3cc3777c60d77d1a888bcbff284cf",
+      "description": "1D puckering FEL of free beta-D-xylopyranose F(theta)"
+    },
+    {
+      "entity_id": "urn:entity:2d24-complex",
+      "type": "MolecularSystem",
+      "prov:wasGeneratedBy": "evt:m3:system_setup",
+      "prov:wasDerivedFrom": "https://files.rcsb.org/download/2D24.pdb",
+      "content_hash": "08d39ded14d5af3f9734365204fab4be72a71bdf2fbc859dad9555cdd8ea698b",
+      "description": "GH10 xylanase chain A + -1 subsite xylose (92745 atoms)"
+    }
+  ],
+  "activities": [
+    {
+      "activity_id": "urn:activity:metadynamics-validation",
+      "type": "ComputationalExperiment",
+      "prov:used": [
+        "urn:agent:gromacs-2026.0",
+        "urn:agent:plumed-2.9.2"
+      ],
+      "prov:wasAssociatedWith": [
+        "urn:agent:tamison",
+        "urn:agent:cursor-agent"
+      ],
+      "description": "Well-tempered metadynamics validation for CAZyme conformational FEL"
+    }
+  ],
+  "derivation_chain": {
+    "prov:wasDerivedFrom": [
+      {
+        "from": "PDB 2D24 (RCSB)",
+        "to": "urn:entity:2d24-complex"
+      },
+      {
+        "from": "CHARMM36-jul2022 (MacKerell Lab)",
+        "to": "urn:entity:fes-theta-xylose"
+      },
+      {
+        "from": "AMBER99SB-ILDN (Lindorff-Larsen 2010)",
+        "to": "urn:entity:fes-2d-ala"
+      },
+      {
+        "from": "Iglesias-Fernandez 2015 (DOI:10.1039/C4SC02240H)",
+        "to": "urn:activity:metadynamics-validation"
+      }
+    ]
+  },
+  "note": "Pseudo-braid: structured as sweetGrass W3C PROV-O would, no signing yet"
+}

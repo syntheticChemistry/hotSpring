@@ -1,5 +1,7 @@
 # hotSpring: Consumer-GPU Nuclear Structure at Scale
 
+> **⚠️ Historical snapshot (Feb 2026).** This document reflects the fleet and validation state as of February 2026 (pre-biomeGate covalent deployment, pre-CAZyme FEL, pre-sovereign driver evolution). For current state see `baseCamp/README.md` and `EXPERIMENT_INDEX.md`.
+
 **Status**: Working draft
 **Date**: February 24, 2026 (toadStool S53 rewire, 62/62 validation on biomeGate)
 **License**: AGPL-3.0

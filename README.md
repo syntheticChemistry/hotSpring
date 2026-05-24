@@ -24,6 +24,8 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase G (Universal Substrate Deployment)**: guideStone-certified artifact deployable on any OS, any architecture, any filesystem. **✅ 59/59 checks x 5 substrates. Cross-architecture parity (x86_64 + aarch64, bit-identical). OCI container image. Windows WSL2/Docker + macOS Docker launchers. exFAT tmpdir fallback. `./hotspring` unified ecoBin entry point. benchScale 5-substrate validation (40/40 cross-substrate parity).**
 
+- **CAZyme FEL (Exp 220 — Biomolecular MD)**: Three-tier sovereign FEL reconstruction validated against GROMACS+PLUMED industry control. Target: Iglesias-Fernández 2015 (PDB 2D24, GH10 xylanase). **✅ Tier 0 (GROMACS) → Tier 1 (Python) → Tier 2 (Rust): all MATCH (<1 kJ/mol). Tier 1 vs Tier 2: EXACT MATCH (0.00 kJ/mol). pseudoSpore v0.6.0 handoff with live sweetGrass braid. lithoSpore promotion staged (`staging/cazyme-fel/`).**
+
 hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
 ### Philosophical Evolution: Vendor Agnostic → Vendor Atheistic → Silicon Deistic
@@ -452,14 +454,15 @@ hotSpring/
 │   ├── hotspring_qcd_deploy.toml      # Primary deploy graph (10 primals, bonding policy)
 │   └── README.md                      # Deploy graph documentation
 │
-├── docs/                               # Active documentation (7 files)
+├── docs/                               # Active documentation (8 files)
 │   ├── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
 │   ├── PRIMAL_PROOF_IPC_MAPPING.md   # Level 6: domain science → primal IPC method mapping
 │   ├── DEGRADATION_BEHAVIOR.md       # Graceful degradation when primals absent
 │   ├── CROSS_TIER_PARITY.md          # Cross-tier validation parity (default vs barracuda-local)
 │   ├── DOWNSTREAM_PATTERNS.md        # Downstream repo patterns (projectNUCLEUS, foundation)
 │   ├── DEPENDENCY_AUDIT.md           # Dependency audit and pin tracking
-│   └── BASELINE_PROVENANCE_CATALOG.md # Provenance baseline catalog
+│   ├── BASELINE_PROVENANCE_CATALOG.md # Provenance baseline catalog
+│   └── LITHOSPORE_PROMOTION.md       # pseudoSpore → lithoSpore chassis promotion (CAZyme FEL)
 │
 ├── barracuda/                          # BarraCuda Rust crate (596 / 1,045 lib tests, 167 binaries, 128 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)

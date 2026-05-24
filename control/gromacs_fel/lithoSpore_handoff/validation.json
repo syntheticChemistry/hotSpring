@@ -1,0 +1,166 @@
+{
+  "artifact": "hotSpring-CAZyme-FEL",
+  "version": "0.6.0",
+  "type": "pseudo-lithoSpore",
+  "date": "2026-05-24T16:20:00Z",
+  "experiment": 220,
+  "origin": "ecoPrimals/springs/hotSpring",
+  "target_paper": {
+    "doi": "10.1039/C4SC02240H",
+    "title": "The complete conformational free energy landscape of beta-xylose reveals a two-fold catalytic itinerary for beta-xylanases",
+    "authors": [
+      "Iglesias-Fernandez J",
+      "Raich L",
+      "Ardevol A",
+      "Rovira C"
+    ],
+    "year": 2015,
+    "journal": "Chemical Science",
+    "pdb": "2D24"
+  },
+  "modules": [
+    {
+      "name": "ala-dipeptide-fel",
+      "status": "PASS",
+      "checks": [
+        { "name": "C7eq_phi", "expected": -80, "observed": -81.2, "unit": "deg", "tolerance": 10, "status": "PASS" },
+        { "name": "C7eq_psi", "expected": 80, "observed": 52.9, "unit": "deg", "tolerance": 30, "status": "PASS" },
+        { "name": "C7ax_phi", "expected": 60, "observed": 60.0, "unit": "deg", "tolerance": 15, "status": "PASS" },
+        { "name": "deltaF_C7ax_C7eq", "expected_range": [5, 7], "observed": 5.57, "unit": "kJ/mol", "status": "PASS",
+          "source": "fes_phi.dat (1D phi projection, Boltzmann-integrated over psi)",
+          "errata": "2D grid minimum gives 4.78 kJ/mol; both values are in raw data. 1D projection is the correct literature comparison." },
+        { "name": "C5_basin_present", "observed": true, "status": "PASS" },
+        { "name": "convergence", "observed_drift": 0.5, "unit": "kJ/mol", "threshold": 1.0, "status": "PASS",
+          "errata": "Last stride pair (fes_9→fes_10) drift is 0.00 kJ/mol. Claimed 0.5 likely from earlier stride pair. Simulation is better converged than reported." }
+      ],
+      "system": "Alanine dipeptide in vacuum",
+      "force_field": "AMBER99SB-ILDN",
+      "cv": "phi/psi backbone dihedrals",
+      "simulation_ns": 10,
+      "software": "GROMACS 2026.0 + PLUMED 2.9.2"
+    },
+    {
+      "name": "xylose-puckering-fel",
+      "status": "PASS",
+      "checks": [
+        { "name": "chair_basins_found", "expected": 2, "observed": 2, "status": "PASS",
+          "errata": "Global minimum is at theta=172deg (1C4), not theta=8deg (4C1). For beta-D-xylopyranose 4C1 is the expected ground state. Likely atom-ordering convention issue — requires confirmation of Cremer-Pople ring atom ordering (C1-C2-C3-C4-C5-O5) before interpreting chair labels." },
+        { "name": "boat_basin_found", "observed": true, "status": "PASS" },
+        { "name": "chair_to_boat_barrier", "observed_range": [42, 54], "unit": "kJ/mol", "expected_range": [25, 60], "status": "PASS" },
+        { "name": "full_theta_sampled", "observed": true, "status": "PASS" },
+        { "name": "convergence", "observed_drift": 2.9, "unit": "kJ/mol", "threshold": 5.0, "status": "PASS",
+          "errata": "Last stride pair (fes_4→fes_5) drift is 0.00 kJ/mol. Claimed 2.9 likely from earlier stride pair. Simulation is better converged than reported." }
+      ],
+      "system": "Free beta-D-xylopyranose in water (863 TIP3P)",
+      "force_field": "CHARMM36-jul2022",
+      "cv": "Cremer-Pople theta (PLUMED PUCKERING)",
+      "simulation_ns": 10,
+      "software": "GROMACS 2026.0 + PLUMED 2.9.2"
+    },
+    {
+      "name": "enzyme-bound-puckering",
+      "status": "IN_FLIGHT",
+      "checks": [
+        { "name": "system_setup", "status": "PASS", "note": "PDB 2D24 chain A + -1 subsite xylose (res C4), CHARMM36, 92745 atoms" },
+        { "name": "energy_minimization", "status": "PASS", "note": "Fmax 869 kJ/mol/nm, converged in 577 steps" },
+        { "name": "nvt_equilibration", "status": "PASS", "note": "100 ps at 300 K, T stable" },
+        { "name": "npt_equilibration", "status": "PASS", "note": "100 ps at 300 K / 1 bar, density stable" },
+        { "name": "production_metadynamics", "status": "IN_FLIGHT", "note": "10 ns WTMetaD on Cremer-Pople theta, running on RTX 3090" },
+        { "name": "puckering_fel_topology", "status": "PENDING" },
+        { "name": "free_vs_bound_comparison", "status": "PENDING" }
+      ],
+      "system": "GH10 xylanase chain A (427 residues) + -1 subsite BXYL + 28758 TIP3P + 88 NA + 86 CL",
+      "pdb": "2D24",
+      "subsite": "-1 (5.76 A from Glu236 nucleophile)",
+      "force_field": "CHARMM36-jul2022",
+      "cv": "Cremer-Pople theta (PLUMED PUCKERING)",
+      "simulation_ns": 10,
+      "total_atoms": 92745,
+      "software": "GROMACS 2026.0 + PLUMED 2.9.2"
+    }
+  ],
+  "hardware": {
+    "hostname": "strandGate",
+    "gpu": "NVIDIA RTX 3090 (GA102)",
+    "cpu": "AMD (64 OpenMP threads)",
+    "total_runtime_minutes_completed": 23,
+    "module3_estimated_minutes": 110
+  },
+  "evolution": {
+    "current_tier": 0,
+    "tiers": [
+      {
+        "tier": 0,
+        "label": "GROMACS industry control",
+        "status": "active",
+        "engine": "GROMACS 2026.0 + PLUMED 2.9.2",
+        "proves": "Pipeline correctness, CV selection, expected FEL topology"
+      },
+      {
+        "tier": 1,
+        "label": "Python sovereign baseline",
+        "status": "planned",
+        "engine": "NumPy/SciPy force evaluation + Velocity-Verlet",
+        "proves": "Algorithm correctness independent of GROMACS",
+        "primitives": ["force_evaluation", "integrator", "thermostat", "metadynamics"]
+      },
+      {
+        "tier": 2,
+        "label": "Rust barraCuda primals",
+        "status": "planned",
+        "engine": "barraCuda WGSL shaders via coralReef/toadStool",
+        "proves": "GPU-native primals match Python reference",
+        "primitives": ["bonded_ff_shader", "nonbonded_ff_shader", "integrator_shader", "pme_shader"]
+      },
+      {
+        "tier": 3,
+        "label": "NUCLEUS IPC-composed",
+        "status": "planned",
+        "engine": "Full ecoPrimals IPC primal chain",
+        "proves": "Composable primal stack produces identical FELs",
+        "primitives": ["topology_primal", "force_primal", "integration_primal", "metadynamics_primal", "cv_primal"]
+      }
+    ],
+    "acceptance_test": "Free vs enzyme-bound puckering FEL reproduces conformational selection observed in Iglesias-Fernandez 2015"
+  },
+  "audit": {
+    "date": "2026-05-24",
+    "method": "Every claim traced to raw GROMACS/PLUMED output files with shell one-liners for independent verification",
+    "detail": "AUDIT.md",
+    "findings": [
+      {
+        "id": "M1-deltaF-source",
+        "severity": "low",
+        "summary": "deltaF 5.57 kJ/mol is from 1D phi projection; 2D grid minimum is 4.78 kJ/mol. Both valid, methodology was unspecified.",
+        "action": "errata added to deltaF_C7ax_C7eq check"
+      },
+      {
+        "id": "M1M2-convergence-drift",
+        "severity": "low",
+        "summary": "Claimed drifts (0.5, 2.9 kJ/mol) from earlier stride pairs; actual final drift is 0.00 in both. Better converged than reported.",
+        "action": "errata added to convergence checks"
+      },
+      {
+        "id": "M2-chair-assignment",
+        "severity": "medium",
+        "summary": "Global minimum at theta=172deg (1C4) instead of expected 4C1. Possibly atom-ordering convention swapping chair labels. Requires domain expert confirmation.",
+        "action": "errata added to chair_basins_found; question raised in ABG_HANDOFF.md for Alistaire"
+      },
+      {
+        "id": "M3-atom-indices",
+        "severity": "none",
+        "summary": "All 6 PLUMED ring atom indices verified against .gro file. Bond distances 1.43-1.60 Angstrom, chemically reasonable.",
+        "action": "no change needed"
+      }
+    ],
+    "conclusion": "2 low-severity reporting imprecisions, 1 medium-severity convention question. No physics errors. The AI wrote configs, ran commands, checked numbers against files. The physics came from GROMACS 2026.0 + PLUMED 2.9.2 on real hardware."
+  },
+  "next_steps": [
+    "Complete Module 3 production metadynamics (~90 min remaining)",
+    "Run sum_hills and analyze enzyme-bound puckering FEL",
+    "Compare free vs enzyme-bound: conformational selection at -1 subsite",
+    "2D FEL on Cremer-Pople (qx, qy) for full Stoddart diagram",
+    "Begin Tier 1: Python reference force evaluation for xylose system",
+    "Evolve lithoSpore chassis from LTEE-specific to domain-agnostic"
+  ]
+}

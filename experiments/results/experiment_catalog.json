@@ -1,7 +1,7 @@
 {
-  "generated": "2026-05-12T16:00:00Z",
+  "generated": "2026-05-24T18:00:00Z",
   "spring": "hotSpring",
-  "total_experiments": 190,
+  "total_experiments": 220,
   "total_science_cost": "$0.30",
   "quantitative_checks": "500+",
   "categories": {
@@ -64,6 +64,16 @@
       "experiments": ["exp171-exp181"],
       "count": 11,
       "focus": "K80 warm/cold boot, Blackwell ABI, RTX 5060 sovereign dispatch, ember gate"
+    },
+    "sovereign_evolution": {
+      "experiments": ["exp182-exp219"],
+      "count": 38,
+      "focus": "Sovereign boot abstraction, VFIO bridge, catalyst driver, TPC wall, D-state hardening"
+    },
+    "biomolecular_md": {
+      "experiments": ["exp220"],
+      "count": 1,
+      "focus": "CAZyme FEL — GROMACS+PLUMED WTMetaD, Tier 0/1/2 sovereign parity, lithoSpore promotion"
     }
   },
   "science_ladder": [
@@ -88,13 +98,15 @@
     "Phase 46 Composition Template",
     "Deep Debt Evolution",
     "K80 Sovereign Boot",
-    "Ember Gate"
+    "Ember Gate",
+    "CAZyme FEL Biomolecular MD"
   ],
-  "papers_reproduced": 25,
+  "papers_reproduced": 26,
   "timeline": {
     "phase_A_E": {"experiments_added": 55, "period": "Jan-Feb 2026", "focus": "MD, plasma, nuclear EOS"},
     "phase_F_H": {"experiments_added": 50, "period": "Feb-Mar 2026", "focus": "Lattice QCD, GPU validation, spectral"},
     "phase_I_J": {"experiments_added": 35, "period": "Mar-Apr 2026", "focus": "Sovereign GPU, composition, guidestone"},
-    "phase_K": {"experiments_added": 41, "period": "Apr-May 2026", "focus": "Multi-GPU, K80, Blackwell, deep debt"}
+    "phase_K": {"experiments_added": 41, "period": "Apr-May 2026", "focus": "Multi-GPU, K80, Blackwell, deep debt"},
+    "phase_L": {"experiments_added": 39, "period": "May 2026", "focus": "Sovereign evolution, catalyst driver, biomolecular MD"}
   }
 }

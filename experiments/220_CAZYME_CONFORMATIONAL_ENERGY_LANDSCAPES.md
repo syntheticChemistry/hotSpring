@@ -1,7 +1,7 @@
 # Experiment 220 — CAZyme Conformational Energy Landscapes
 
 **Date:** May 24, 2026
-**Status:** Phase 0 (GROMACS control environment established)
+**Status:** Phase 0.5 complete (xylose Cremer-Pople puckering FEL validated)
 **Hardware:** strandGate (RTX 3090), biomeGate (2× Titan V + RTX 5060)
 **Collaborators:** Alistaire (domain expert — computational chemistry, CAZymes),
 Mark (HPC access — Texas A&M ACES, A100s)
@@ -69,10 +69,24 @@ one GH family representative. This is the validation target.
 1. ✅ GROMACS 2026.0 installed (`conda create -n gromacs-fel`)
 2. ✅ GPU support confirmed (CUDA, SM86 RTX 3090)
 3. ✅ PLUMED + Colvars built-in confirmed
-4. Run Wei-Tse Hsu enhanced sampling tutorial (alanine dipeptide metadynamics)
-5. Set up GH10 system: substrate in active site, GROMOS 45a4 or GLYCAM06 FF
-6. Run metadynamics: Cremer-Pople θ,φ as collective variables
-7. Generate reference FEL (free energy surface)
+4. ✅ Run Wei-Tse Hsu enhanced sampling tutorial (alanine dipeptide metadynamics)
+   - 10 ns well-tempered metadynamics (GROMACS 2026.0 + PLUMED 2.9.2)
+   - CVs: phi/psi backbone dihedrals, bias factor 6.0, 10,000 Gaussians
+   - C7eq global minimum at phi=-81.2°, psi=52.9° — matches literature
+   - C7ax secondary basin at phi=+60°, ΔF=+5.57 kJ/mol — matches literature
+   - Convergence: ±0.5 kJ/mol over last 3 ns
+   - Full report: `control/gromacs_fel/tutorial/alanine_dipeptide/wtmetad/VALIDATION_REPORT.md`
+5. ✅ Free xylose puckering FEL (Phase 0.5)
+   - Beta-D-xylopyranose in water (CHARMM36, TIP3P, 2609 atoms)
+   - RDKit structure → pdb2gmx → solvate → EM → NVT → NPT → production
+   - 10 ns WTMetaD on Cremer-Pople theta (PLUMED PUCKERING)
+   - Three basins: two chairs (theta~8°, ~172°) + boat (~91°)
+   - Barriers 40-54 kJ/mol (consistent with pyranose literature)
+   - Full pipeline proven: structure → topology → PLUMED CV → MetaD → FEL
+   - Report: `control/gromacs_fel/cazyme_gh10/VALIDATION_REPORT.md`
+6. Set up GH10 enzyme-substrate complex (1E0X protein + xylose in active site)
+7. Run metadynamics with Cremer-Pople CVs on enzyme-bound substrate
+8. Generate reference FEL (free energy surface) — compare free vs bound
 
 **Validation criteria:**
 - Metadynamics converges (hills deposited, FEL fills)

@@ -1,0 +1,34 @@
+{
+  "ferment_transcript": {
+    "artifact": "hotSpring-CAZyme-FEL",
+    "version": "0.6.0",
+    "braid_id": "urn:braid:hotspring-cazyme-fel-v0.6.0",
+    "dag_session_id": "urn:dag:hotspring-cazyme-fel-2026-05-24",
+    "merkle_root": "cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea",
+    "spine_id": "urn:spine:hotspring-cazyme-fel-v0.6.0",
+    "live_braid": {
+      "braid_id": "urn:braid:19d24c546fc453d54e708cf452f85a6d972332e70939423f5071252cec4cdc04",
+      "primal": "sweetGrass v0.7.27",
+      "did": "did:primal:d122b2f4-22c1-417b-a394-303280f6794a",
+      "spine_id": "default",
+      "session_hash": "19d24c546fc453d54e708cf452f85a6d972332e70939423f5071252cec4cdc04",
+      "source_merkle_root": "cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea",
+      "note": "Live IPC braid created by running sweetGrass primal. Session hash derives from merkle root + timestamp salt."
+    },
+    "summary_stats": {
+      "modules_complete": 2,
+      "modules_in_flight": 1,
+      "total_simulation_ns": 30,
+      "checks_passed": 15,
+      "checks_in_flight": 1,
+      "checks_pending": 2,
+      "audit_findings": 4,
+      "audit_findings_medium": 1,
+      "audit_findings_low": 2,
+      "audit_findings_none": 1,
+      "target_paper": "10.1039/C4SC02240H"
+    },
+    "hash_algorithm": "SHA-256 (lithoSpore proper uses BLAKE3; hashes are informational provenance, not signature-verified)"
+  },
+  "note": "Ferment transcript: portable handoff from hotSpring to lithoSpore chassis"
+}

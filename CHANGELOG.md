@@ -7,6 +7,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## CAZyme FEL — Phase 0.5 Validated (May 24, 2026)
+
+### Added
+- **Phase 0.5 complete**: Free beta-D-xylopyranose ring puckering FEL.
+  CHARMM36 force field (carb.rtp BXYL), TIP3P water (863 molecules),
+  10 ns WTMetaD on Cremer-Pople theta (PLUMED PUCKERING CV).
+  Three basins resolved: two chairs (theta~8°, ~172°) + boat (~91°).
+  Barriers 40-54 kJ/mol consistent with pyranose literature.
+  Full carbohydrate MD pipeline validated: RDKit → pdb2gmx → solvation →
+  EM → NVT/NPT → PLUMED puckering CV → WTMetaD → sum_hills → FEL.
+  Report: `control/gromacs_fel/cazyme_gh10/VALIDATION_REPORT.md`
+- **CHARMM36-jul2022**: Downloaded and validated carbohydrate force field
+  (364 carbohydrate residue definitions including AXYL, BXYL, ALXYL, BLXYL).
+- **PDB 1E0X**: GH10 xylanase (Xyl10A, Streptomyces lividans) structure
+  downloaded and analyzed. Xylobiosyl-enzyme intermediate with X2F + XYP
+  sugars covalently linked to Glu-236.
+
+## CAZyme FEL — Phase 0.4 Validated (May 24, 2026)
+
+### Added
+- **Phase 0.4 complete**: Alanine dipeptide well-tempered metadynamics tutorial
+  executed end-to-end. 10 ns production run, GROMACS 2026.0 + PLUMED 2.9.2.
+  C7eq global minimum at phi=-81.2°, psi=52.9°; C7ax at phi=+60°, ΔF=5.57 kJ/mol.
+  Converged within ±0.5 kJ/mol. Matches literature (AMBER99SB-ILDN).
+  Full report: `control/gromacs_fel/tutorial/alanine_dipeptide/wtmetad/VALIDATION_REPORT.md`
+- **PLUMED 2.9.2** installed in gromacs-fel environment (PLUMED_KERNEL linkage).
+- **Tutorial workspace**: `control/gromacs_fel/tutorial/alanine_dipeptide/wtmetad/`
+  with md.mdp, plumed.dat, HILLS, COLVAR, fes_2d.dat, fes_phi.dat, fes_psi.dat.
+
 ## CAZyme FEL — Biomolecular MD Evolution (May 24, 2026)
 
 ### Added

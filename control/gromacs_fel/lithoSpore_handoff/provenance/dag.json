@@ -1,0 +1,169 @@
+{
+  "_strand": "rhizoCrypt",
+  "_type": "dag.session",
+  "session_id": "urn:dag:hotspring-cazyme-fel-2026-05-24",
+  "created": "2026-05-24T08:30:00Z",
+  "status": "partial",
+  "events": [
+    {
+      "event_id": "evt:m1:grompp",
+      "type": "grompp",
+      "module": "ala-dipeptide-fel",
+      "inputs": {
+        "mdp": "79fc79e95b69ce27e00dfa11af1b06e32042e811a08e303e330ee3395588ba01",
+        "plumed": "ade2f2bb8ab769d9120c749395bc23bca58c8845a0c95f7d884f81e255dd6241"
+      },
+      "outputs": {
+        "tpr": "runtime_generated"
+      },
+      "timestamp": "2026-05-24T08:30:00Z"
+    },
+    {
+      "event_id": "evt:m1:mdrun",
+      "type": "mdrun",
+      "module": "ala-dipeptide-fel",
+      "depends_on": "evt:m1:grompp",
+      "outputs": {
+        "hills": "ba703fb97bc359fd8c1925998141102d3034174424f0edde35453f1da8da8d14",
+        "colvar": "4e897afe15904b130566ddbfd6f4914ff53011e30f7013710137ffc37901b4d3",
+        "log": "085220381e45cb6aad0e8ac48a1dd5a34bb892ca955dd6c14f56c6b2831948bf",
+        "trajectory": "e4c8de5a28b563f2e092ca0e14961a543ca87cb500522236c9a411f875f30e3b"
+      },
+      "runtime_seconds": 240,
+      "timestamp": "2026-05-24T08:55:00Z"
+    },
+    {
+      "event_id": "evt:m1:sum_hills",
+      "type": "sum_hills",
+      "module": "ala-dipeptide-fel",
+      "depends_on": "evt:m1:mdrun",
+      "inputs": {
+        "hills": "ba703fb97bc359fd8c1925998141102d3034174424f0edde35453f1da8da8d14"
+      },
+      "outputs": {
+        "fes_2d": "fd096010fe9d4a32e77bcb8dd633ab8fb7f7b0253b48d8d0f597edd5ba56e5b9",
+        "fes_phi": "9511c168e31f950fe789bef1b9c3c279a6fa7407f279c6785829e795bc554c68",
+        "fes_psi": "cd2d0cbd32f4148719583c67f3e7262d737231ae52794459ed2de33acfe3eb2f"
+      },
+      "timestamp": "2026-05-24T08:59:00Z"
+    },
+    {
+      "event_id": "evt:m2:pdb2gmx",
+      "type": "pdb2gmx",
+      "module": "xylose-puckering-fel",
+      "inputs": {
+        "pdb": "8aeb4aa72410d181e5ce8343512d34cb323e462be43a2f5302ee427c00c5c1e7"
+      },
+      "outputs": {
+        "topology": "runtime_generated"
+      },
+      "timestamp": "2026-05-24T09:05:00Z"
+    },
+    {
+      "event_id": "evt:m2:equilibration",
+      "type": "equilibration",
+      "module": "xylose-puckering-fel",
+      "depends_on": "evt:m2:pdb2gmx",
+      "steps": [
+        "energy_minimization",
+        "nvt_100ps",
+        "npt_100ps"
+      ],
+      "timestamp": "2026-05-24T09:10:00Z"
+    },
+    {
+      "event_id": "evt:m2:mdrun",
+      "type": "mdrun",
+      "module": "xylose-puckering-fel",
+      "depends_on": "evt:m2:equilibration",
+      "outputs": {
+        "hills": "0e625b6f07b5a9da8487cd7e2b90ee82aff16ad8229d5161a0608a65ae6ef25d",
+        "colvar": "1b5c1b984ae66bd307c8bff7c823c1e0f53162ab83689c259c72125a5e048f42",
+        "log": "c1d3e8e83f0986599d4d21ded6944d7205564f8e94decc839caa6c0d0f3ba39d"
+      },
+      "runtime_seconds": 765,
+      "timestamp": "2026-05-24T09:27:00Z"
+    },
+    {
+      "event_id": "evt:m2:sum_hills",
+      "type": "sum_hills",
+      "module": "xylose-puckering-fel",
+      "depends_on": "evt:m2:mdrun",
+      "inputs": {
+        "hills": "0e625b6f07b5a9da8487cd7e2b90ee82aff16ad8229d5161a0608a65ae6ef25d"
+      },
+      "outputs": {
+        "fes_theta": "38d37d861078cfa8f2aeeb302ffadb285df3cc3777c60d77d1a888bcbff284cf"
+      },
+      "timestamp": "2026-05-24T09:27:30Z"
+    },
+    {
+      "event_id": "evt:m3:fetch_pdb",
+      "type": "fetch_pdb",
+      "module": "enzyme-bound-puckering",
+      "inputs": {
+        "pdb_id": "2D24",
+        "source": "https://files.rcsb.org/download/2D24.pdb"
+      },
+      "outputs": {
+        "pdb": "0017761397773a1f1c64cc3bfdc664675fd6fb466d1b700529feaf8d9b075f6a"
+      },
+      "timestamp": "2026-05-24T15:44:00Z"
+    },
+    {
+      "event_id": "evt:m3:system_setup",
+      "type": "system_setup",
+      "module": "enzyme-bound-puckering",
+      "depends_on": "evt:m3:fetch_pdb",
+      "steps": [
+        "extract_chain_A",
+        "extract_xylose_m1",
+        "pdb2gmx_protein",
+        "pdb2gmx_xylose",
+        "merge_topology",
+        "solvate",
+        "add_ions"
+      ],
+      "outputs": {
+        "protein_top": "741d0f2cba48f112d6c4016703454d7766f5d838657af8d0435c6196865440bf",
+        "complex_top": "08d39ded14d5af3f9734365204fab4be72a71bdf2fbc859dad9555cdd8ea698b",
+        "xylose_itp": "167300823dd108dfbee82c9b598426c4d6f27a126676642ae26e19b131c0193e"
+      },
+      "timestamp": "2026-05-24T15:50:00Z"
+    },
+    {
+      "event_id": "evt:m3:equilibration",
+      "type": "equilibration",
+      "module": "enzyme-bound-puckering",
+      "depends_on": "evt:m3:system_setup",
+      "steps": [
+        "energy_minimization",
+        "nvt_100ps",
+        "npt_100ps"
+      ],
+      "outputs": {
+        "em_log": "0fcf4181fba7861468ff6ccd8f6f0742bc03a05009677342ab77538fcdd7556e",
+        "npt_gro": "53bf16ef5329dd2d2533cec5f0a335f86512f3b46050363ccdfac107a03a3a3b"
+      },
+      "timestamp": "2026-05-24T15:58:00Z"
+    },
+    {
+      "event_id": "evt:m3:mdrun",
+      "type": "mdrun",
+      "module": "enzyme-bound-puckering",
+      "depends_on": "evt:m3:equilibration",
+      "status": "IN_FLIGHT",
+      "inputs": {
+        "plumed": "d53f616129f2a9b5b7c804b1db805e6688a529c7c133086d4becab4cc511d8aa",
+        "mdp": "91109978358f67fdb8a4677c3d15f17163848b501a640246347f512a6ee2afa6"
+      },
+      "outputs": {
+        "hills": "IN_FLIGHT",
+        "colvar": "IN_FLIGHT"
+      },
+      "timestamp": "2026-05-24T15:58:46Z"
+    }
+  ],
+  "merkle_root": "cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea",
+  "note": "Pseudo-DAG: structured as rhizoCrypt would, but computed offline (no IPC)"
+}

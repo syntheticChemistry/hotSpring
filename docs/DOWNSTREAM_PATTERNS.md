@@ -20,8 +20,8 @@ workload TOMLs, gate manifests, operational scripts.
 - `graphs/node_atomic.toml` — positions hotSpring as consumer of the Node
   atomic (compute) pattern alongside neuralSpring, wetSpring, ludoSpring
 - `specs/LIVE_SCIENCE_API.md` — lists hotSpring in the "which springs are
-  green" dashboard contract (currently `checks_passing: 0` — needs update
-  after gate validation runs)
+  green" dashboard contract (`checks_passing: 73` — biomeGate deployment
+  validated May 2026; 65 validation suites + 8 CAZyme parity checks)
 - `deploy/gate_manifest.toml` — maps gates to atomics and graphs
 
 **Patterns absorbed:**

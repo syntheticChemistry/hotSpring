@@ -5,7 +5,7 @@
 **Spring:** hotSpring v0.6.32
 **Date:** May 17, 2026
 **Pattern:** primalSpring/docs/VALIDATION_TIERS.md § Cross-Tier Parity Pattern
-**Reference:** infra/wateringHole/PROVENANCE_TRIO_INTEGRATION_GUIDE.md
+**Reference:** ecoPrimals/infra/wateringHole/PROVENANCE_TRIO_INTEGRATION_GUIDE.md
 
 ---
 
@@ -141,4 +141,4 @@ are unreachable.
 - `barracuda/src/validation/scenarios/s_cpu_gpu_parity.rs` — CPU/GPU parity scenario
 - `barracuda/src/dag_provenance.rs` — trio commit with `primals_reached`
 - `primalSpring/docs/VALIDATION_TIERS.md` — upstream tier definitions
-- `infra/wateringHole/PROVENANCE_TRIO_INTEGRATION_GUIDE.md` — trio semantics
+- `ecoPrimals/infra/wateringHole/PROVENANCE_TRIO_INTEGRATION_GUIDE.md` — trio semantics

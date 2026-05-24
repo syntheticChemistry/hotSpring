@@ -1,5 +1,7 @@
 # BarraCuda Science Validation — Phase B Results
 
+> **⚠️ Phase B snapshot (Feb 2026).** This document captures validation results from barraCuda v0.6.8 on the original eastGate hardware. For current fleet (biomeGate 2× Titan V + strandGate RTX 3090) and barraCuda v0.6.32+ results, see `baseCamp/sovereign_gpu_compute.md`.
+
 **Date**: February 16, 2026  
 **Workload**: Nuclear Equation of State (Skyrme EDF) + Yukawa OCP Molecular Dynamics  
 **Reference**: Diaw et al. (2024), "Efficient learning of accurate surrogates for simulations of complex systems," *Nature Machine Intelligence*  

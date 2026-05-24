@@ -4,7 +4,7 @@
 **From:** hotSpring
 **To:** primalSpring (audit), barraCuda (shader evolution), ludoSpring/petalTongue (visualization), upstream ecosystem
 **Experiment:** 220
-**Status:** Phase 0 — GROMACS industry control established
+**Status:** Phase 0.6 — Tier 0/1/2 parity MATCH; pseudoSpore v0.6.0 shipped; lithoSpore promotion staged
 
 ---
 
@@ -83,22 +83,61 @@ prototyping and validation.
 
 ## Phase Plan
 
-| Phase | Scope | Target |
+| Phase | Scope | Status |
 |-------|-------|--------|
-| 0 (now) | GROMACS tutorial + GH10 reference FEL | Industry control |
-| 1 (~1w) | barraCuda bonded FF shaders | 4 WGSL shaders |
-| 2 (~2w) | hotSpring topology reader + MD loop | GROMOS 45a4/GLYCAM06 |
-| 3 (~1w) | Metadynamics bias layer | Cremer-Pople CVs |
+| 0.4 | Alanine dipeptide WTMetaD (benchmark) | ✅ Complete |
+| 0.5 | Free xylose puckering FEL | ✅ Complete |
+| 0.6 | pseudoSpore handoff + Tier 1/2 parity | ✅ Complete (this update) |
+| 0.7 | Enzyme-bound FEL (after Alistaire convention confirmation) | Pending |
+| 1 | barraCuda bonded FF shaders | 4 WGSL shaders (GAP-HS-111) |
+| 2 | hotSpring topology reader + MD loop | CHARMM36 |
+| 3 | Metadynamics bias layer | Cremer-Pople CVs |
 | 4 | Parity validation | barraCuda FEL ≈ GROMACS FEL |
+
+---
+
+## Sovereign FEL Parity Results (May 24, 2026)
+
+Three-tier sovereign reconstruction of free energy landscapes from GROMACS+PLUMED HILLS files:
+
+| Comparison | Module 1 (Ala dipeptide 2D φ/ψ) | Module 2 (Xylose 1D θ) | Tolerance |
+|------------|--------------------------------|------------------------|-----------|
+| Tier 0 (GROMACS) → Tier 1 (Python) | 0.52 kJ/mol | 0.83 kJ/mol | 2.0 kJ/mol |
+| Tier 0 (GROMACS) → Tier 2 (Rust) | 0.52 kJ/mol | 0.75 kJ/mol | 2.0 kJ/mol |
+| Tier 1 (Python) → Tier 2 (Rust) | 0.00 kJ/mol | 0.00 kJ/mol | — |
+| **Verdict** | **MATCH** | **MATCH** | — |
+
+**Implementation:**
+- Tier 1: `notebooks/cazyme_fel/puckering_fel.py` — Python sum_hills with periodic CV handling
+- Tier 2: `staging/cazyme-fel/src/lib.rs` — Rust sum_hills with linear interpolation for grid alignment
+
+---
+
+## pseudoSpore v0.6.0 Handoff
+
+Packaged artifact (`~/Desktop/pseudoSpore_cazyme_fel_v0.6.0.tar.gz`) for ABG domain expert review:
+- 3 modules: alanine dipeptide (benchmark) → free xylose (substrate) → enzyme-bound (IN_FLIGHT)
+- Machine-readable `validation.json` with inline errata
+- Provenance trio: live sweetGrass braid + pseudo rhizoCrypt DAG + pseudo loamSpine ledger
+- Honest audit (`AUDIT.md`) with 4 findings, all flagged
+
+**Blocking item for Alistaire:** Cremer-Pople ring atom ordering convention (Finding 3 — 4C1 vs 1C4 label).
+
+---
+
+## lithoSpore Promotion
+
+FermentBraid format alignment completed (`provenance/braids/hotspring_cazyme_fel.json`). Full promotion plan: `docs/LITHOSPORE_PROMOTION.md`. The `staging/cazyme-fel/` crate is the first non-LTEE module ready for lithoSpore chassis integration.
 
 ---
 
 ## Key References
 
+- Iglesias-Fernández et al. 2015 — GH10 xylanase conformational FEL (PDB 2D24)
 - Ardèvol & Rovira (2015) JACS — CAZyme catalytic itinerary (Fig. 10)
 - Alonso-Gil (2019) thesis — QM/MM equations (Ch. 2.2–2.4)
 - Wei-Tse Hsu — GROMACS enhanced sampling tutorials
-- GROMOS 45a4 / GLYCAM06 force fields
+- CHARMM36 force field (xylose parameters)
 - LAMMPS Colvars (Cremer-Pople CV implementation reference)
 
 ---
@@ -107,5 +146,5 @@ prototyping and validation.
 
 | Gap | Description | Severity |
 |-----|-------------|----------|
-| GAP-HS-111 | Bonded FF terms + topology reader + metadynamics | Medium |
-| GAP-HS-112 | petalTongue FEL visualization evolution | Low |
+| GAP-HS-111 | Bonded FF terms + topology reader + metadynamics (4 WGSL shaders + CHARMM36 reader + Cremer-Pople CV + bias engine) | Medium |
+| GAP-HS-112 | petalTongue FEL visualization evolution (2D/3D surface over Cremer-Pople coords) | Low |
