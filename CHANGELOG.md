@@ -7,6 +7,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Covalent Gate Deployment — Wave 46+ (May 23, 2026)
+
+### Added
+- **biomeGate deployment handoff**: `HOTSPRING_GATE_DEPLOYMENT_MAY23_2026.md` —
+  confirms sole-tenant assignment on biomeGate (TR 3970X, 2× Titan V, 256GB),
+  documents proto-nucleate composition (9 primals), deployment flow, validation
+  status, and contention assessment (none — sole tenant).
+- **GAP-HS-108**: Hardware doc drift (K80 still listed upstream, actually retired).
+- **GAP-HS-109**: skunkBat niche-hotspring vs proto-nucleate mismatch.
+- **GAP-HS-110**: Sovereign stack not integrated into validate-primal-proof.sh.
+
+### Validated
+- Deploy graphs (7) pass Dark Forest Glacial Gate (all 5 pillars).
+- 24 validation scenarios compile clean.
+- Proto-nucleate composition wired: 9 primals, proton_heavy profile.
+- Sovereign GPU stack operational: VFIO boot, ember daemon, catalyst pipeline.
+- Deployment path confirmed: `fetch_primals.sh` → `nucleus_launcher.sh` →
+  `validate_composition.sh` → `validate-primal-proof.sh --full`.
+
+### Status
+- **Live NUCLEUS validation**: PENDING — requires biomeGate plasmidBin pull.
+- **Rewiring tier**: 3 (~15-25% IPC coverage).
+- **Next**: Pull v2026.05.23 binaries on biomeGate, start NUCLEUS, run full chain.
+
 ## nvidia-470 nvsov Dual-Load Injection — Exp 218 (May 21, 2026)
 
 ### Added

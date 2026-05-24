@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 22, 2026 (catalyst driver pattern: 219 experiments, Exp 219 catalyst BAR0 capture + golden state replay, 24 RPC methods)
+**Last audited:** May 23, 2026 (covalent gate deployment: 219 experiments, 24 validation scenarios, biomeGate assignment confirmed, 3 new gaps HS-108/109/110)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1998,6 +1998,47 @@ Next: hardware validation on Titan V and K80.
   is the remaining blocker. Co-load isolation solved (ksymtab stripping, 5 NOP targets,
   PC32/PLT32 normalization, ret0 at offset+5). Module loads. Reboot required to test
   full pipeline (zombie module from test oops).
+
+### GAP-HS-108 — biomeGate Hardware Documentation Drift (May 23, 2026)
+
+- **Primal:** Ecosystem documentation
+- **Severity:** Low (documentation only)
+- **Status:** Active
+- **Description:** Upstream gate assignment table and `HARDWARE.md` still list
+  K80 at biomeGate. K80 was retired Exp 199 (hardware fire), replaced by second
+  Titan V. Actual fleet: 2× Titan V (GV100) + RTX 5060 per `glowplug.toml`.
+- **Action:** Update `primalSpring/wateringHole/TEAM_OWNERSHIP_MATRIX.md` and
+  any gate assignment tables referencing K80.
+
+### GAP-HS-109 — skunkBat niche-hotspring vs Proto-Nucleate Mismatch (May 23, 2026)
+
+- **Primal:** skunkBat / plasmidBin
+- **Severity:** Low
+- **Status:** Active
+- **Description:** `infra/plasmidBin/ports.env` includes `skunkbat` in
+  `niche-hotspring`, but the proto-nucleate `depends_on` list in
+  `downstream_manifest.toml` does not include skunkbat. Deploy graphs have
+  skunkBat as `required = false` (optional defense node). The deploy graph
+  semantics are correct — skunkBat should be optional, not mandatory.
+- **Action:** Either remove skunkbat from `niche-hotspring` in `ports.env`
+  (making it deploy-graph-only), or add skunkbat to proto-nucleate `depends_on`
+  with an `optional = true` annotation. Recommend: remove from niche, keep in
+  deploy graph as optional.
+
+### GAP-HS-110 — Sovereign Stack Not in validate-primal-proof.sh (May 23, 2026)
+
+- **Primal:** hotSpring (self) / toadStool
+- **Severity:** Medium
+- **Status:** Active
+- **Description:** The VFIO/ember/glowplug sovereign GPU dispatch pipeline
+  (Exp 110-219) is validated via toadStool experiments and systemd services,
+  but not integrated into the standard `validate-primal-proof.sh` flow.
+  A live NUCLEUS on biomeGate requires both: plasmidBin primals (standard path)
+  AND sovereign GPU stack (biomeGate-specific). Currently these are separate
+  validation paths with no unified "biomeGate deployment PASS/FAIL" gate.
+- **Action:** Add optional `--sovereign` flag to `validate-primal-proof.sh`
+  that probes `sovereign.warm_handoff` status and ember health when running
+  on biomeGate hardware.
 
 ---
 

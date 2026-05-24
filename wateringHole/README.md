@@ -69,6 +69,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-21 | `HOTSPRING_KERNEL_HEALTH_PREFLIGHT_EXP216_MAY21_2026.md` | archive | Kernel health preflight: 3-layer autoconf detection, Exp 216, post-fix audit clean |
 | 2026-05-21 | `HOTSPRING_NVSOV_DUAL_LOAD_DRIVER_INFRA_EXP217_218_MAY21_2026.md` | archive | Exp 217 TPC wall closed, Exp 218 nvsov dual-load (4 blockers solved, module loads), driver infra evolution (SymbolResolver, snapshot/compare RPCs, generation dispatch) |
 | 2026-05-22 | `HOTSPRING_CATALYST_DRIVER_PATTERN_EXP219_MAY22_2026.md` | ✅ | Exp 219 Catalyst Driver Pattern: proprietary driver as catalyst → BAR0 capture → golden state replay. 3 new RPCs, 3-layer preservation, selective un-NOP for RM capability tables |
+| 2026-05-23 | `HOTSPRING_GATE_DEPLOYMENT_MAY23_2026.md` | ✅ | **Covalent gate deployment:** biomeGate assignment confirmed (sole tenant, 2× Titan V + RTX 5060), proto-nucleate wired (9 primals), deployment flow documented, 3 gaps (HS-108/109/110) |
 
 ### `mmiotraces/`
 
