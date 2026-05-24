@@ -7,6 +7,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## CAZyme FEL — Biomolecular MD Evolution (May 24, 2026)
+
+### Added
+- **Experiment 220**: CAZyme Conformational Energy Landscapes — GROMACS 2026.0
+  installed as industry control (CUDA, PLUMED, Colvars built-in). 4-phase plan:
+  GROMACS tutorial → barraCuda bonded FF shaders → hotSpring topology/MD loop →
+  metadynamics bias → parity validation.
+- **GROMACS 2026.0 control environment**: `conda activate gromacs-fel` on
+  strandGate RTX 3090. GPU-accelerated, CUDA 12.9.
+- **GAP-HS-111**: Biomolecular force field evolution — bonded FF terms
+  (harmonic bond/angle, dihedral torsion, improper), topology reader
+  (GROMOS 45a4 / GLYCAM06), metadynamics bias layer.
+- **GAP-HS-112**: petalTongue FEL visualization evolution — 2D/3D FEL surfaces,
+  Cremer-Pople CV plots, interactive ring puckering viz.
+- **helixVision downstream feed**: Documented predict→validate→confirm→visualize
+  loop (coralForge predicts → hotSpring MD validates → GROMACS confirms →
+  petalTongue renders).
+- **`control/gromacs_fel/`**: GROMACS industry control workspace.
+- **Handoff**: `HOTSPRING_CAZYME_FEL_EVOLUTION_MAY24_2026.md` posted to local
+  and upstream wateringHole.
+
+### Context
+- Collaborators: Alistaire (domain expert — CAZyme biochemistry, QM/MM),
+  Mark (NSF HPC — Texas A&M ACES, A100 GPUs).
+- Scientific question: Do AutoDock Vina docking scores correlate with
+  metadynamics FEL in CAZyme active sites? (5 min docking vs 12–48 hr FEL)
+- Pilot system: GH10 β-xylanase (PDB 1E0X).
+- Domain: specs/ updated with biomolecular MD scope.
+
 ## Covalent Gate Deployment — Wave 46+ (May 23, 2026)
 
 ### Added

@@ -1,6 +1,6 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** May 17, 2026  
+**Date:** May 24, 2026  
 **Project:** hotSpring (ecoPrimals)  
 **Status:** v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.27, Tier 4 IPC-first, deep debt consolidation complete). 596 (default) / 1,045 (barracuda-local) lib tests, 167 binaries, 65/65 validation suites, 24 validation scenarios (18 default + 6 barracuda-local), 128 WGSL shaders **in this crate** vs **164+ shaders (cross-spring ecosystem)** coordinated across springs. 25/25 papers reproduced (CPU), 20/25 GPU. Parity greenboard ALL GREEN (10/10). **Eukaryotic UniBin** (`hotspring_unibin`) with certify/validate/status/version. Zero hardcoded paths, zero bare `#[allow]`, zero `#[allow(clippy::)]`, zero TODO/FIXME markers in lib code. All EVOLUTION markers are `#[expect(dead_code, reason = "...")]` — proper Rust 2024 idiom. Sovereign GPU pipeline COMPLETE. **metalForge/forge** evolved: NUCLEUS atomic types, PCIe direct topology, biomeOS graph coordination. CPU fallback in `compute_dispatch` for offline parity. **biomeGate covalent deployment READY** — sole tenant, 9-primal proto-nucleate wired.
 

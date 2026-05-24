@@ -1,8 +1,8 @@
 # hotSpring Specifications
 
-**Last Updated**: May 23, 2026
-**Status**: Phase A-J complete + guideStone Level 6 CERTIFIED (primalSpring v0.9.27) — 700 (cylinder) / 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 65 validation suites (3 tiers), crate v0.6.32, barraCuda v0.3.11. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_unibin` is the eukaryotic entry point (certify/validate/status/version). 219 experiments, 128 WGSL shaders, 24 validation scenarios (18 default + 6 barracuda-local). **Sovereignty Tier Model** — Tier 1 warm infrastructure **validated** (Exp 210), Tier 2 TPC wall identified (Exp 215/217), **Catalyst Driver Pattern** infra complete (Exp 219). RTX 5060 full dispatch LIVE. Fleet: 2× Titan V (GV100) + RTX 5060. 24 RPC methods. **biomeGate covalent deployment**: sole tenant, proto-nucleate wired (9 primals), READY for live NUCLEUS.
-**Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
+**Last Updated**: May 24, 2026
+**Status**: Phase A-J complete + guideStone Level 6 CERTIFIED (primalSpring v0.9.27) — 700 (cylinder) / 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 65 validation suites (3 tiers), crate v0.6.32, barraCuda v0.3.11. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_unibin` is the eukaryotic entry point (certify/validate/status/version). 220 experiments, 128 WGSL shaders, 24 validation scenarios (18 default + 6 barracuda-local). **Sovereignty Tier Model** — Tier 1 warm infrastructure **validated** (Exp 210), Tier 2 TPC wall identified (Exp 215/217), **Catalyst Driver Pattern** infra complete (Exp 219). RTX 5060 full dispatch LIVE. Fleet: 2× Titan V (GV100) + RTX 5060. 24 RPC methods. **biomeGate covalent deployment**: sole tenant, proto-nucleate wired (9 primals), READY for live NUCLEUS. **CAZyme FEL evolution (Exp 220)**: GROMACS 2026.0 installed as industry control, biomolecular MD track active.
+**Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning, biomolecular MD (CAZyme conformational energy landscapes)
 
 ---
 
@@ -42,6 +42,7 @@
 | [PRECISION_STABILITY_SPECIFICATION.md](PRECISION_STABILITY_SPECIFICATION.md) | Active | Numerical stability across f32/DF64/f64, GPU precision routing, cross-spring impact |
 | [MULTI_BACKEND_DISPATCH.md](MULTI_BACKEND_DISPATCH.md) | Active | Three-tier dispatch: wgpu/Vulkan (production), coralReef sovereign (long-term), Kokkos/LAMMPS (reference target). NVK discovery, gap analysis |
 | [SOVEREIGN_VALIDATION_MATRIX.md](SOVEREIGN_VALIDATION_MATRIX.md) | Active | Pipeline layer x dispatch path x hardware substrate validation matrix. Consolidates gap tracker, experiments 058-165, DRM-from-both-sides strategy, and SovereignInit pipeline status. |
+| [COLLABORATOR_ENGINE_ARCHITECTURE.md](COLLABORATOR_ENGINE_ARCHITECTURE.md) | Active | Repeatable PI→engine pattern (Reproduce / Pivot / Engine) — Chuna Engine as reference |
 | [COMPUTATIONAL_OMICS.md](COMPUTATIONAL_OMICS.md) | Active | Environmental genomics for sovereign hardware — register trace alignment, firmware motif search, subsystem phylogeny. Long-term compute trio evolution |
 
 ### Sovereign GPU & Hardware
@@ -56,6 +57,7 @@
 | [SILICON_INVENTORY.md](SILICON_INVENTORY.md) | Active | Fleet hardware inventory — GPU/NPU/CPU specs, PCIe topology, IOMMU groups |
 | [SILICON_TIER_ROUTING.md](SILICON_TIER_ROUTING.md) | Active | 7-tier silicon routing spec — TMU, ROP, subgroup, shader core characterization |
 | [CROSS_SPRING_EVOLUTION.md](CROSS_SPRING_EVOLUTION.md) | Active | Cross-spring shader ecosystem evolution — 164+ shaders, Write→Absorb→Lean cycle |
+| [BLACKWELL_DISPATCH_GAPS.md](archive/BLACKWELL_DISPATCH_GAPS.md) | Resolved (archived) | RTX 5060 Blackwell dispatch gaps — 7 gaps identified, all resolved post Exp 181/192 (8/8–12/12 PROVEN) |
 | [UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md](UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md) | Active | agentReagents + benchScale architecture for driver capture and analysis VMs |
 
 ### Existing Documentation (in parent directories)
@@ -96,6 +98,12 @@
 - Anderson localization (1D/2D/3D)
 - Almost-Mathieu operator / Hofstadter butterfly
 - Spectral theory of quasiperiodic operators
+
+### hotSpring EXTENDS TO (via ABG — Exp 220+):
+- Biomolecular MD (bonded force fields, carbohydrate ring puckering)
+- CAZyme conformational energy landscapes (metadynamics, Cremer-Pople CVs)
+- GROMACS parity validation (industry control for MD correctness)
+- helixVision downstream: MD validation layer for coralForge structure prediction
 
 ---
 
