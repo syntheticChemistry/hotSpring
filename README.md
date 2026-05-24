@@ -38,7 +38,7 @@ The project's trajectory is to progressively eliminate abstraction layers betwee
 
 ### Eukaryotic UniBin: `hotspring_unibin`
 
-hotSpring has evolved from the prokaryotic era of separate binaries into a eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (18 default / 24 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
+hotSpring has evolved from the prokaryotic era of separate binaries into a eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (18 default / 24 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.27 interstadial eukaryotic wave.
 
 ```
 hotspring certify              # L0-L6 composition certification
@@ -53,7 +53,7 @@ hotspring version              # version info
 
 ### guideStone Status: Level 6 — CERTIFIED (NUCLEUS Deployment Validation)
 
-hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.25, guideStone v1.2.0). The guideStone is a self-validating deployable that carries its own benchmark — all six certified properties are satisfied:
+hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.27, guideStone v1.2.0). The guideStone is a self-validating deployable that carries its own benchmark — all six certified properties are satisfied:
 
 | Property | Evidence |
 |----------|----------|
@@ -68,7 +68,7 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 **Pre-flight**: `hotspring_unibin certify` certifies composition correctness (6 layers). The legacy `hotspring_guidestone` binary is transitional — use `hotspring_unibin certify` instead.
 
-**plasmidBin Deployment**: NUCLEUS primals ship as musl-static genomeBin binaries (46 binaries across 6 target triples, primalSpring v0.9.25) via `primals/biomeOS/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_unibin certify` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow (auto-sets BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET).
+**plasmidBin Deployment**: NUCLEUS primals ship as musl-static genomeBin binaries (46 binaries across 6 target triples, primalSpring v0.9.27) via `infra/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_unibin certify` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow (auto-sets BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET).
 
 **Composition Template (Phase 46)**: `tools/hotspring_composition.sh` implements event-driven QCD computation via the NUCLEUS composition library. Async tick model (convergence-based, not 60Hz), DAG memoization for parameter sweeps, ledger-sealed reproducible runs, and scientific provenance braids for peer-review audit. Run with `COMPOSITION_NAME=hotspring ./tools/hotspring_composition.sh` (requires NUCLEUS primals) or test in bare mode (graceful degradation, no crash).
 
