@@ -89,8 +89,10 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 217 | TPC_PRI_STATION_CREATION | analysis | ✅ BAR0-only Tier 2 path definitively CLOSED. Full ungating + sw_nonctx.bin replay + PGRAPH reset all fail to create TPC PRI ring stations — confirmed firmware-mediated (GPCCS required) |
 | 218 | NVIDIA470_NVSOV_DUAL_LOAD | validation | ✅ nvidia-470 as renamed `nvsov` module loads alongside host nvidia-580. ksymtab stripped, co-load isolation NOPs (5 targets), PC32/PLT32 relocation normalization, ret0 at offset+5. Tier 0 result (TPC didn't survive swap) — led to Exp 219 catalyst pattern |
 | 219 | CATALYST_DRIVER_PATTERN | validation | ✅ Proprietary nvidia-470 as chemical catalyst → BAR0 golden state capture → domain-scoped scan (897ms, 83K alive regs). Surgical `NopCallAt` patches for `nv_pci_remove`. Pipeline: 26s total. SBR bridge reset for recovery. Tier 1 (WarmInfrastructure) confirmed. Frozen .ko + recipe + replay persisted |
+| 220 | CAZYME_CONFORMATIONAL_ENERGY_LANDSCAPES | analysis | 🔄 Phase 0: GROMACS 2026.0 industry control established. CAZyme FEL biomolecular MD track. 4-phase plan |
+| 221 | UEFI_MODEL_GPU_SOVEREIGNTY | validation | ✅ UEFI Model for Tier 2 — PRI ring recovery proven (PGRAPH re-enable + PRI ring enumerate). Falcon HS fuse boundary mapped (IMEM wiped, host PIO blocked). RetAtEntry eliminated. Architecture pivot to Runtime Services model for Tier 2. Both Titan V cards validated |
 
-> **Note:** 220 experiments total (001–189 archived + 190 archived final coral-ember + 191–220 active).
+> **Note:** 221 experiments total (001–189 archived + 190 archived final coral-ember + 191–221 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -198,7 +200,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **700** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **220 experiments**
+- **700** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **221 experiments**
 
 ## Eukaryotic Evolution (May 2026)
 

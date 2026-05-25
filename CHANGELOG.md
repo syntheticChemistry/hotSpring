@@ -7,6 +7,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## UEFI Model GPU Sovereignty — PRI Ring Recovery (May 25, 2026)
+
+### Added
+- **Experiment 221**: UEFI Model GPU Sovereignty — tested "Firmware as Boot
+  Service" hypothesis. PRI ring recovery proven: PGRAPH re-enable
+  (PMC_ENABLE bit 12) + PRI ring master enumerate restores routing after
+  kernel PCI framework destroys it. Falcon registers accessible post-recovery.
+- **`recover_pri_ring()`** in `sovereign_handoff.rs` — integrated into handoff
+  pipeline as step 6c (between warm_swap and tier_classify).
+- **Diagnostic probe enhancements** — PCI config space reads (command register,
+  PM state), correct falcon PC register (`0x40911c`), PGRAPH and PRI ring
+  master status capture.
+- **GAP-TS-221-A through D**: Runtime Services model, GPC sub-ring recovery,
+  PCI bus master disable, firmware extraction from nvidia.ko.
+- **Handoff**: `HOTSPRING_UEFI_MODEL_PRI_RING_RECOVERY_EXP221_MAY25_2026.md`
+  posted to wateringHole.
+
+### Changed
+- **`nvidia_boot_services` patch set** — no longer uses `RetAtEntry` on
+  `nv_pci_remove` (leaks iomem without preserving PRI ring). Now delegates to
+  `nvidia_catalyst_handoff` (clean unbind + post-swap recovery).
+- **`PriRingAnchor` health classification** — probes post-recovery BAR0 state
+  instead of pre-swap catalyst_tier. Correctly classifies as Degraded.
+- **Falcon register addresses** — `FALCON_PC` corrected to `0x11c` (hardware
+  PC). Added `FALCON_BOOTVEC` (`0x104`) and `FALCON_STATUS` (`0x108`).
+- **Sovereignty Tier Model** — added Tier 1+ (PRI Recovery) between Tier 1
+  and Tier 2. Tier 2 now documented as requiring Runtime Services model.
+
+### Discovered
+- PRI ring destruction occurs in **kernel PCI framework** (`pci_device_remove`
+  clears PMC_ENABLE), not in nvidia's `nv_pci_remove`.
+- `RetAtEntry` on `nv_pci_remove` is a dead end — still kills PRI ring AND
+  leaks iomem (`request_mem_region` stale claims).
+- FECS/GPCCS on GV100 are **fuse-enforced HS (high-security)** mode — host
+  IMEM PIO upload blocked by hardware fuses.
+- FECS IMEM is genuinely wiped during PCI unbind, not just PRI-gated.
+- ACR boot from vfio-pci not viable — WPR not configured on GV100 (pre-GSP).
+- **Architecture pivot**: Tier 2 (WarmCompute) requires nvidia as persistent
+  Runtime Service, not exitable boot service.
+
+### Validated
+- Both Titan V cards (02:00.0, 49:00.0): PRI ring recovery stable and
+  repeatable. Zero D-state threads. Zero iomem leaks. No system instability.
+
 ## CAZyme FEL — Phase 0.5 Validated (May 24, 2026)
 
 ### Added
@@ -35,7 +79,6 @@ This file covers the spring as a whole. For crate-level details see
 - **PLUMED 2.9.2** installed in gromacs-fel environment (PLUMED_KERNEL linkage).
 - **Tutorial workspace**: `control/gromacs_fel/tutorial/alanine_dipeptide/wtmetad/`
   with md.mdp, plumed.dat, HILLS, COLVAR, fes_2d.dat, fes_phi.dat, fes_psi.dat.
-
 ## CAZyme FEL — Biomolecular MD Evolution (May 24, 2026)
 
 ### Added

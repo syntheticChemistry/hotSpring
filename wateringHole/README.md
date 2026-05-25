@@ -72,6 +72,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-23 | `HOTSPRING_GATE_DEPLOYMENT_MAY23_2026.md` | ✅ | **Covalent gate deployment:** biomeGate assignment confirmed (sole tenant, 2× Titan V + RTX 5060), proto-nucleate wired (9 primals), deployment flow documented, 3 gaps (HS-108/109/110) |
 | 2026-05-24 | `HOTSPRING_CAZYME_FEL_EVOLUTION_MAY24_2026.md` | ✅ | **CAZyme FEL evolution:** GROMACS 2026.0 installed (CUDA, PLUMED, Colvars), Exp 220 Phase 0, biomolecular MD track active, 2 new gaps (HS-111/112), barraCuda bonded FF + petalTongue viz evolution requests |
 | 2026-05-24 | `HOTSPRING_CATALYST_HW_VALIDATED_EXP219_MAY24_2026.md` | ✅ | Exp 219 HW execution: 26s pipeline, domain-scoped capture (897ms, 83K alive regs), surgical NopCallAt patches, SBR bridge reset recovery, fire-and-poll unbind, Tier 1 confirmed on Titan V |
+| 2026-05-25 | `HOTSPRING_UEFI_MODEL_PRI_RING_RECOVERY_EXP221_MAY25_2026.md` | ✅ | **Exp 221 UEFI Model GPU Sovereignty:** PRI ring recovery validated (PGRAPH re-enable + enumerate), falcon registers accessible post-recovery (Degraded health). Falcon HS fuse boundary mapped — IMEM wiped, fuse-enforced HS blocks host PIO. RetAtEntry eliminated. Architecture pivots to Runtime Services model for Tier 2. Three boundaries documented (PCI framework / Falcon HS fuses / ACR secure boot). Both cards validated. |
 
 ### `mmiotraces/`
 

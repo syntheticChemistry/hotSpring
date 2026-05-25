@@ -230,13 +230,307 @@ This matches Exp 217/218 findings — TPC station creation requires GPCCS firmwa
 execution, which the catalyst preserves in register state but loses during the
 unbind→rebind swap.
 
+## Catalyst-Free Boot Replay (May 24, 2026)
+
+### Execution
+
+`sovereign.catalyst_boot` on `0000:02:00.0` with 83,623 register writes from
+the captured golden state replay JSON.
+
+### Pipeline
+
+| Stage | Status | Duration | Detail |
+|-------|--------|----------|--------|
+| nouveau warm handoff | ✅ | 8,097ms | Tier 1 baseline established |
+| identity_probe | ✅ | 14ms | GV100 chip=0x140 |
+| pmc_enable | ✅ | 78ms | 23 engines, `0x5fecdff1` preserved |
+| pgraph_reset | skipped | 0ms | Warm — preserving FECS/GPCCS |
+| cg_sweep | ✅ | 0ms | 0 changed, 12 faulted |
+| pri_recovery | ✅ | 85ms | 9 alive, 4 faulted, recovered |
+| pgob_ungating | ✅ | 0ms | 0 GPCs alive |
+| memory_training | skipped | 0ms | warm detected (PRAMIN sentinel ok) |
+| **engine_ungate:GR_INIT** | ✅ | **26ms** | **83,623 writes applied** |
+| falcon_boot | ✅ | 0ms | FECS warm-preserved, cpuctl=0x10, pc=0xa12 |
+| gr_init | skipped | 0ms | FECS warm-preserved/running |
+| verify | ✅ | 14ms | ptimer running, VRAM ok |
+| **Total** | ✅ | **219ms** | catalyst_free=true |
+
+### Post-Replay Tier Evidence
+
+```
+tier = warm_infrastructure (Tier 1)
+pmc_enable = 0x5fecdff1 (23 engines)
+fecs_pc = 0xbadf5040 (PRI fault)
+gpc_enables = 0x00000000
+gr_status = 0x00000081
+tpc_alive = false
+tpc_status = 0xbadf5040 (PRI fault)
+```
+
+### Analysis: Why Replay Doesn't Achieve Tier 2
+
+The 83,623 register writes were applied successfully in 26ms. However, the
+post-replay tier classification shows PRI faults (`0xbadf5040`) on FECS, TPC,
+and CE status registers, and `gpc_enables = 0`. **The replay wrote register
+values but did not re-establish the underlying hardware state.**
+
+The fundamental issue: TPC PRI station creation is **firmware-mediated**.
+The GPCCS firmware running on the Falcon microcontroller *creates* PRI ring
+routing stations that map BAR0 addresses to physical TPC/GPC units. Writing
+register values back only sets the *output* of that routing process — it
+doesn't create the routing infrastructure itself. Without the PRI ring
+stations, subsequent reads to TPC/GPC registers return PRI faults.
+
+This is consistent with:
+- **Exp 217**: BAR0-only Tier 2 path definitively closed. Full ungating +
+  `sw_nonctx.bin` replay + PGRAPH reset all fail to create TPC PRI stations.
+- **Exp 218**: TPC state did not survive warm swap (Tier 0).
+- **Exp 219 catalyst capture**: TPC alive = false even while nvsov owns GPU
+  (register state captured but PRI stations already lost during swap).
+
+### Implications
+
+1. **Register replay is necessary but not sufficient** for Tier 2. The golden
+   state captures what firmware produces, but the production process itself
+   (GPCCS firmware execution → PRI ring station creation) cannot be replayed
+   through register writes alone.
+
+2. **The Tier 2 wall is at the PRI ring level**, not the register level. The
+   GPU's PRI (PRIvilege) ring is a hardware interconnect that routes MMIO
+   accesses to specific engine instances. Firmware creates entries in this
+   routing table; without those entries, engine registers are unreachable.
+
+3. **Paths forward for Tier 2**:
+   - **GPCCS firmware replay**: Load GPCCS firmware blob + trigger execution
+     post-swap (requires IMEM/DMEM write + cpuctl start)
+   - **PRI ring station injection**: Directly program the PRI hub/router
+     registers that create station entries (requires reverse-engineering the
+     PRI ring topology programming sequence)
+   - **Selective swap**: Keep GPCCS running during the catalyst unbind by
+     using a more granular driver removal strategy
+   - **Pre-swap station snapshot**: Capture PRI ring state (hub, router, station
+     registers) while the catalyst driver is active, replay those specifically
+
+## Twin-Card Differential (May 24, 2026)
+
+### Execution
+
+Card A (`0000:02:00.0`) cold baseline, Card B (`0000:49:00.0`) catalyst-warmed.
+`sovereign.catalyst_diff` with domain-scoped capture (fixed from full 16 MiB).
+
+### Results
+
+| Metric | Value |
+|--------|-------|
+| Total compared | 641,088 registers (22 domains) |
+| Changed (cold→catalyst) | 371,940 |
+| Unchanged | 269,148 |
+| Cold alive | 3,913 |
+| Warm alive | 83,382 |
+| **Diff replay writes** | **80,976** |
+| Capture time | **2s** (both cards) |
+
+### Domain Breakdown of Catalyst Product
+
+| Domain | Writes | Notes |
+|--------|--------|-------|
+| PRAMIN | 66,326 | Instance memory (page tables, firmware contexts) |
+| GPC | 7,417 | 6,974 in TPC range (0x504000+) |
+| PGRAPH | 2,880 | Engine state registers |
+| PDISP | 1,309 | Display engine |
+| PBDMA | 1,033 | DMA push buffer descriptors |
+| PRIV_RING | 959 | PRI hub/router registers |
+| LTC | 413 | L2 cache partitions |
+| PFIFO | 190 | Channel scheduling |
+| CE | 160 | Copy engines |
+| PMU | 94 | Power management unit |
+| PTHERM | 67 | Thermal management |
+| PBUS | 53 | Bus interface |
+| PCLOCK | 39 | Clock domain |
+| SEC2 | 10 | Security engine |
+| PFB | 19 | Framebuffer |
+| PTIMER | 4 | Timer |
+| PMC | 3 | Master control |
+
+### Diff Replay Boot Result
+
+`sovereign.catalyst_boot` with `gv100_catalyst_replay.json` (80,976 writes):
+same as single-card replay — Tier 1 (WarmInfrastructure), TPC alive = false.
+FECS/GPCCS cpuctl=0x10 (firmware loaded) but PC reads return `0xbadf5040`
+(PRI fault). PRI ring interrupt `0x003f0100` persists after clear.
+
+### PRI Fault Analysis
+
+Post-replay probe on `0000:02:00.0`:
+
+```
+PRI_RING_INTR       = 0x003f0100 (persistent, not clearable)
+FECS cpuctl          = 0x00000010 (OK — firmware loaded)
+FECS pc              = 0xbadf5040 (PRI FAULT — can't read through PRI ring)
+GPCCS cpuctl         = 0x00000010 (OK — firmware loaded)
+GPCCS pc             = 0xbadf5040 (PRI FAULT — can't read through PRI ring)
+GPC0-5 enable        = 0x00000002 (all enabled)
+TPC status           = 0x00000000 (no fault, but not alive)
+```
+
+The Falcon engines *exist* (cpuctl readable) but PRI ring routing to PGRAPH
+Falcon instances is broken. The 959 PRIV_RING register writes from the diff
+set up hub configuration but don't create the per-engine routing stations
+that the PRI ring master programs during firmware execution.
+
+**Key distinction**: Writing PRI ring *configuration* registers is not the same
+as triggering the PRI ring master to *enumerate and route* engine instances.
+The routing table is built by firmware (GPCCS/FECS) during initialization, and
+the register values we captured are the *result* of that enumeration, not the
+*cause*.
+
+### PRI Ring Master Re-enumeration Attempt
+
+Post-replay, attempted to re-establish PRI routing through direct register
+manipulation on `0000:02:00.0`:
+
+1. **RINGMASTER_CMD = 0x4 (ENUMERATE)**: Command consumed (register cleared
+   back to 0) but PRI ring interrupt `0x003f0100` persisted. No routing change.
+2. **Ring interrupt clear (write 0x120058)**: Ineffective — interrupt is
+   structural, not transient.
+3. **RINGMASTER_START0 = 1**: Already set; re-write had no effect.
+4. **FECS cpuctl start (bit 1)**: cpuctl changed from `0x10` to `0x12`
+   (start bit accepted), but FECS PC still returns PRI fault `0xbadf5040`.
+   The Falcon accepted the start command but can't execute because its
+   PRI ring connection is broken.
+
+**Conclusion**: PRI ring routing stations are destroyed by the vfio-pci
+rebind and cannot be reconstructed via register writes or ring master commands
+after the fact. The PGRAPH/FECS/GPCCS PRI stations are created during the
+nvidia driver's `nv_gpu_ops_create_session()` sequence, which programs the
+ring master to establish routing entries. These entries live in hardware
+state that is not accessible through BAR0 MMIO — they are internal to the
+PRI ring master's routing fabric.
+
+### Tier 2 Frontier Assessment
+
+The Tier 2 wall is at the **PRI ring routing fabric level**, which is below
+BAR0-accessible registers. Possible approaches to break through:
+
+1. **Pre-swap PRI ring capture**: Read ring master routing tables while the
+   catalyst driver is still active (before unbind), looking for internal
+   registers that define station routes.
+2. **PGRAPH reset + FECS cold boot**: Instead of preserving warm state,
+   reset PGRAPH and boot FECS from scratch using captured firmware blob.
+   This would rebuild PRI stations fresh.
+3. **PRAMIN firmware state**: The 66K PRAMIN writes include firmware contexts.
+   If the GPCCS/FECS firmware state in PRAMIN can be restored *before* PRI
+   ring enumeration, the firmware might create stations on restart.
+4. **GPC power gate cycling**: Toggling GPC power gates (`PGRAPH_PGOB`)
+   might trigger PRI station re-creation if the ring master firmware is
+   properly configured.
+
+### PRI Ring Reset Attempts
+
+Exhaustive BAR0 manipulation on `0000:02:00.0` post-replay:
+
+| Attempt | Registers Written | Result |
+|---------|------------------|--------|
+| RINGMASTER_CMD = 0x1 (RESET) | 0x12004c | CMD consumed, PRI_RING_INTR unchanged |
+| RINGMASTER_CMD = 0x2 (START) | 0x12004c | PRI_RING_INTR cleared to 0x0, but FECS/GPCCS PCs still fault |
+| RINGMASTER_CMD = 0x3 (RESET+START) | 0x12004c | Same — interrupt cleared, faults persist |
+| PGRAPH bit toggle in PMC_ENABLE | 0x200 | PGRAPH re-enabled, no PRI change |
+| Full PMC disable/enable cycle | 0x200 | PRI_RING_INTR cleared, GPCCS **degraded** from `0xbadf5040` to `0xbad00100` (PRI no-ack = engine deregistered) |
+| FECS cpuctl start (bit 1) | 0x409100 | cpuctl accepted (0x10→0x12), PC still faulted |
+
+**Definitive conclusion**: PRI ring routing stations are hardware-internal
+state below the BAR0 MMIO layer. They are programmed by the PRI ring master
+microcode during NVIDIA driver initialization and destroyed when the driver
+unbinds. No combination of BAR0 register writes, ring master commands, or
+PMC resets can re-establish them after the fact.
+
+### Exp 219 Final Status
+
+**Tier 1 (WarmInfrastructure): ✅ VALIDATED** — catalyst pipeline proven
+(26s), 83K alive registers captured, domain-scoped scan operational,
+3-layer preservation working, SBR bridge reset recovery codified.
+
+**Tier 2 (WarmCompute): BLOCKED** — PRI ring routing wall confirmed at
+three independent levels:
+1. Exp 217: BAR0-only path closed (firmware-dependent TPC stations)
+2. Exp 219 register replay: 83K writes applied, PRI stations absent
+3. Exp 219 PRI ring master manipulation: hardware state below BAR0
+
+The Tier 2 wall is **not** at the register level, the firmware level, or
+the power gating level — it is at the **PRI ring routing fabric level**,
+which is internal GPU interconnect hardware that BAR0 MMIO cannot access.
+
+### FECS Cold Boot Attempt
+
+Loaded `/lib/firmware/nvidia/gv100/gr/fecs_inst.bin` (25,632 bytes, 6408 words)
+into FECS IMEM and `fecs_data.bin` (4,788 bytes) into DMEM via Falcon memory
+ports (0x409180-0x4091c4). Set boot vector to 0, triggered start via cpuctl.
+
+| Register | Before | After Start | Notes |
+|----------|--------|-------------|-------|
+| FECS cpuctl | 0x00000010 | 0x00000012 | Start bit accepted |
+| FECS mailbox0 | 0x00000000 | 0x00000000 | Firmware didn't respond |
+| FECS mailbox1 | 0x00000000 | 0x00000000 | No handshake |
+| FECS pc | 0xbadf5040 | 0xbadf5040 | PRI fault persists |
+| FECS os | 0x00000000 | 0x00000000 | No OS context |
+| PRI_RING_INTR | 0x00000000 | 0x00000000 | Ring clean |
+
+**Result**: cpuctl accepted start bit but Falcon core did not execute. This
+is because **Volta Falcon engines are HS (Hardware Secured)** — FECS and GPCCS
+require the ACR (Authentication Code Recovery) secure boot chain to
+authenticate firmware before execution. Direct IMEM write + cpuctl start is
+blocked by the hardware security model (Falcon SPE/WPR enforcement).
+
+The secure boot chain on Volta:
+1. **PMU/SEC2** loads ACR bootloader (`acr/ucode_load.bin`)
+2. ACR authenticates and loads FECS firmware
+3. FECS creates PRI ring stations during initialization
+4. FECS loads and authenticates GPCCS firmware
+5. GPCCS creates TPC PRI stations
+
+Each step requires the previous step's hardware security context. This is
+NVIDIA's deliberate security architecture to prevent unauthorized firmware
+execution.
+
+### Tier 2 Path Forward
+
+All BAR0-level approaches exhausted. The Tier 2 wall is the ACR secure boot
+chain. Remaining viable paths:
+
+1. **ACR sovereign boot**: Implement the full ACR→FECS→GPCCS boot sequence
+   through BAR0 MMIO, using the signed firmware blobs in
+   `/lib/firmware/nvidia/gv100/`. This is what nouveau does in its `gr_init`
+   path. (Exp 221: Sovereign ACR Boot)
+2. **nouveau GR init injection**: Let nouveau complete its `gr_init` (which
+   boots FECS/GPCCS via ACR), then swap to vfio-pci *without* destroying
+   PRI stations. Requires patching nouveau's unbind to skip GR teardown.
+   (Exp 222: Selective Nouveau Teardown)
+3. **Catalyst with no unbind**: Keep nvsov loaded, use ioctl-based compute
+   through the NVIDIA driver instead of raw MMIO. (Exp 223: Catalyst
+   Compute via Driver)
+4. **GPCCS firmware extraction**: Extract the authenticated GPCCS firmware
+   from a running catalyst instance (capture IMEM/DMEM contents while
+   Falcon is running, before ACR wipes them on halt). Use this for
+   sovereign replay. (Exp 224: Firmware Extraction)
+
+### Artifacts Persisted
+
+| Artifact | Path |
+|----------|------|
+| Cold snapshot | `/var/lib/toadstool/catalysts/products/gv100_cold_bar0.json` |
+| Warm snapshot | `/var/lib/toadstool/catalysts/products/gv100_catalyst_bar0.json` |
+| Delta JSON | `/var/lib/toadstool/catalysts/products/gv100_catalyst_delta.json` |
+| Diff replay | `/var/lib/toadstool/catalysts/products/gv100_catalyst_replay.json` |
+| Golden state (repo) | `infra/golden_state/gv100_catalyst_replay.json` |
+
 ## Risk Analysis
 
 | Risk | Mitigation |
 |------|-----------|
 | RM init still blocked by remaining NOPs | **Resolved**: selective un-NOP allows full RM init |
-| TPC state doesn't survive warm swap | **Confirmed**: Tier 1 achieved; Tier 2 requires replay investigation |
+| TPC state doesn't survive warm swap | **Confirmed**: Tier 1 achieved; firmware-mediated PRI ring wall |
 | BAR0 capture misses internal GPU state | 83,623 alive regs captured across 22 domains |
-| Replayed state depends on firmware shadows | Next: `sovereign.catalyst_boot` replay validation |
+| Replayed state depends on firmware shadows | **Confirmed**: register replay alone insufficient for Tier 2 |
 | Zombie modules from failed attempts | SBR bridge reset recovers without reboot |
 | Linear BAR0 scan too slow | **Resolved**: domain-scoped capture (897ms vs 462s) |
+| Register replay doesn't create PRI stations | **Identified**: GPCCS firmware execution required for TPC routing |
