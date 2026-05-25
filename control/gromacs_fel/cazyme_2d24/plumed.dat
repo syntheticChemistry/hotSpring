@@ -1,5 +1,13 @@
 # Cremer-Pople puckering CVs for -1 subsite beta-D-xylose in GH10 xylanase (PDB 2D24)
-# Ring atoms: C1(6278) C2(6286) C3(6290) C4(6294) C5(6282) O5(6285)
+#
+# INDEX TRANSLATION (domain → computation):
+#   PDB 2D24 serial → GROMACS topology index (residue BXYL 437)
+#   C1: 6599 → 6278
+#   C2: 6600 → 6286
+#   C3: 6601 → 6290
+#   C4: 6602 → 6294
+#   C5: 6603 → 6282
+#   O5: 6607 → 6285
 
 puck: PUCKERING ATOMS=6278,6286,6290,6294,6282,6285
 

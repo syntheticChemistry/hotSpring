@@ -1,5 +1,14 @@
-# Cremer-Pople puckering CVs for beta-D-xylopyranose ring
-# Ring atoms: C1(1) C2(9) C3(13) C4(17) C5(5) O5(8)
+# Cremer-Pople puckering CVs for free beta-D-xylopyranose ring
+#
+# INDEX TRANSLATION (domain → computation):
+#   Crystal atom order → GROMACS topology index (single residue BXYL)
+#   C1: 1 → 1
+#   C2: 2 → 9
+#   C3: 3 → 13
+#   C4: 4 → 17
+#   C5: 5 → 5
+#   O5: 6 → 8
+#   Note: Single-molecule system; domain = crystal serial, computation = GROMACS heavy-first reorder
 
 puck: PUCKERING ATOMS=1,9,13,17,5,8
 

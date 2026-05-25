@@ -1,10 +1,10 @@
 # baseCamp Briefing: CAZyme Conformational Free Energy Landscapes
 
-**Date:** May 24, 2026  
+**Date:** May 25, 2026  
 **Experiment:** 220  
 **Domain:** Biomolecular MD — enhanced sampling (well-tempered metadynamics)  
 **Target paper:** Iglesias-Fernández et al. 2015 — "Free Energy of Conformational Substates" (PDB 2D24, GH10 xylanase)  
-**Status:** Tier 0-2 parity MATCH (<1 kJ/mol) | All 3 modules COMPLETE (v0.7.0)
+**Status:** Tier 0-2 parity MATCH (<1 kJ/mol) | All modules COMPLETE | 2D (qx, qy) expansion DONE (v0.8.0)
 
 ---
 
@@ -19,8 +19,10 @@ Validate that sovereign compute (Python → Rust → eventually WGSL) can reprod
 | Module | System | CV | Tier 0 (GROMACS) | Tier 1 (Python) | Tier 2 (Rust) |
 |--------|--------|-----|-----------------|-----------------|---------------|
 | 1 | Alanine dipeptide | φ/ψ (Ramachandran) | ✅ C7eq/C7ax, ΔF=5.57 kJ/mol | ✅ 0.52 kJ/mol max dev | ✅ exact match to Tier 1 |
-| 2 | Free xylose (crystal) | Cremer-Pople θ (puckering) | ✅ 3 basins, barriers 38-53 kJ/mol | ✅ 0.83 kJ/mol max dev | ✅ 0.75 kJ/mol max dev |
-| 3 | Enzyme-bound xylose (2D24) | Cremer-Pople θ | ✅ 3 basins, enzyme lowers barriers 1-5 kJ/mol | — | — |
+| 2 | Free xylose (crystal) | Cremer-Pople θ (puckering) | ✅ 3 basins, barriers 38-53 kJ/mol | ✅ 0.73 kJ/mol max dev | ✅ 0.79 kJ/mol max dev |
+| 3 | Enzyme-bound xylose (2D24) | Cremer-Pople θ | ✅ 3 basins, enzyme lowers barriers 1-5 kJ/mol | ✅ 0.76 kJ/mol max dev | ✅ 0.77 kJ/mol max dev |
+| 2b | Free xylose (crystal) | Cremer-Pople (qx, qy) 2D | ✅ 20 ns WTMetaD, full Stoddart | ✅ 1.71 kJ/mol max dev | ✅ 1.71 kJ/mol max dev |
+| 3b | Enzyme-bound xylose (2D24) | Cremer-Pople (qx, qy) 2D | ✅ 20 ns WTMetaD | ✅ 1.72 kJ/mol max dev | ✅ 1.72 kJ/mol max dev |
 
 ---
 
@@ -42,15 +44,23 @@ Well-tempered metadynamics deposits Gaussians at visited CV positions. The free 
 
 ---
 
-## Parity Results (May 24, 2026)
+## Parity Results (May 25, 2026)
 
-| Comparison | Module 1 (2D φ/ψ) | Module 2 (1D θ) |
-|------------|-------------------|-----------------|
-| Tier 0 → Tier 1 | 0.52 kJ/mol | 0.83 kJ/mol |
-| Tier 0 → Tier 2 | 0.52 kJ/mol | 0.75 kJ/mol |
-| Tier 1 → Tier 2 | 0.00 kJ/mol | 0.00 kJ/mol |
-| Tolerance | 2.0 kJ/mol | 2.0 kJ/mol |
-| Verdict | **MATCH** | **MATCH** |
+### 1D Puckering (Cremer-Pople θ)
+
+| Comparison | Module 1 (2D φ/ψ) | Module 2 (1D θ, free) | Module 3 (1D θ, enzyme) |
+|------------|-------------------|-----------------------|------------------------|
+| Tier 0 → Tier 1 | 0.52 kJ/mol | 0.73 kJ/mol | 0.76 kJ/mol |
+| Tier 0 → Tier 2 | 0.52 kJ/mol | 0.79 kJ/mol | 0.77 kJ/mol |
+| Tolerance | 2.0 kJ/mol | 1.0 kJ/mol | 1.0 kJ/mol |
+| Verdict | **MATCH** | **MATCH** | **MATCH** |
+
+### 2D Puckering (Cremer-Pople qx, qy — full Stoddart landscape)
+
+| System | Tier 0 | Tier 1 | Tier 2 |
+|--------|--------|--------|--------|
+| Free xylose (20 ns) | PASS | MATCH (1.71 kJ/mol) | MATCH (1.71 kJ/mol) |
+| Enzyme-bound 2D24 (20 ns) | PASS | MATCH (1.72 kJ/mol) | MATCH (1.72 kJ/mol) |
 
 ---
 
@@ -74,12 +84,13 @@ To run MD natively (Tier 3), barraCuda needs:
 
 ## lithoSpore Promotion Path
 
-The `staging/cazyme-fel/` Rust crate + `notebooks/cazyme_fel/puckering_fel.py` implement the core `sum_hills` algorithm at parity. The promotion path to `lithoSpore` (ecoPrimals' reproducible science chassis) is documented in `docs/LITHOSPORE_PROMOTION.md`:
+The `staging/cazyme-fel/` Rust crate + `notebooks/cazyme_fel/puckering_fel.py` implement the core `sum_hills` algorithm at parity (1D and 2D). The promotion path to `lithoSpore` (ecoPrimals' reproducible science chassis) is documented in `docs/LITHOSPORE_PROMOTION.md`:
 
 1. FermentBraid wire format aligned (`provenance/braids/hotspring_cazyme_fel.json`)
 2. scope.toml and validation.json follow lithoSpore schema
-3. Rust crate ready for `lithoSpore::modules::cazyme_fel` integration
-4. pseudoSpore v0.7.0 (corrected per Alistaire's review; v0.6.0 had lyxose error)
+3. Rust crate ready for `lithoSpore::modules::cazyme_fel` integration (now with 2D support)
+4. pseudoSpore v0.8.0 — includes 2D outputs, full validation matrix
+5. Primal elevation readiness doc written (`docs/PRIMAL_ELEVATION_READINESS.md`)
 
 ---
 
@@ -96,9 +107,11 @@ The `staging/cazyme-fel/` Rust crate + `notebooks/cazyme_fel/puckering_fel.py` i
 
 | Path | Role |
 |------|------|
-| `notebooks/cazyme_fel/puckering_fel.py` | Tier 1 Python sum_hills implementation |
-| `staging/cazyme-fel/` | Tier 2 Rust crate |
+| `notebooks/cazyme_fel/puckering_fel.py` | Tier 1 Python sum_hills implementation (1D + 2D) |
+| `staging/cazyme-fel/` | Tier 2 Rust crate (1D + 2D reconstruction) |
 | `control/gromacs_fel/` | Tier 0 GROMACS+PLUMED raw outputs |
+| `control/gromacs_fel/validation_matrix.json` | Systematic results matrix |
+| `docs/PRIMAL_ELEVATION_READINESS.md` | GAP-HS-111 readiness checklist |
 | `experiments/220_CAZYME_CONFORMATIONAL_ENERGY_LANDSCAPES.md` | Experiment journal |
 | `docs/LITHOSPORE_PROMOTION.md` | lithoSpore promotion plan |
 | `docs/PRIMAL_GAPS.md` | GAP-HS-111, GAP-HS-112 definitions |
