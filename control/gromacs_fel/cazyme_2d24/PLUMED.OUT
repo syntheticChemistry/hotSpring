@@ -11,7 +11,7 @@ PLUMED: Number of threads: 1
 PLUMED: Cache line size: 512
 PLUMED: Number of atoms: 92745
 PLUMED: File suffix: 
-PLUMED: FILE: plumed.dat
+PLUMED: FILE: plumed_2d.dat
 PLUMED: Action PUCKERING
 PLUMED:   with label puck
 PLUMED:   between atoms 6278 6286 6290 6294 6282 6285
@@ -24,26 +24,26 @@ PLUMED:   added component to this action:  puck.amplitude
 PLUMED:   Bibliography [3]
 PLUMED: Action METAD
 PLUMED:   with label metad
-PLUMED:   with arguments puck.theta
+PLUMED:   with arguments puck.qx puck.qy
 PLUMED:   added component to this action:  metad.bias 
-PLUMED:   Gaussian width  0.100000  Gaussian height 1.500000
+PLUMED:   Gaussian width  0.020000 0.020000  Gaussian height 1.200000
 PLUMED:   Gaussian deposition pace 500
-PLUMED:   Gaussian file HILLS
+PLUMED:   Gaussian file HILLS_2d
 PLUMED:   Well-Tempered Bias Factor 15.000000
-PLUMED:   Hills relaxation time (tau) 23.280494
+PLUMED:   Hills relaxation time (tau) 29.100617
 PLUMED:   KbT 2.494339
-PLUMED:   Grid min 0
-PLUMED:   Grid max pi
-PLUMED:   Grid bin 100
+PLUMED:   Grid min -0.12 -0.12
+PLUMED:   Grid max 0.12 0.12
+PLUMED:   Grid bin 100 100
 PLUMED:   Grid uses spline interpolation
 PLUMED:   Bibliography [4][5]
 PLUMED: Action PRINT
 PLUMED:   with label @2
 PLUMED:   with stride 10
 PLUMED:   with arguments puck.theta puck.phi puck.amplitude puck.qx puck.qy puck.qz metad.bias
-PLUMED:   on file COLVAR
+PLUMED:   on file COLVAR_2d
 PLUMED:   with format  %f
-PLUMED: END FILE: plumed.dat
+PLUMED: END FILE: plumed_2d.dat
 PLUMED: Timestep: 0.002000
 PLUMED: KbT: 2.494339
 PLUMED: Relevant bibliography:
@@ -55,10 +55,10 @@ PLUMED:   [5] Barducci, Bussi, and Parrinello, Phys. Rev. Lett. 100, 020603 (200
 PLUMED: Please read and cite where appropriate!
 PLUMED: Finished setup
 PLUMED:                                               Cycles        Total      Average      Minimum      Maximum
-PLUMED:                                                    1   146.643240   146.643240   146.643240   146.643240
-PLUMED: 1 Prepare dependencies                       5000001     2.203213     0.000000     0.000000     0.000241
-PLUMED: 2 Sharing data                               5000001     4.069197     0.000001     0.000000     0.010476
-PLUMED: 3 Waiting for data                           5000001     6.461383     0.000001     0.000001     0.000258
-PLUMED: 4 Calculating (forward loop)                 5000001    50.902729     0.000010     0.000007     0.000452
-PLUMED: 5 Applying (backward loop)                   5000001    12.215256     0.000002     0.000002     0.000423
-PLUMED: 6 Update                                     5000001    48.865592     0.000010     0.000000     0.002962
+PLUMED:                                                    1   251.895193   251.895193   251.895193   251.895193
+PLUMED: 1 Prepare dependencies                      10000001     3.340535     0.000000     0.000000     0.000241
+PLUMED: 2 Sharing data                              10000001     5.432631     0.000001     0.000000     0.002767
+PLUMED: 3 Waiting for data                          10000001    10.537069     0.000001     0.000001     0.000203
+PLUMED: 4 Calculating (forward loop)                10000001    87.492650     0.000009     0.000008     0.000380
+PLUMED: 5 Applying (backward loop)                  10000001    19.613815     0.000002     0.000002     0.000277
+PLUMED: 6 Update                                    10000001    88.315595     0.000009     0.000000     0.003003

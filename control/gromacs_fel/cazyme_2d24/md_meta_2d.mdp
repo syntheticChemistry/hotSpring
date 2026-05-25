@@ -1,4 +1,4 @@
-; Production 2D well-tempered metadynamics — free xylose puckering (theta, phi)
+; Production 2D well-tempered metadynamics — enzyme-bound xylose puckering (qx, qy)
 
 integrator  = md
 nsteps      = 10000000

@@ -1,0 +1,42 @@
+; Alanine dipeptide in large box (pseudo-vacuum) — well-tempered metadynamics
+; GROMACS 2026.0 (Verlet scheme, PBC with large box mimicking vacuum)
+
+integrator          = md
+nsteps              = 5000000
+dt                  = 0.002
+; 5M steps × 2fs = 10 ns
+
+comm_mode           = Angular
+nstcomm             = 1000
+
+nstlog              = 5000
+nstenergy           = 5000
+nstxout-compressed  = 500
+compressed-x-grps   = Protein
+
+cutoff-scheme       = Verlet
+nstlist             = 20
+pbc                 = xyz
+verlet-buffer-tolerance = -1
+rlist               = 4.5
+
+coulombtype         = Cut-off
+rcoulomb            = 4.5
+
+vdw-type            = Cut-off
+rvdw                = 4.5
+
+constraints         = h-bonds
+constraint-algorithm = lincs
+lincs_iter          = 4
+
+tcoupl              = v-rescale
+tc_grps             = system
+tau_t               = 0.1
+ref_t               = 300.0
+
+pcoupl              = no
+
+gen_vel             = yes
+gen_temp            = 300.0
+gen_seed            = 1536
