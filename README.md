@@ -28,6 +28,18 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
+### Gate Deployment
+
+| Field | Value |
+|-------|-------|
+| **Gate** | biomeGate |
+| **Composition** | Node Atomic (full NUCLEUS + skunkBat) |
+| **NUCLEUS status** | operational (62/62 validation) |
+| **Songbird federation** | port 7700 |
+| **LAN mesh** | ready — covalent linking via Songbird TCP |
+| **Cell graph** | `plasmidBin/cells/hotspring_cell.toml` |
+| **Launch** | `SONGBIRD_FEDERATION_PORT=7700 ./tools/nucleus_launcher.sh start` then `./tools/cell_launcher.sh hotspring start` |
+
 ### Philosophical Evolution: Vendor Agnostic → Vendor Atheistic → Silicon Deistic
 
 There is only math, energy, and silicon. Everything else is an abstraction.
