@@ -1,5 +1,5 @@
 # Machine-readable domain ↔ computation index mapping
-# Domain = PDB serial numbering (biochemistry standard)
+# Domain = PDB 2D24 serial numbering (biochemistry standard)
 # Computation = GROMACS topology numbering (runtime requirement)
 
 [meta]
@@ -10,20 +10,20 @@ cremer_pople_convention = "C1-C2-C3-C4-C5-O5"
 
 [systems.free-xylose]
 description = "Single beta-D-xylopyranose in TIP3P water box"
-structure_source = "PDB 2D24, ligand XYS chain C residue 4"
+structure_source = "PDB 2D24, ligand XYS chain C residue 1 (subsite -1)"
 total_atoms = 2657
 rosetta_stone = "data/xylose-puckering-fel/npt.gro"
 
 [systems.free-xylose.ring]
-C1 = { domain = 1, computation = 1 }
-C2 = { domain = 2, computation = 9 }
-C3 = { domain = 3, computation = 13 }
-C4 = { domain = 4, computation = 17 }
-C5 = { domain = 5, computation = 5 }
-O5 = { domain = 6, computation = 8 }
+C1 = { domain = 6469, computation = 1 }
+C2 = { domain = 6470, computation = 9 }
+C3 = { domain = 6471, computation = 13 }
+C4 = { domain = 6472, computation = 17 }
+C5 = { domain = 6473, computation = 5 }
+O5 = { domain = 6478, computation = 8 }
 
 [systems.free-xylose.ring._note]
-value = "Single-molecule system: domain indices = crystal atom order; computation indices = GROMACS topology order (heavy atoms first per residue, then H)"
+value = "Domain = PDB 2D24 HETATM serial for XYS chain C res 1. Computation = GROMACS index after pdb2gmx (heavy-atom-first reorder within residue)."
 
 [systems.enzyme-bound]
 description = "GH10 xylanase + beta-D-xylose at -1 subsite"
@@ -40,4 +40,4 @@ C5 = { domain = 6603, computation = 6282 }
 O5 = { domain = 6607, computation = 6285 }
 
 [systems.enzyme-bound.ring._note]
-value = "Domain = PDB ATOM serial; Computation = GROMACS index after pdb2gmx+solvation+ions. Offset arises from H-atom insertion, water reordering, and ion addition."
+value = "Domain = PDB 2D24 ATOM serial for BXYL res 437. Computation = GROMACS index after pdb2gmx+solvation+ions. Offset from H-atom insertion, water reordering, ion addition."
