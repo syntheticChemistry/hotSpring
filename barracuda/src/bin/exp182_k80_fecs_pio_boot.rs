@@ -41,7 +41,7 @@
 //!
 //! GPU must be in warm state (after `nouveau` warm cycle + handoff to vfio-pci).
 //! Run warm handoff:
-//!   sudo scripts/boot/k80_warm_handoff.sh 0000:4c:00.0
+//!   toadstool device warm-catch 0000:4c:00.0 --memory-type gddr5
 
 #[cfg(feature = "low-level")]
 #[allow(unsafe_code)]
@@ -209,7 +209,7 @@ fn main() {
     println!("  PMC_ENABLE     = {pmc_en:#010x}");
     if pmc_en <= PMC_WARM_LO {
         eprintln!("ERROR: GPU is cold (PMC_ENABLE={pmc_en:#010x}). Run nouveau warm cycle first.");
-        eprintln!("  sudo scripts/boot/k80_warm_handoff.sh {bdf}");
+        eprintln!("  toadstool device warm-catch {bdf} --memory-type gddr5");
         std::process::exit(1);
     }
     println!("  DEVINIT:       OK (PMC warm)");

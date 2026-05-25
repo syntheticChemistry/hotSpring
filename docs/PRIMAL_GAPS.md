@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 24, 2026 (CAZyme FEL evolution: 220 experiments, GROMACS 2026.0 control installed, 2 new gaps HS-111/112 — biomolecular FF + petalTongue visualization)
+**Last audited:** May 25, 2026 (221 experiments. CAZyme FEL pseudoSpore v1.5.0 / lithoSpore v2.3.0 — GuideStone-grade, 12/12 audit PASS. NUCLEUS launched on biomeGate via plasmidBin. 2 active gaps HS-111/112 — biomolecular FF + petalTongue visualization)
 **License:** AGPL-3.0-or-later
 
 ---

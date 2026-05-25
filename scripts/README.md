@@ -35,7 +35,7 @@ sudo install -m 755 primals/toadstool /usr/local/bin/toadstool
 Or via the local install script:
 
 ```bash
-sudo ./scripts/boot/install-glowplug.sh  # Uses plasmidBin, falls back to cargo build
+sudo ./scripts/boot/install-glowplug.sh  # plasmidBin-only (post-primordial, no cargo fallback)
 ```
 
 Systemd units are at `scripts/boot/toadstool-ember.service` and

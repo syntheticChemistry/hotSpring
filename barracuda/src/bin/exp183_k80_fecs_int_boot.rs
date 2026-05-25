@@ -37,7 +37,7 @@
 //!
 //! 1. nouveau warm cycle to train GDDR5 and set PMC_ENABLE:
 //!    ```sh
-//!    sudo scripts/boot/k80_warm_handoff.sh 0000:4b:00.0
+//!    toadstool device warm-catch 0000:4b:00.0 --memory-type gddr5
 //!    ```
 //! 2. `sudo setpci -s 0000:4b:00.0 COMMAND=0x06`
 //!
@@ -243,7 +243,7 @@ fn main() {
     let pmc_warm = pmc_en > 0x0000_3000; // rough threshold: must have GR+FIFO bits
     if !pmc_warm {
         eprintln!("ERROR: GPU appears cold (PMC_ENABLE={pmc_en:#010x}).");
-        eprintln!("  Run nouveau warm cycle first: sudo scripts/boot/k80_warm_handoff.sh {bdf}");
+        eprintln!("  Run warm cycle first: toadstool device warm-catch {bdf} --memory-type gddr5");
         std::process::exit(1);
     }
     if fecs_sctl != 0 {

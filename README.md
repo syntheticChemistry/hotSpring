@@ -24,7 +24,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase G (Universal Substrate Deployment)**: guideStone-certified artifact deployable on any OS, any architecture, any filesystem. **✅ 59/59 checks x 5 substrates. Cross-architecture parity (x86_64 + aarch64, bit-identical). OCI container image. Windows WSL2/Docker + macOS Docker launchers. exFAT tmpdir fallback. `./hotspring` unified ecoBin entry point. benchScale 5-substrate validation (40/40 cross-substrate parity).**
 
-- **CAZyme FEL (Exp 220 — Biomolecular MD)**: Three-tier sovereign FEL reconstruction validated against GROMACS+PLUMED industry control. Target: Iglesias-Fernández 2015 (PDB 2D24, GH10 xylanase). **✅ All 5 modules COMPLETE (pseudoSpore v1.1.1, lithoSpore v2.1.0). Free vs enzyme-bound 1D+2D Cremer-Pople landscapes. Tier 0→1→2: MATCH (<1 kJ/mol). `litho audit` 10/10 PASS. BLAKE3 integrity verified. Visual evidence layer (auto-generated figures). Full automation pipeline: `litho emit` → `litho audit` → `litho promote`. Domain↔computation index translation via `index_map.toml`. Handoff-ready for Alistaire.**
+- **CAZyme FEL (Exp 220 — Biomolecular MD)**: Three-tier sovereign FEL reconstruction validated against GROMACS+PLUMED industry control. Target: Iglesias-Fernández 2015 (PDB 2D24, GH10 xylanase). **✅ All 5 modules COMPLETE (pseudoSpore v1.5.0, lithoSpore v2.3.0). Free vs enzyme-bound 1D+2D Cremer-Pople landscapes. Tier 0→1→2: MATCH (<1 kJ/mol). `litho audit` 12/12 PASS. BLAKE3 integrity verified. Visual evidence layer (auto-generated figures). Full automation pipeline: `litho emit` → `litho audit` → `litho promote`. Domain Profiles for agnostic deployment. GuideStone-grade data chassis (`data.toml`, `liveSpore.json`, `tolerances.toml`, `validate`/`refresh` entry points). Handoff-ready for Alistaire.**
 
 hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
@@ -38,7 +38,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WG
 | **Songbird federation** | port 7700 |
 | **LAN mesh** | ready — covalent linking via Songbird TCP |
 | **Cell graph** | `plasmidBin/cells/hotspring_cell.toml` |
-| **Launch** | `SONGBIRD_FEDERATION_PORT=7700 ./tools/nucleus_launcher.sh start` then `./tools/cell_launcher.sh hotspring start` |
+| **Launch** | `cd infra/plasmidBin && ./nucleus_launcher.sh --family-id hotspring-biome --composition niche-hotspring` |
 
 ### Philosophical Evolution: Vendor Agnostic → Vendor Atheistic → Silicon Deistic
 
@@ -491,7 +491,7 @@ hotSpring/
 │       └── bin/                       # 167 binaries (validation, production, benchmarks, composition, guideStone)
 │           └── _fossilized/          # hotspring_primal.rs (superseded by hotspring_unibin)
 │
-├── experiments/                        # 220 experiment journals (fossil record); 001-190 archived under experiments/archive/
+├── experiments/                        # 221 experiment journals (fossil record); 001-190 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-190 (archived journals + FOSSIL_RECORD summaries)
 │   └── 191-220: active experiments (toadStool PBDMA, HW validation, PLX keepalive, cold/warm boot, driver lab, warm swap, diesel engine, power safety, CG sweep, surface rewire, warm/cold convergence, VBIOS live validation, dual Titan V, Falcon ACR DMA, sovereign boot abstraction + profiling, reboot-efficient sovereign evolution, VFIO dispatch bridge, GPC boundary, PMU mailbox Tier 2, sovereignty consolidation, live HW warm handoff, D-state hardening, TPC wall identification, kernel health preflight, TPC PRI station creation, nvidia-470 nvsov dual-load, catalyst driver pattern, CAZyme FEL biomolecular MD)
 │
@@ -562,7 +562,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*220 experiments, 700 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*221 experiments, 700 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** —
