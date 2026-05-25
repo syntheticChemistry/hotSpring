@@ -2,13 +2,14 @@
 # Using Cartesian (qx, qy) to avoid polar singularity and periodicity issues
 #
 # INDEX TRANSLATION (domain → computation):
-#   Crystal atom order → GROMACS topology index (single residue BXYL)
-#   C1: 1 → 1
-#   C2: 2 → 9
-#   C3: 3 → 13
-#   C4: 4 → 17
-#   C5: 5 → 5
-#   O5: 6 → 8
+#   PDB 2D24 serial (XYS chain C res 4) → GROMACS topology index
+#   C1: 6469 → 1
+#   C2: 6470 → 9
+#   C3: 6471 → 13
+#   C4: 6472 → 17
+#   C5: 6473 → 5
+#   O5: 6478 → 8
+#   Source: data/free-xylose-2d/npt.gro
 
 puck: PUCKERING ATOMS=1,9,13,17,5,8
 

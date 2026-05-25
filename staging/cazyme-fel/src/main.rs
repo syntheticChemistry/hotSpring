@@ -9,8 +9,34 @@ use std::process;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
+    if args.get(1).map(|a| a == "--help" || a == "-h").unwrap_or(false) {
+        println!("cazyme-fel — Tier 2 FEL validation (Rust implementation)");
+        println!();
+        println!("Reconstructs Free Energy Landscapes from HILLS files and validates");
+        println!("against reference outputs (plumed sum_hills). Reports RMSD parity.");
+        println!();
+        println!("USAGE:");
+        println!("  cazyme-fel <HILLS> [OPTIONS]");
+        println!();
+        println!("OPTIONS:");
+        println!("  --reference <fes.dat>  Reference FES file to validate against");
+        println!("  --nbins N              Grid bins (default: 110)");
+        println!("  --json                 Output results as JSON");
+        println!("  --2d                   2D FES mode (expects 2-CV HILLS)");
+        println!("  --periodic-y           Treat Y axis as periodic");
+        println!("  --grid-min <x,y>       Grid minimum bounds");
+        println!("  --grid-max <x,y>       Grid maximum bounds");
+        println!("  --help, -h             Show this help");
+        println!();
+        println!("EXAMPLES:");
+        println!("  cazyme-fel data/HILLS --reference outputs/fes_theta.dat --json");
+        println!("  cazyme-fel data/HILLS_2d --2d --grid-min -0.12,-0.12 --grid-max 0.12,0.12");
+        process::exit(0);
+    }
+
     let hills_path = args.get(1).map(PathBuf::from).unwrap_or_else(|| {
-        eprintln!("Usage: cazyme-fel <HILLS> [--reference <fes.dat>] [--nbins N] [--json] [--2d] [--periodic-y]");
+        eprintln!("Usage: cazyme-fel <HILLS> [--reference <fes.dat>] [--nbins N] [--json] [--2d]");
+        eprintln!("Try 'cazyme-fel --help' for more information.");
         process::exit(1);
     });
 
