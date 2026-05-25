@@ -200,6 +200,13 @@ control/gromacs_fel/cazyme_2d24/em.gro
 control/gromacs_fel/cazyme_2d24/nvt.gro
 control/gromacs_fel/cazyme_2d24/npt.gro
 control/gromacs_fel/cazyme_2d24/md_meta.gro
+# v2 working directory (corrected xylose — large binary outputs)
+control/gromacs_fel/cazyme_gh10_v2/*.gro
+control/gromacs_fel/cazyme_gh10_v2/*.log
+control/gromacs_fel/cazyme_gh10_v2/*.top
+control/gromacs_fel/cazyme_gh10_v2/COLVAR
+control/gromacs_fel/cazyme_gh10_v2/HILLS
+control/gromacs_fel/cazyme_gh10_v2/#*
 
 # ----- Python cache -----
 **/__pycache__/

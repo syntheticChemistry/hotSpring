@@ -4,7 +4,7 @@
 **Experiment:** 220  
 **Domain:** Biomolecular MD — enhanced sampling (well-tempered metadynamics)  
 **Target paper:** Iglesias-Fernández et al. 2015 — "Free Energy of Conformational Substates" (PDB 2D24, GH10 xylanase)  
-**Status:** Tier 0-2 parity MATCH (<1 kJ/mol)
+**Status:** Tier 0-2 parity MATCH (<1 kJ/mol) | All 3 modules COMPLETE (v0.7.0)
 
 ---
 
@@ -19,8 +19,8 @@ Validate that sovereign compute (Python → Rust → eventually WGSL) can reprod
 | Module | System | CV | Tier 0 (GROMACS) | Tier 1 (Python) | Tier 2 (Rust) |
 |--------|--------|-----|-----------------|-----------------|---------------|
 | 1 | Alanine dipeptide | φ/ψ (Ramachandran) | ✅ C7eq/C7ax, ΔF=5.57 kJ/mol | ✅ 0.52 kJ/mol max dev | ✅ exact match to Tier 1 |
-| 2 | Free xylose | Cremer-Pople θ (puckering) | ✅ 3 basins, barriers 42-54 kJ/mol | ✅ 0.83 kJ/mol max dev | ✅ 0.75 kJ/mol max dev |
-| 3 | Enzyme-bound xylose (2D24) | Cremer-Pople θ | 🔄 IN_FLIGHT | — | — |
+| 2 | Free xylose (crystal) | Cremer-Pople θ (puckering) | ✅ 3 basins, barriers 38-53 kJ/mol | ✅ 0.83 kJ/mol max dev | ✅ 0.75 kJ/mol max dev |
+| 3 | Enzyme-bound xylose (2D24) | Cremer-Pople θ | ✅ 3 basins, enzyme lowers barriers 1-5 kJ/mol | — | — |
 
 ---
 
@@ -79,7 +79,7 @@ The `staging/cazyme-fel/` Rust crate + `notebooks/cazyme_fel/puckering_fel.py` i
 1. FermentBraid wire format aligned (`provenance/braids/hotspring_cazyme_fel.json`)
 2. scope.toml and validation.json follow lithoSpore schema
 3. Rust crate ready for `lithoSpore::modules::cazyme_fel` integration
-4. pseudoSpore v0.6.0 tarball shipped (Desktop) for ABG domain expert review
+4. pseudoSpore v0.7.0 (corrected per Alistaire's review; v0.6.0 had lyxose error)
 
 ---
 

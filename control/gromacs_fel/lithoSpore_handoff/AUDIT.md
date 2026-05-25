@@ -164,7 +164,7 @@ with standard Unix tools (`awk`, `sort`, `python`).
 
 ---
 
-## Module 3: Enzyme-Bound Puckering (PDB 2D24) — IN FLIGHT
+## Module 3: Enzyme-Bound Puckering (PDB 2D24) — COMPLETE (v0.7.0)
 
 **Source directory**: `control/gromacs_fel/cazyme_2d24/`
 
@@ -197,25 +197,50 @@ Every atom index in `plumed.dat` was checked against `npt.gro`:
 
 All 6 ring bonds are in the expected 1.2–1.7 Å range for a pyranose ring.
 
-### Production status
+### Production status — COMPLETE
 
-- **HILLS deposited**: 3,068 / 10,000 (30.6%) as of audit time
-- **MDP**: nsteps=5000000, dt=0.002 → 10 ns, matching claim
-- **PLUMED**: PACE=500, HEIGHT=1.5, SIGMA=0.1, BIASFACTOR=15.0 → all match
-- **Trajectory**: 1.0 GB growing (`md_meta.xtc`)
-- **No crashes**: simulation running continuously
+- **HILLS deposited**: 10,000 / 10,000 (100%)
+- **GROMACS log**: "Finished mdrun on rank 0 Sun May 24 13:36:04 2026" ✓
+- **COLVAR entries**: 500,004 (= 5M / STRIDE 10 + header) ✓
+- **Theta sampling**: 0.03° to 179.97° (complete coverage) ✓
+- **FEL computed**: `fes_theta.dat` via `plumed sum_hills --hills HILLS --mintozero`
+- **Convergence**: fes_4 → fes_5 drift = 0.00 kJ/mol ✓
+
+### FEL results
+
+| Basin | Theta | Free Energy |
+|-------|-------|-------------|
+| Chair A (4C1) | ~8° | 13.59 kJ/mol |
+| Boat | ~89° | 5.38 kJ/mol |
+| Chair B (1C4) | ~172° | 0.00 kJ/mol (global min) |
+
+### v0.6.0 → v0.7.0 correction note
+
+Module 3 was marked IN_FLIGHT in v0.6.0. The GROMACS production run had actually
+completed (10,000 Gaussians, log confirms finish) but `sum_hills` post-processing
+was never executed. Fixed in v0.7.0.
 
 ---
 
 ## Summary of Discrepancies Found
 
+### v0.6.0 issues (now resolved)
+
+| # | Module | Issue | Severity | Resolution |
+|---|--------|-------|----------|------------|
+| 1 | M2 | Input structure was β-D-Lyxose (RDKit SMILES error) | **Critical** | Rebuilt from PDB 2D24 crystal |
+| 2 | M3 | Marked IN_FLIGHT but production had completed | **High** | Ran sum_hills, documented |
+| 3 | M2 | No topology/solvation evidence shipped | **Medium** | Added SYSTEM_SETUP.md |
+| 4 | M3 | No atom index documentation | **Medium** | Added ATOM_INDEX_MAP.md |
+
+### v0.7.0 remaining observations
+
 | # | Module | Check | Claimed | Actual | Severity |
 |---|--------|-------|---------|--------|----------|
 | 1 | M1 | ΔF(C7ax-C7eq) | 5.57 kJ/mol | 5.57 (1D) or 4.78 (2D) | **Low** — both values in raw data, methodology not specified |
 | 2 | M1 | Convergence drift | 0.5 kJ/mol | 0.00 kJ/mol | **None** — actual is better than claimed |
-| 3 | M2 | Barrier range | [40, 54] | [42.0, 54.1] | **None** — 40→42 is rounding |
-| 4 | M2 | Convergence drift | 2.9 kJ/mol | 0.00 kJ/mol (last pair) | **Low** — may have used different stride pair |
-| 5 | M2 | Global minimum | (not explicitly claimed) | 1C4 at 172°, not 4C1 | **Medium** — atom ordering convention needs Alistaire's confirmation |
+| 3 | M2 | Global minimum | θ=172° | 1C4 by PLUMED convention | **Medium** — atom ordering convention needs Alistaire's confirmation |
+| 4 | ALL | Chair label assignment | 1C4 global min | Expected: 4C1 for β-D-xylose | **Open** — convention or FF artifact |
 
 ### What the AI did vs what the math did
 
