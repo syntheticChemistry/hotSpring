@@ -7,13 +7,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Sovereignty Audit + PostPrimordial Checkpoint (May 26, 2026)
+
+### Changed
+- **Sovereignty audit**: `sovereign.classify_tier` confirmed both Titan Vs at
+  **Tier 1 (WarmInfrastructure)**: `tpc_alive=false`, `tpc_status=0xBADF5040`,
+  `gpc_enables=0x00000000`. Tier 2 sovereign compute NOT achieved.
+- **Documentation corrected**: README, EXPERIMENT_INDEX, Exp 223 all updated to
+  reflect honest Tier 1 status. `compute_ready` documented as init health check,
+  not dispatch readiness. VBIOS POST is the source of warm state, not toadStool.
+- **PostPrimordial transition**: local wateringHole archived to infra hub,
+  hotSpring aligned to live plasmidBin deployments (except toadStool = local build).
+
 ## ACR Sovereign Boot Catalyst — Infrastructure Hardening (May 26, 2026)
 
 ### Added
 - **Experiment 223**: ACR Sovereign Boot Catalyst — HS mode architecture mapped,
   ENGCTL destruction identified, CPUCTL_ALIAS boot path validated. Python
-  catalyst superseded by Rust `exp224_pmu_acr_catalyst`. toadStool
-  `sovereign.init` achieves `compute_ready` on both Titan V GPUs.
+  catalyst superseded by Rust `exp224_pmu_acr_catalyst`. **Tier 1 confirmed**
+  via `classify_tier` (TPC wall intact, GPCCS HS fuse-locked).
 - **`low_level/falcon.rs`** — shared Falcon v5 register map module: 24 canonical
   register offsets, 5 engine bases (PMU/FECS/GPCCS/SEC2/NVDEC), `FalconSnapshot`
   struct with `sec_mode()`/`cpu_state()`/`imem_size()`/`dmem_size()`, PIO

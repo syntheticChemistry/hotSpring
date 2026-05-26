@@ -1,6 +1,6 @@
 # Sovereign Validation Matrix
 
-**Updated:** 2026-05-21 (Sprint G — TPC Wall Identified, Kernel Health Preflight)
+**Updated:** 2026-05-26 (Sovereignty Audit — Tier 1 confirmed, Tier 2 NOT achieved)
 **Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. **Sprint G (May 2026):** Exp 215 refines Tier 2 blocker from "GPC power domain" to **TPC PRI ring station wall** — GPC fabric survives warm handoff but TPC control registers return `0xBADF5040` (station missing). PMU software path **CLOSED** on Volta (Exp 211). Kernel build environment health check integrated (Exp 216). Sovereign driver rotation codified in diesel engine (Exp 211/S267). Exp 217 targets `sw_nonctx.bin` broadcast TPC wake. **Sprint F:** Tier model codified (Exp 210), CE runlist discovery, binary-patch warm handoff proven (Exp 211), sovereignty consolidation (Exp 212), live hardware handoff (Exp 213), D-state hardening (Exp 214). **Sprint E:** Binary-patched nouveau warm-catch resolves GAP-HS-073/076. ALL 3 GPUs sovereign infrastructure (Tier 1). **SovereignInit pipeline (Exp 165):** pure Rust `open_sovereign(bdf)` path.
 
 ## Dispatch Path Inventory
@@ -28,7 +28,7 @@
 
 **Sovereignty Tier Status:**
 - **Tier 1 (Warm Infrastructure):** VALIDATED (Exp 210) — VFIO, BAR0, DMA, PFIFO, channels, pushbuffers, FECS liveness, topology discovery. 183ms warm pipeline (Exp 208).
-- **Tier 2 (Warm Compute):** CLASSIFIED (Exp 215) — GPC fabric alive (6/6 GPCs), CE4/CE5 alive. **Dispatch BLOCKED by TPC PRI ring wall** (`0x504000` = `0xBADF5040`). PMU software path CLOSED (Exp 211).
+- **Tier 2 (Warm Compute):** **NOT ACHIEVED** (Exp 224 sovereignty audit) — `sovereign.classify_tier` confirms `tpc_alive=false`, `tpc_status=0xBADF5040`, `gpc_enables=0x00000000`. TPC PRI ring stations require GPCCS firmware execution which is HS fuse-locked on GV100. `sovereign.init` `compute_ready=true` is an init health check (PTIMER + PRAMIN + PMC), NOT dispatch readiness. PMU software path CLOSED (Exp 211).
 - **Tier 3 (Silicon Deistic):** Long-term target — VBIOS interpreter has 422 ops (Exp 204), ~100 unknown opcodes remain.
 
 | Layer | VFIO Cold | VFIO Warm | nouveau DRM | nvidia+UVM | NVK/wgpu |

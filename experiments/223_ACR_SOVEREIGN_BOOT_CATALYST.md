@@ -1,7 +1,7 @@
 # Experiment 223 — ACR Sovereign Boot Catalyst (Frozen Reagent)
 
-**Date**: 2026-05-25 (updated 2026-05-26)
-**Status**: ✅ EVOLVED — toadStool `sovereign.init` achieves compute_ready on both GPUs; Rust exp224 hardened into shared `low_level/falcon.rs` module with unit tests
+**Date**: 2026-05-25 (updated 2026-05-26, sovereignty audit)
+**Status**: ✅ EVOLVED — infrastructure hardened (shared `falcon.rs`, SafeBar0 ENGCTL deny-list, 16 tests). **Tier 1 (WarmInfrastructure) confirmed** via `sovereign.classify_tier`; Tier 2 compute NOT achieved (TPC wall `0xBADF5040`). `sovereign.init` `compute_ready` is an init health check, not dispatch readiness.
 **Hardware**: 2x NVIDIA Titan V (GV100), BDFs `0000:02:00.0`, `0000:49:00.0`
 **Dependency**: Exp 219 (catalyst pattern + Tier 2 PRI wall), Exp 222 (reagent capture pipeline)
 
@@ -245,11 +245,19 @@ to PMU is blocked in HS mode 2 (VBIOS-initialized state). CPUCTL_ALIAS is
 unresponsive. The PMU is a firmware fortress — host cannot directly load or
 start code on it from a cold VBIOS state.
 
-**Resolution:** toadStool's `sovereign.init` RPC (which uses the correct
-multi-stage boot path: Boot Falcon → SEC2 → ACR → PMU) successfully brought
-both GPUs to `compute_ready: true` with full DEVINIT (PMC_ENABLE=0x5fecdff1).
-A WGSL compute shader was dispatched via `compute.dispatch` to confirm
-functional Tier 2 compute.
+**Resolution:** toadStool's `sovereign.init` RPC reported `compute_ready: true`
+with PMC_ENABLE=0x5fecdff1 on both GPUs. However, `compute_ready` is an **init
+pipeline health check** (PTIMER, PRAMIN, PMC readback), NOT a dispatch readiness
+signal. The PMC_ENABLE value was set by **UEFI/VBIOS during POST** — `sovereign.init`
+detected the warm state and skipped all hard stages (memory training, falcon boot,
+GR init). It did not perform sovereign initialization.
+
+**Sovereignty audit (session 5):** `sovereign.classify_tier` on both Titan Vs
+returned **Tier 1 (WarmInfrastructure)** with `tpc_alive: false`,
+`tpc_status: 0xBADF5040` (PRI fault). TPC stations were never created because
+GPCCS firmware never ran on vfio-pci. **Tier 2 sovereign compute is NOT achieved.**
+The `compute.dispatch.capabilities` response confirmed `vfio_status.available: false`
+— no VFIO dispatch path exists for the Titan Vs in the current configuration.
 
 **Infrastructure hardening (session 4):** Extracted shared falcon register map,
 FalconSnapshot, PIO helpers, engine bases, and Bar0Domain presets from exp224
