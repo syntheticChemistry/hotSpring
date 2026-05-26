@@ -95,8 +95,12 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 223 | ACR_SOVEREIGN_BOOT_CATALYST | analysis | ✅ EVOLVED — HS mode architecture mapped, ENGCTL destruction identified, CPUCTL_ALIAS path validated. Python catalyst superseded by Rust exp224. Shared `falcon.rs` module, SafeBar0 ENGCTL deny-list, 16 unit tests. **Sovereignty audit: Tier 1 confirmed** (`classify_tier` TPC=0xBADF5040, tpc_alive=false). `compute_ready` is init health check, not Tier 2 |
 | 224 | SOVEREIGNTY_AUDIT_CHECKPOINT | checkpoint | CHECKPOINT — `classify_tier` on both Titan Vs confirms Tier 1 (WarmInfrastructure). Tier 2 NOT achieved (TPC wall, GPCCS HS fuse-locked). Three misconceptions corrected: VBIOS POST ≠ sovereign init, `compute_ready` ≠ dispatch readiness, RTX 5060 DRM ≠ sovereign compute. PostPrimordial transition. Remaining path to Tier 2 documented |
 | 225 | CATALYST_TPC_PERSISTENCE_TEST | validation | RESULT — nvidia RM failed to init GPU after vfio-pci release. **Root cause: vfio-pci reset-on-release** destroys VBIOS warm state (PMC_ENABLE 0x5fecdff1→0x40000020). RM bound but never completed DEVINIT. 5,210 regs captured (degraded). Titan V #1 now Tier 0. Next: suppress reset-on-release, re-run |
+| 226 | SBR_BUS_RESET_SUPPRESSION | validation | CODE COMPLETE — Three-layer defense (FLR suppression + `no_bus_reset.ko` SBR suppression + bridge power pin). Phase 3 `KmodBuilder` + `finit_module(2)` fork isolation. **Hardware validation pending** (Revalidation Sprint Bench 3) |
+| 227 | PMU_ACR_REVALIDATION | validation | Rewire of exp224 from direct BAR0 mmap to ember RPCs. Crash-protected fork-isolated MMIO. PMU CPUCTL_ALIAS sovereign boot test via toadstool-ember. No `low-level` feature required |
 
-> **Note:** 225 experiments total (001–189 archived + 190 archived final coral-ember + 191–225 active).
+> **Note:** 227 experiments total (001–189 archived + 190 archived final coral-ember + 191–227 active).
+>
+> **Naming clarification:** The `exp224_pmu_acr_catalyst` binary implements what was originally the Exp 223 PMU ACR boot attempt; the binary name carries forward the Exp 224 numbering (sovereignty audit checkpoint) because the binary was created during that session. Exp 227 (`exp227_pmu_acr_revalidation`) is the ember-wired successor.
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -204,7 +208,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **700** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **225 experiments**
+- **710** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **227 experiments**
 
 ## Eukaryotic Evolution (May 2026)
 

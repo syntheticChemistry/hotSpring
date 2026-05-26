@@ -7,6 +7,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## SBR Bus Reset Suppression — Exp 226 (May 26, 2026)
+
+### Added
+- **Experiment 226**: SBR Bus Reset Suppression — Exp 225 FLR-first fix
+  suppressed per-device resets via `reset_method`, but the kernel's
+  `vfio_pci_dev_set_try_reset()` fires `pci_reset_bus()` (Secondary Bus
+  Reset) when all devices in the dev_set have `open_count==0`. SBR resets
+  everything behind the PCIe bridge (`00:01.3`), bypassing per-device
+  `reset_method` entirely.
+- **`suppress_bus_reset()`** in `guarded_sysfs.rs` — compiles a tiny GPL
+  kernel module (`no_bus_reset.ko`) via kbuild that sets
+  `PCI_DEV_FLAGS_NO_BUS_RESET` on the target device, making
+  `pci_bus_resetable()` return false and `pci_reset_bus()` return
+  `-ENOTTY`.
+- **`restore_bus_reset()`** in `guarded_sysfs.rs` — unloads the module
+  and cleans up build artifacts.
+- **Three-layer reset defense** in `prepare_anchor_release()`: (1) bridge
+  power pinning, (2) per-device FLR/PM suppression, (3) bus-level SBR
+  suppression via `no_bus_reset.ko`.
+
+### Changed
+- **Step 0e diagnostic** updated to reference SBR/Exp 226 instead of
+  FLR/Exp 225.
+- **Step 9** now calls `restore_bus_reset()` after `restore_flr()` to
+  unload the module and re-enable SBR for subsequent operations.
+
 ## Diesel Engine Evolution: Reset-on-Release Fix (May 26, 2026)
 
 ### Added

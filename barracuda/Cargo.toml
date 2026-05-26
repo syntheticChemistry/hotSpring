@@ -949,3 +949,10 @@ path = "src/bin/exp184_k80_gr_sovereign.rs"
 name = "exp224_pmu_acr_catalyst"
 path = "src/bin/exp224_pmu_acr_catalyst.rs"
 required-features = ["low-level"]
+
+# ── Exp 227: PMU ACR Revalidation — ember-wired (no raw BAR0) ───────────
+# Rewire of exp224 to ember RPCs. All GPU access via toadstool-ember.
+# Crash-protected, fork-isolated MMIO. No `low-level` feature required.
+[[bin]]
+name = "exp227_pmu_acr_revalidation"
+path = "src/bin/exp227_pmu_acr_revalidation.rs"

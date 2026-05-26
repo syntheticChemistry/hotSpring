@@ -28,7 +28,7 @@
 
 **Sovereignty Tier Status:**
 - **Tier 1 (Warm Infrastructure):** VALIDATED (Exp 210) — VFIO, BAR0, DMA, PFIFO, channels, pushbuffers, FECS liveness, topology discovery. 183ms warm pipeline (Exp 208).
-- **Tier 2 (Warm Compute):** **NOT ACHIEVED** (Exp 224 sovereignty audit) — `sovereign.classify_tier` confirms `tpc_alive=false`, `tpc_status=0xBADF5040`, `gpc_enables=0x00000000`. TPC PRI ring stations require GPCCS firmware execution which is HS fuse-locked on GV100. `sovereign.init` `compute_ready=true` is an init health check (PTIMER + PRAMIN + PMC), NOT dispatch readiness. PMU software path CLOSED (Exp 211). Exp 225 catalyst persistence test: `vfio-pci` reset-on-release destroyed warm state before RM could initialize — diesel engine FLR-first fix applied (Exp 225).
+- **Tier 2 (Warm Compute):** **NOT ACHIEVED** (Exp 224 sovereignty audit) — `sovereign.classify_tier` confirms `tpc_alive=false`, `tpc_status=0xBADF5040`, `gpc_enables=0x00000000`. TPC PRI ring stations require GPCCS firmware execution which is HS fuse-locked on GV100. `sovereign.init` `compute_ready=true` is an init health check (PTIMER + PRAMIN + PMC), NOT dispatch readiness. PMU software path CLOSED (Exp 211). Exp 225 catalyst persistence test: `vfio-pci` reset-on-release destroyed warm state before RM could initialize — diesel engine FLR-first fix applied (Exp 225), SBR bus reset suppression via `no_bus_reset.ko` kernel module (Exp 226: three-layer reset defense).
 - **Tier 3 (Silicon Deistic):** Long-term target — VBIOS interpreter has 422 ops (Exp 204), ~100 unknown opcodes remain.
 
 | Layer | VFIO Cold | VFIO Warm | nouveau DRM | nvidia+UVM | NVK/wgpu |

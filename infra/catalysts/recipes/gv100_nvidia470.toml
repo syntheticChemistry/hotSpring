@@ -6,6 +6,14 @@
 #
 # The PatchSet in module_patch.rs is the code-level implementation.
 # This TOML externalizes it for archival and iteration.
+#
+# RECONCILED: 2026-05-26 — aligned with live `nvidia_catalyst_handoff()`
+# in `module_patch.rs`. Key changes from Exp 219 original:
+#   - nv_pci_remove: RetAtEntry → surgical NopCallAt (4 offsets)
+#   - gpuStateUnload_IMPL, gpuStateDestroy_IMPL, _deviceTeardown,
+#     clTeardown_IMPL, fecsBufferTeardown: REMOVED (PCI resource cleanup
+#     must run to avoid stale iomem entries)
+#   - nv_cap_init, nv_cap_drv_init: REMOVED (allows RM cap table init)
 
 [catalyst]
 name = "gv100_nvidia470_catalyst"
@@ -23,7 +31,7 @@ supports_volta_legacy_rm = true
 kernel = "6.17.9-76061709-generic"
 patch_set = "nvidia_catalyst_handoff"
 module_rename = { from = "nvidia", to = "nvsov" }
-settle_secs = 15
+settle_secs = 60
 
 [objcopy]
 remove_sections = [
@@ -33,42 +41,35 @@ remove_sections = [
     ".rela__ksymtab",
 ]
 
-# Teardown NOPs — preserve GPU state through unbind
+# Surgical teardown NOPs inside nv_pci_remove — NOP only GPU-state-destroying
+# calls while letting PCI resource cleanup (__release_region, pci_disable_device)
+# run normally. Prevents stale BAR0 claims in kernel iomem tree.
+# Call offsets verified against nvidia-470.256.02 on kernel 6.17.9 via
+# objdump + readelf relocation table.
 [[patches]]
 symbol = "nv_pci_remove"
-strategy = "RetAtEntry"
-purpose = "Prevent teardown on unbind — preserve warm GPU state"
+strategy = "NopCallAt(0x374)"
+purpose = "NOP GPU state destroy call at offset 0x374"
 
 [[patches]]
-symbol = "gpuStateUnload_IMPL"
-strategy = "RetAtEntry"
-purpose = "Prevent RM GPU state unload"
+symbol = "nv_pci_remove"
+strategy = "NopCallAt(0x3a0)"
+purpose = "NOP GPU state destroy call at offset 0x3a0"
 
 [[patches]]
-symbol = "gpuStateDestroy_IMPL"
-strategy = "RetAtEntry"
-purpose = "Prevent RM GPU state destruction"
+symbol = "nv_pci_remove"
+strategy = "NopCallAt(0x1fe)"
+purpose = "NOP GPU state destroy call at offset 0x1fe"
 
 [[patches]]
-symbol = "_deviceTeardown"
-strategy = "RetAtEntry"
-purpose = "Prevent device teardown"
+symbol = "nv_pci_remove"
+strategy = "NopCallAt(0x2a0)"
+purpose = "NOP GPU state destroy call at offset 0x2a0"
 
-[[patches]]
-symbol = "clTeardown_IMPL"
-strategy = "RetAtEntry"
-purpose = "Prevent client teardown"
-
-[[patches]]
-symbol = "fecsBufferTeardown"
-strategy = "RetAtEntry"
-purpose = "Prevent FECS buffer teardown — preserves firmware state"
-
-# Co-load isolation NOPs — prevent host nvidia conflicts
-# NOTE: nv_cap_init and nv_cap_drv_init are NOT patched (unlike
-# nvidia_warm_handoff). This allows RM capability table creation,
-# which unblocks full compute init (SEC2/ACR/PMU/GPCCS/FECS/TPC).
-
+# Co-load isolation NOPs — prevent host nvidia conflicts.
+# nv_cap_init and nv_cap_drv_init are NOT patched (removed from NOP set
+# vs nvidia_warm_handoff) — RM capability tables must initialize for
+# full engine init (SEC2/ACR/PMU/GPCCS/FECS/TPC).
 [[patches]]
 symbol = "nv_procfs_init"
 strategy = "RetAtEntry"
@@ -117,4 +118,5 @@ purpose = "NOP __register_chrdev — host nvidia owns major 195"
 [notes]
 experiment = 219
 parent_experiment = 218
-evolution = "Derived from nvidia_warm_handoff by removing nv_cap_init/nv_cap_drv_init NOPs"
+evolution = "Derived from nvidia_warm_handoff by removing nv_cap_init/nv_cap_drv_init NOPs; nv_pci_remove evolved from RetAtEntry to surgical NopCallAt (Exp 221); bulk teardown NOPs removed (PCI cleanup must run)"
+reconciled = "2026-05-26 (Revalidation Sprint Bench 6)"
