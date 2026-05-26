@@ -424,28 +424,169 @@ cannot perform without PMU firmware.
 | Titan V #1 (02:00.0) | nvidia-470 | VM `titanv-warmhandoff` | CUDA 11.4 HBM2 PASS |
 | Titan V #2 (49:00.0) | vfio-pci | Cold (post-SBR) | Reagent target |
 
+## Session 3: ACR Protocol Extraction + Sovereign Boot Attempt (2026-05-25)
+
+### 7. Recipe Mining — ACR Descriptor Format DECODED
+
+Mined the full 792K mmiotrace recipe (73 MB, temporal order from nvidia-535 init):
+
+**PMU ACR boot sequence (steps 32591-32850):**
+1. IRQ/DMA configuration (steps 32591-32611)
+2. ACR descriptor written to PMU DMEM at offset 0 (steps 32612-32633):
+   ```
+   DMEM[0x00-0x1F]: 8 zero dwords (header)
+   DMEM[0x20]: 0x00000004 (falcon count/flags)
+   DMEM[0x24]: 0xDD990000 (FECS firmware VRAM addr = 3545 MB)
+   DMEM[0x28]: 0x00000001 (addr high / flags)
+   DMEM[0x30]: 0x00000600 (bootloader size — matches fecs_bl.bin 576 padded)
+   DMEM[0x34]: 0x00000600 (code offset)
+   DMEM[0x38]: 0x00006900 (total blob size = 26880 — matches fecs_inst.bin + header)
+   DMEM[0x40]: 0xDD998000 (GPCCS firmware VRAM addr)
+   DMEM[0x48]: 0x000042F0 (GPCCS total size = 17136)
+   ```
+3. PMU boot code uploaded via 0x10A184 (falcon extern interface, ~130 words)
+4. IMEMC = 0x00010000, CPUCTL = 0x12 (STARTCPU + HALTON_INTR)
+5. Post-boot: full PMU register teardown (steps 32770-32849)
+
+**Key register counts:**
+- PMU mailbox: 2 writes (MB0 cleared to 0)
+- PMU CPUCTL: 2 writes (0x12 start, 0x00 clear)
+- FECS/GPCCS mailbox: 0 writes each (ACR handled internally by PMU)
+- WPR1/WPR2: set to 0 by host (PMU configures WPR internally after ACR)
+- PMC_ENABLE: 7 writes (full power-up cycle with PMU reset toggle)
+- PRAMIN: 32768 writes (128 KB firmware staged near VRAM top ~12287 MB)
+- BAR0_WINDOW: 9 writes (VRAM page selection for PRAMIN)
+
+### 8. Sovereign ACR Boot — THREE BOUNDARIES DISCOVERED
+
+Built `sovereign_acr_boot.c` tool and executed on Titan V #2 (0000:49:00.0)
+in post-SBR cold state. Three hard boundaries confirmed:
+
+**Boundary 3: HS Mode 2 Blocks ALL Host Writes**
+- DMEM PIO writes: **SILENTLY REJECTED** (readback = 0xDEAD5EC2 sentinel)
+- IMEM PIO writes: N/A (already known blocked)
+- Mailbox register (MB0) writes: **REJECTED** (reads back 0x300 immediately)
+- Mailbox register (MB1) writes: **REJECTED** (reads back 0x0)
+- Distinction: HS mode 2 (post-SBR) blocks DMEM and mailbox.
+  HS mode 3 (post-nvidia-load in VM) allows DMEM writes.
+
+**Boundary 4: VRAM Uninitialized After SBR**
+- PRAMIN readback at all window positions: `0xBAD0AC0x` (FB controller error)
+- BAR0_WINDOW writes work (readback matches), but VRAM behind is dead
+- HBM2 controller needs clock/PLL/FBPA training before memory is accessible
+- FB init requires hundreds of board-specific register writes (captured in
+  mmiotrace steps 0-10265, but replay requires understanding)
+
+**Boundary 5: HS ROM Auto-Boot Eliminates Non-HS Window**
+- After SBR, PMU immediately enters HS mode 2 from fuse-enforced boot ROM
+- nvidia's proprietary driver uses PMC_ENABLE toggle to RESET the PMU,
+  creating a brief non-HS window for firmware upload (steps 8198-8200)
+- We cannot exploit this window because VRAM (needed for firmware staging)
+  requires FB init, which comes BEFORE the PMC_ENABLE toggle in nvidia's
+  sequence. Chicken-and-egg: need VRAM for firmware, need firmware for VRAM.
+
+### 9. Captured Firmware Correction
+
+**IMPORTANT**: Previous sessions claimed PMU IMEM/DMEM captures were nvidia-470's
+firmware. This was INCORRECT. The captures are the HS ROM content:
+- `pmu_imem.bin`: 64 KB of `0xF0C00040` repeated = HS ROM interrupt vector table
+- `pmu_dmem.bin`: 64 KB of `0xDEAD5EC2` repeated = HS ROM sentinel pattern
+
+The REAL nvidia firmware running inside the PMU is hidden by HS mode — reads
+through the PIO ports return the HS ROM content, not the authenticated code.
+The MD5 determinism finding is still valid (HS ROM content IS deterministic).
+
+### 10. nouveau PMU Firmware Path — BLOCKED
+
+Investigated creating GV100 PMU firmware for nouveau to enable open-source compute:
+- **gp10b** (Tegra Pascal) has PMU firmware: desc.bin (652B) + image.bin (49408B) + sig.bin (76B)
+- **Desktop Volta** (gv100): NVIDIA NEVER released PMU firmware
+- `sig.bin` contains ECDSA signature — requires NVIDIA's private fuse signing key
+- Even if we extracted nvidia-470's PMU code from mmiotrace (the 0x10A184 writes),
+  we cannot sign it. The HS ROM authenticates firmware using fuse-burned keys.
+- This is a **fundamental silicon boundary** — not software, not drivers, fuses.
+
+## Complete Boundary Map — GV100 Sovereign Compute
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Boundary 1: PCI Framework (PMC_ENABLE)                  │
+│ Kernel clears PMC_ENABLE during standard unbind.        │
+│ RECOVERABLE via BAR0 write. Exp 221.                    │
+├─────────────────────────────────────────────────────────┤
+│ Boundary 2: Falcon HS Fuses (IMEM protection)           │
+│ FECS/GPCCS are fuse-locked HS on GV100.                 │
+│ Host IMEM PIO upload blocked by hardware.               │
+│ NOT RECOVERABLE from userspace. Exp 221.                │
+├─────────────────────────────────────────────────────────┤
+│ Boundary 3: HS Mode 2 Register Protection               │
+│ Post-SBR: PMU DMEM, MB0, MB1 ALL write-protected.       │
+│ Post-nvidia: HS mode 3 allows DMEM writes.              │
+│ NOT BYPASSED from userspace. Exp 222 session 3.         │
+├─────────────────────────────────────────────────────────┤
+│ Boundary 4: VRAM/FB Initialization                      │
+│ HBM2 controller dead after SBR. PRAMIN returns BAD0AC0x.│
+│ Requires board-specific PLL + FBPA training sequence.    │
+│ THEORETICALLY REPLAYABLE from mmiotrace. Exp 222.       │
+├─────────────────────────────────────────────────────────┤
+│ Boundary 5: Fuse-Enforced Code Authentication           │
+│ HS ROM authenticates ALL firmware with fuse-burned keys. │
+│ sig.bin requires NVIDIA private signing key.             │
+│ SILICON WALL — not software-bypassable. Exp 222.        │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Strategic Assessment
+
+### What Works NOW (Tier 2 Compute)
+- **Runtime Services Model**: nvidia stays loaded, compute via CUDA/nvidia APIs
+- RTX 5060: CUDA 12.8, VectorAdd validated
+- Titan V #1 (VM): CUDA 11.4, HBM2 validated
+- 27 RPCs operational via toadStool
+
+### What's Theoretically Possible (Future)
+- **FB Init Replay**: The mmiotrace contains the full FB initialization
+  sequence. If replayed correctly after SBR, VRAM would become accessible.
+  Combined with PMC_ENABLE toggle for non-HS window, firmware upload MIGHT
+  be possible. But the HS ROM authentication (Boundary 5) would still block
+  unsigned firmware.
+- **PMC_ENABLE Toggle**: nvidia uses this to reset PMU and get a non-HS
+  window. Requires FB init first (Boundary 4 → Boundary 3 ordering).
+- **nvidia Upstream**: If NVIDIA released GV100 PMU firmware for nouveau,
+  the entire GR init path would work. This is the cleanest solution but
+  requires NVIDIA cooperation.
+
+### What's Definitively Blocked (Silicon Wall)
+- Cold sovereign boot without ANY nvidia involvement on GV100
+- Creating our own PMU/FECS/GPCCS firmware (fuse keys)
+- Bypassing HS ROM authentication from userspace
+
 ## Next Steps — Sovereign Boot Path
 
-### Remaining blocker: WPR + ACR mailbox protocol
+### Path A: Runtime Services (CURRENT SOLUTION)
+nvidia-470 in VM provides CUDA compute on Titan V. nvidia-580 on host
+provides CUDA compute on RTX 5060. Both validated. This IS Tier 2.
 
-The SBR → PMC_ENABLE → FECS power-up sequence works. The final piece is:
+### Path B: FB Init Replay + PMC_ENABLE Toggle (EXPERIMENTAL)
+1. Extract FB init sequence from mmiotrace (steps 0-10265)
+2. Replay on SBR-cold GPU to initialize VRAM
+3. Toggle PMC_ENABLE to reset PMU, creating non-HS window
+4. Upload nvidia's signed firmware from linux-firmware during window
+5. Start PMU → ACR → FECS/GPCCS → GR
+Risk: step 4 still blocked by authentication (Boundary 5)
 
-1. **Capture nvidia-470's WPR setup** from mmiotrace:
-   - Where in VRAM does nvidia-470 stage ACR firmware?
-   - What mailbox command triggers PMU's ACR execution?
-   - What instance block / DMA context does PMU use?
+### Path C: nvidia Upstream Contribution (LONG TERM)
+Create a kernel patch adding GV100 PMU firmware request to nouveau.
+NVIDIA would need to release desc.bin + image.bin + sig.bin for gv100/pmu/.
 
-2. **Replay WPR setup on cold GPU**:
-   - After SBR, stage signed firmware to VRAM via PRAMIN
-   - Configure WPR2 registers
-   - Signal PMU via mailbox → PMU runs ACR → FECS/GPCCS boot
+### Tools Created
+- `sovereign_acr_boot.c` — PRAMIN staging + DMEM ACR descriptor + mailbox trigger
+- Recipe mining scripts (python3) for mmiotrace analysis
 
-3. **Tool**: Create `sovereign_acr_boot` that orchestrates the full
-   SBR → PMC → WPR → ACR → GR chain
-
-### Resources available:
-- PMU firmware: `data/firmware/gv100_nvidia470/{pmu_imem,pmu_dmem}.bin`
+### Resources Available
+- 792K mmiotrace recipe: `/var/lib/toadstool/reagents/.../mmiotrace/nv535_recipe.json`
 - ACR firmware: `/lib/firmware/nvidia/gv100/{acr,sec2,gr}/*`
-- mmiotrace: 792K recipe steps (includes PMU mailbox writes)
+- HS ROM IMEM capture: `data/firmware/gv100_nvidia470/pmu_imem.bin` (0xF0C00040 pattern)
 - SBR tool: `sovereign_pmu_dmatrf.c` (working SBR + PMC_ENABLE sequence)
+- ACR boot tool: `sovereign_acr_boot.c` (safe, tested, boundaries confirmed)
 - VM: `titanv-warmhandoff` for live nvidia-470 reference state

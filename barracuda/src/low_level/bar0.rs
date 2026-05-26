@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// This file is shared across multiple experiment binaries via `#[path]` inclusion.
-// Each binary uses a different subset of Bar0View / Bar0Map; suppress dead-code
-// warnings that arise when the file is included by a binary that only needs one type.
+// Suppress dead-code warnings when included via `#[path]` by experiment binaries
+// that only use a subset of Bar0View / Bar0Map / SafeBar0.
 #![allow(dead_code)]
 
 //! Safe RAII wrappers for PCI BAR0 MMIO via Linux `sysfs` resource files.
@@ -11,7 +10,7 @@
 //! - `mmap`/`munmap` via `rustix`
 //! - `read_volatile`/`write_volatile` for MMIO register access
 //!
-//! All public methods are safe Rust with bounds-checked offsets.
+//! All public methods are safe Rust with bounds-checked, alignment-checked offsets.
 //!
 //! # Usage (requires `low-level` feature)
 //!
@@ -20,6 +19,7 @@
 //! let pmc = bar.read_u32(0x0000_0200)?;
 //! ```
 
+use std::fmt;
 use std::io;
 
 use rustix::mm::{MapFlags, ProtFlags, mmap, munmap};
@@ -31,12 +31,62 @@ const BAR0_MAP_SIZE_DEFAULT: usize = 16 * 1024 * 1024;
 
 /// Determine the actual BAR0 resource size from file metadata, falling back
 /// to `BAR0_MAP_SIZE_DEFAULT` when metadata is unavailable.
-fn bar0_map_size(file: &std::fs::File) -> usize {
+pub(crate) fn bar0_map_size(file: &std::fs::File) -> usize {
     file.metadata()
         .map(|m| m.len() as usize)
+        .ok()
         .filter(|&sz| sz > 0)
         .unwrap_or(BAR0_MAP_SIZE_DEFAULT)
 }
+
+/// Resolve a BDF string to its `resource0` sysfs path.
+///
+/// Supports `HOTSPRING_SYSFS_PCI` override (for mock testing).
+fn bdf_to_resource0(bdf: &str) -> String {
+    let sysfs_base =
+        std::env::var("HOTSPRING_SYSFS_PCI").unwrap_or_else(|_| "/sys/bus/pci/devices".into());
+    format!("{sysfs_base}/{bdf}/resource0")
+}
+
+// ── Bar0Error ────────────────────────────────────────────────────────────────
+
+/// Errors from checked BAR0 access.
+#[derive(Debug, Clone)]
+pub enum Bar0Error {
+    /// PCIe link is down — all reads return `0xFFFF_FFFF`.
+    DeadLink { offset: u32 },
+    /// Register offset is not 4-byte aligned.
+    Unaligned { offset: u32 },
+    /// Register offset falls outside all allowed domains.
+    OutOfDomain { offset: u32, end: u32, domains: Vec<&'static str> },
+    /// Write to a deny-listed register offset was rejected.
+    DenyListed { offset: u32, reason: &'static str },
+    /// Offset arithmetic overflow.
+    Overflow { offset: u32, width: u32 },
+    /// Offset exceeds the mapped region.
+    OutOfBounds { offset: u32, map_len: usize },
+}
+
+impl fmt::Display for Bar0Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DeadLink { offset } =>
+                write!(f, "BAR0 dead link at {offset:#x} (0xFFFFFFFF)"),
+            Self::Unaligned { offset } =>
+                write!(f, "BAR0 offset {offset:#x} is not 4-byte aligned"),
+            Self::OutOfDomain { offset, end, domains } =>
+                write!(f, "offset {offset:#x}..{end:#x} outside allowed domains: {domains:?}"),
+            Self::DenyListed { offset, reason } =>
+                write!(f, "write to {offset:#x} denied: {reason}"),
+            Self::Overflow { offset, width } =>
+                write!(f, "offset {offset:#x} + {width} overflows"),
+            Self::OutOfBounds { offset, map_len } =>
+                write!(f, "offset {offset:#x} out of BAR0 range (len={map_len:#x})"),
+        }
+    }
+}
+
+impl std::error::Error for Bar0Error {}
 
 // ── Read-only MMIO ────────────────────────────────────────────────────────────
 
@@ -51,13 +101,13 @@ pub struct Bar0View {
 impl Bar0View {
     /// Map `resource0` for the given PCI device (e.g. `"0000:02:00.0"`).
     ///
+    /// Respects `HOTSPRING_SYSFS_PCI` environment variable for the sysfs base.
+    ///
     /// # Errors
     ///
     /// Returns an error string if `resource0` cannot be opened or mapped.
     pub fn open(bdf: &str) -> Result<Self, String> {
-        let sysfs_base =
-            std::env::var("HOTSPRING_SYSFS_PCI").unwrap_or_else(|_| "/sys/bus/pci/devices".into());
-        let resource_path = format!("{sysfs_base}/{bdf}/resource0");
+        let resource_path = bdf_to_resource0(bdf);
         let file = std::fs::File::options()
             .read(true)
             .open(&resource_path)
@@ -145,7 +195,7 @@ pub struct Bar0Map {
 }
 
 impl Bar0Map {
-    /// Map `resource0` for the given PCI device path (e.g. from `/sys/bus/pci/devices/…`).
+    /// Map `resource0` from a raw sysfs path.
     ///
     /// # Errors
     ///
@@ -175,19 +225,58 @@ impl Bar0Map {
         })
     }
 
+    /// Map `resource0` for a PCI BDF (e.g. `"0000:02:00.0"`).
+    ///
+    /// Respects `HOTSPRING_SYSFS_PCI` environment variable for the sysfs base.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `io::Error` if the file cannot be opened or the mmap fails.
+    pub fn open_bdf(bdf: &str) -> io::Result<Self> {
+        Self::open(&bdf_to_resource0(bdf))
+    }
+
     /// Read a `u32` MMIO register at `offset` bytes from BAR0 base.
     ///
     /// # Panics
     ///
-    /// Panics if `offset + 4 > mapping length`.
+    /// Panics if `offset` is not 4-byte aligned or `offset + 4 > mapping length`.
     #[must_use]
     pub fn r32(&self, offset: u32) -> u32 {
+        assert!(offset % 4 == 0, "r32: offset {offset:#x} is not 4-byte aligned");
         assert!(
             (offset as usize + 4) <= self.len,
             "r32 out-of-bounds: {offset:#x}"
         );
         // SAFETY: bounds checked above; volatile prevents MMIO elision.
         unsafe { std::ptr::read_volatile(self.ptr.add(offset as usize).cast::<u32>()) }
+    }
+
+    /// Read a `u32` MMIO register with dead-link detection.
+    ///
+    /// Returns `Err(Bar0Error::DeadLink)` if the read value is `0xFFFF_FFFF`
+    /// (PCIe link down sentinel).
+    ///
+    /// # Errors
+    ///
+    /// - `Bar0Error::Unaligned` if offset is not 4-byte aligned.
+    /// - `Bar0Error::OutOfBounds` if offset exceeds the mapping.
+    /// - `Bar0Error::DeadLink` if the read returns the dead-link sentinel.
+    pub fn r32_checked(&self, offset: u32) -> Result<u32, Bar0Error> {
+        if offset % 4 != 0 {
+            return Err(Bar0Error::Unaligned { offset });
+        }
+        if (offset as usize + 4) > self.len {
+            return Err(Bar0Error::OutOfBounds { offset, map_len: self.len });
+        }
+        // SAFETY: bounds and alignment checked above.
+        let val = unsafe {
+            std::ptr::read_volatile(self.ptr.add(offset as usize).cast::<u32>())
+        };
+        if val == 0xFFFF_FFFF {
+            return Err(Bar0Error::DeadLink { offset });
+        }
+        Ok(val)
     }
 
     /// Return the total size of the mapped region in bytes.
@@ -200,8 +289,9 @@ impl Bar0Map {
     ///
     /// # Panics
     ///
-    /// Panics if `offset + 4 > mapping length`.
+    /// Panics if `offset` is not 4-byte aligned or `offset + 4 > mapping length`.
     pub fn w32(&self, offset: u32, val: u32) {
+        assert!(offset % 4 == 0, "w32: offset {offset:#x} is not 4-byte aligned");
         assert!(
             (offset as usize + 4) <= self.len,
             "w32 out-of-bounds: {offset:#x}"
@@ -240,6 +330,13 @@ pub struct Bar0Domain {
     pub end: u32,
 }
 
+/// A deny-listed absolute offset with a human-readable reason.
+#[derive(Debug, Clone, Copy)]
+pub struct DenyEntry {
+    pub offset: u32,
+    pub reason: &'static str,
+}
+
 /// Validates MMIO offsets against a set of allowed register domains before
 /// forwarding to the underlying [`Bar0Map`].
 ///
@@ -247,65 +344,108 @@ pub struct Bar0Domain {
 /// GPU engines. Callers declare which domains they intend to touch at
 /// construction time; any access outside those domains is rejected.
 ///
-/// # memmap2 evaluation
-///
-/// `memmap2::MmapRaw` was evaluated as an alternative to raw `rustix::mm::mmap`.
-/// It provides RAII but does not support `MAP_SHARED` on `/sys` resource files
-/// reliably (it targets regular files). The current `rustix` approach is more
-/// direct and already has RAII via `Drop`. No migration warranted.
+/// Optionally enforces a **deny-list** of absolute offsets where writes
+/// are always rejected (e.g. `ENGCTL` registers that irreversibly destroy
+/// falcon security state).
 pub struct SafeBar0 {
     inner: Bar0Map,
     domains: Vec<Bar0Domain>,
+    deny_list: Vec<DenyEntry>,
 }
 
 impl SafeBar0 {
     /// Wrap an existing [`Bar0Map`] with domain validation.
     pub fn new(inner: Bar0Map, domains: Vec<Bar0Domain>) -> Self {
-        Self { inner, domains }
+        Self { inner, domains, deny_list: Vec::new() }
     }
 
-    /// Open a BAR0 mapping with domain validation.
+    /// Wrap an existing [`Bar0Map`] with domain validation and a write deny-list.
+    pub fn with_deny_list(
+        inner: Bar0Map,
+        domains: Vec<Bar0Domain>,
+        deny_list: Vec<DenyEntry>,
+    ) -> Self {
+        Self { inner, domains, deny_list }
+    }
+
+    /// Open a BAR0 mapping for a BDF with domain validation.
     ///
     /// # Errors
     ///
     /// Returns an `io::Error` if the underlying mmap fails.
-    pub fn open(path: &str, domains: Vec<Bar0Domain>) -> io::Result<Self> {
-        let inner = Bar0Map::open(path)?;
-        Ok(Self { inner, domains })
+    pub fn open(bdf: &str, domains: Vec<Bar0Domain>) -> io::Result<Self> {
+        let inner = Bar0Map::open_bdf(bdf)?;
+        Ok(Self { inner, domains, deny_list: Vec::new() })
     }
 
-    fn check_offset(&self, offset: u32, width: u32) -> Result<(), String> {
-        let end = offset.checked_add(width).ok_or_else(|| {
-            format!("offset {offset:#x} + {width} overflows")
-        })?;
+    /// Open a BAR0 mapping for a BDF with domain validation and a deny-list.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `io::Error` if the underlying mmap fails.
+    pub fn open_with_deny_list(
+        bdf: &str,
+        domains: Vec<Bar0Domain>,
+        deny_list: Vec<DenyEntry>,
+    ) -> io::Result<Self> {
+        let inner = Bar0Map::open_bdf(bdf)?;
+        Ok(Self { inner, domains, deny_list })
+    }
+
+    /// Check that `offset..offset+width` falls within at least one domain.
+    pub fn check_offset(&self, offset: u32, width: u32) -> Result<(), Bar0Error> {
+        if offset % 4 != 0 {
+            return Err(Bar0Error::Unaligned { offset });
+        }
+        let end = offset.checked_add(width).ok_or(Bar0Error::Overflow { offset, width })?;
         for d in &self.domains {
             if offset >= d.start && end <= d.end {
                 return Ok(());
             }
         }
         let domain_list: Vec<&str> = self.domains.iter().map(|d| d.name).collect();
-        Err(format!(
-            "offset {offset:#x}..{end:#x} outside allowed domains: {domain_list:?}"
-        ))
+        Err(Bar0Error::OutOfDomain { offset, end, domains: domain_list })
+    }
+
+    /// Check whether `offset` is on the write deny-list.
+    fn check_deny_list(&self, offset: u32) -> Result<(), Bar0Error> {
+        for entry in &self.deny_list {
+            if offset == entry.offset {
+                return Err(Bar0Error::DenyListed { offset, reason: entry.reason });
+            }
+        }
+        Ok(())
     }
 
     /// Read a `u32` register, validating the offset is within an allowed domain.
     ///
     /// # Errors
     ///
-    /// Returns an error string if the offset is outside all allowed domains.
-    pub fn r32(&self, offset: u32) -> Result<u32, String> {
+    /// Returns a `Bar0Error` if the offset is outside all allowed domains or misaligned.
+    pub fn r32(&self, offset: u32) -> Result<u32, Bar0Error> {
         self.check_offset(offset, 4)?;
         Ok(self.inner.r32(offset))
     }
 
-    /// Write a `u32` register, validating the offset is within an allowed domain.
+    /// Read a `u32` register with domain validation and dead-link detection.
     ///
     /// # Errors
     ///
-    /// Returns an error string if the offset is outside all allowed domains.
-    pub fn w32(&self, offset: u32, val: u32) -> Result<(), String> {
+    /// Returns `Bar0Error::DeadLink` if the read returns `0xFFFF_FFFF`.
+    pub fn r32_checked(&self, offset: u32) -> Result<u32, Bar0Error> {
         self.check_offset(offset, 4)?;
+        self.inner.r32_checked(offset)
+    }
+
+    /// Write a `u32` register, validating domain and deny-list.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `Bar0Error` if the offset is outside all allowed domains,
+    /// misaligned, or on the write deny-list.
+    pub fn w32(&self, offset: u32, val: u32) -> Result<(), Bar0Error> {
+        self.check_offset(offset, 4)?;
+        self.check_deny_list(offset)?;
         self.inner.w32(offset, val);
         Ok(())
     }
@@ -320,5 +460,123 @@ impl SafeBar0 {
     #[must_use]
     pub fn inner(&self) -> &Bar0Map {
         &self.inner
+    }
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_domains() -> Vec<Bar0Domain> {
+        vec![
+            Bar0Domain { name: "PMC", start: 0x0000, end: 0x1000 },
+            Bar0Domain { name: "PMU", start: 0x10_A000, end: 0x10_A400 },
+        ]
+    }
+
+    fn make_safe(domains: Vec<Bar0Domain>, deny_list: Vec<DenyEntry>) -> SafeBar0 {
+        // SafeBar0 with a dummy Bar0Map — only tests check_offset / check_deny_list
+        // which don't touch the mmap at all. We construct directly to avoid needing
+        // actual hardware.
+        SafeBar0 {
+            inner: unsafe { std::mem::zeroed() },
+            domains,
+            deny_list,
+        }
+    }
+
+    #[test]
+    fn check_offset_in_domain_passes() {
+        let s = make_safe(test_domains(), vec![]);
+        assert!(s.check_offset(0x0200, 4).is_ok());
+        assert!(s.check_offset(0x0000, 4).is_ok());
+        assert!(s.check_offset(0x0FFC, 4).is_ok());
+        assert!(s.check_offset(0x10_A000, 4).is_ok());
+        assert!(s.check_offset(0x10_A3C0, 4).is_ok());
+    }
+
+    #[test]
+    fn check_offset_spanning_boundary_fails() {
+        let s = make_safe(test_domains(), vec![]);
+        // PMC domain ends at 0x1000; offset 0x0FFC + 8 = 0x1004 spans past end
+        let err = s.check_offset(0x0FFC, 8);
+        assert!(matches!(err, Err(Bar0Error::OutOfDomain { .. })));
+    }
+
+    #[test]
+    fn check_offset_overflow_fails() {
+        let s = make_safe(test_domains(), vec![]);
+        let err = s.check_offset(0xFFFF_FFFC, 8);
+        assert!(matches!(err, Err(Bar0Error::Overflow { .. })));
+    }
+
+    #[test]
+    fn check_offset_empty_domains_reject() {
+        let s = make_safe(vec![], vec![]);
+        let err = s.check_offset(0x0200, 4);
+        assert!(matches!(err, Err(Bar0Error::OutOfDomain { .. })));
+    }
+
+    #[test]
+    fn alignment_rejection() {
+        let s = make_safe(test_domains(), vec![]);
+        let err = s.check_offset(0x0201, 4);
+        assert!(matches!(err, Err(Bar0Error::Unaligned { offset: 0x0201 })));
+
+        let err = s.check_offset(0x0202, 4);
+        assert!(matches!(err, Err(Bar0Error::Unaligned { offset: 0x0202 })));
+    }
+
+    #[test]
+    fn deny_list_rejects_write() {
+        let deny = vec![DenyEntry {
+            offset: 0x10_A3C0,
+            reason: "ENGCTL destroys falcon security state",
+        }];
+        let s = make_safe(test_domains(), deny);
+        let err = s.check_deny_list(0x10_A3C0);
+        assert!(matches!(err, Err(Bar0Error::DenyListed { offset: 0x10_A3C0, .. })));
+
+        // Other offsets pass
+        assert!(s.check_deny_list(0x10_A100).is_ok());
+    }
+
+    #[test]
+    fn bar0_map_size_zero_returns_default() {
+        let tmp = std::env::temp_dir().join("bar0_test_empty");
+        {
+            let _ = std::fs::File::create(&tmp).unwrap();
+        }
+        let file = std::fs::File::open(&tmp).unwrap();
+        assert_eq!(bar0_map_size(&file), BAR0_MAP_SIZE_DEFAULT);
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn bar0_map_size_nonzero() {
+        use std::io::Write;
+        let tmp = std::env::temp_dir().join("bar0_test_nonzero");
+        {
+            let mut f = std::fs::File::create(&tmp).unwrap();
+            f.write_all(&[0u8; 4096]).unwrap();
+        }
+        let file = std::fs::File::open(&tmp).unwrap();
+        assert_eq!(bar0_map_size(&file), 4096);
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn bar0_error_display() {
+        let e = Bar0Error::DeadLink { offset: 0x200 };
+        assert!(format!("{e}").contains("dead link"));
+        assert!(format!("{e}").contains("0x200"));
+
+        let e = Bar0Error::Unaligned { offset: 0x201 };
+        assert!(format!("{e}").contains("not 4-byte aligned"));
+
+        let e = Bar0Error::DenyListed { offset: 0x3C0, reason: "ENGCTL" };
+        assert!(format!("{e}").contains("denied"));
     }
 }

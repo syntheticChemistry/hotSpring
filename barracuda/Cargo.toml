@@ -940,3 +940,12 @@ required-features = ["low-level"]
 [[bin]]
 name = "exp184_k80_gr_sovereign"
 path = "src/bin/exp184_k80_gr_sovereign.rs"
+
+# ── Exp 224: PMU ACR Catalyst — CPUCTL_ALIAS sovereign boot ──────────────
+# Replaces Python jelly-string scripts (acr_sovereign_boot.py, post_reboot_acr_boot.py).
+# Uses corrected register map (BOOTVEC=0x104, CPUCTL_ALIAS=0x130, ENGCTL=0x3C0).
+# Key insight: NEVER touch ENGCTL — stay in HS mode 2, boot via ALIAS.
+[[bin]]
+name = "exp224_pmu_acr_catalyst"
+path = "src/bin/exp224_pmu_acr_catalyst.rs"
+required-features = ["low-level"]

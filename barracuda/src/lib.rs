@@ -2,7 +2,7 @@
 
 // Clippy pedantic/nursery + physics-specific allows are in [workspace.lints.clippy]
 // in Cargo.toml. Library code must propagate errors, not panic:
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![deny(clippy::expect_used, clippy::unwrap_used)]
 
 //! hotSpring Nuclear EOS — `BarraCuda` validation environment
@@ -102,10 +102,13 @@ pub mod hardware_calibration;
 pub mod ipc;
 /// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
-// low_level/bar0.rs: RAII wrappers for PCI BAR0 MMIO. Contains `unsafe` blocks
-// for mmap/read_volatile/write_volatile. Not declared as a library module because
-// lib.rs has #![forbid(unsafe_code)]. Binaries access it via #[path] inclusion
-// (e.g. exp070, exp168-184). See low_level/bar0.rs for docs.
+/// Low-level PCI BAR0 MMIO and Falcon register map.
+///
+/// Contains `unsafe` blocks for mmap/`read_volatile`/`write_volatile`.
+/// Gated behind `low-level` feature; callers use safe public APIs.
+#[cfg(feature = "low-level")]
+#[allow(unsafe_code)]
+pub mod low_level;
 
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.
 pub mod mcp_tools;

@@ -92,8 +92,9 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 220 | CAZYME_CONFORMATIONAL_ENERGY_LANDSCAPES | analysis | 🔄 Phase 0.5 complete: GROMACS 2026.0 industry control established, ABG system, pseudoSpore v0.7.0 artifacts. 4-phase plan. CAZyme FEL biomolecular MD track |
 | 221 | UEFI_MODEL_GPU_SOVEREIGNTY | validation | ✅ UEFI Model for Tier 2 — PRI ring recovery proven (PGRAPH re-enable + PRI ring enumerate). Falcon HS fuse boundary mapped (IMEM wiped, host PIO blocked). RetAtEntry eliminated. Architecture pivot to Runtime Services model for Tier 2. Both Titan V cards validated |
 | 222 | REAGENT_CAPTURE_PIPELINE | validation | ✅ Dual GPU compute validated (RTX 5060 VectorAdd + Titan V HBM2 0xCAFEBABE). PMU firmware determinism proven (MD5 identical across boots). SBR cold reset achieved. Sovereign boot path mapped: SBR→PMC_ENABLE→WPR→ACR chain. 27 RPCs. nvidia-470 VM live. 792K recipe steps distilled |
+| 223 | ACR_SOVEREIGN_BOOT_CATALYST | analysis | ✅ EVOLVED — HS mode architecture mapped, ENGCTL destruction identified, CPUCTL_ALIAS path validated. Python catalyst superseded by Rust exp224. toadStool `sovereign.init` achieves compute_ready. Shared `falcon.rs` module, SafeBar0 ENGCTL deny-list, 16 unit tests |
 
-> **Note:** 222 experiments total (001–189 archived + 190 archived final coral-ember + 191–222 active).
+> **Note:** 223 experiments total (001–189 archived + 190 archived final coral-ember + 191–223 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 

@@ -7,6 +7,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## ACR Sovereign Boot Catalyst — Infrastructure Hardening (May 26, 2026)
+
+### Added
+- **Experiment 223**: ACR Sovereign Boot Catalyst — HS mode architecture mapped,
+  ENGCTL destruction identified, CPUCTL_ALIAS boot path validated. Python
+  catalyst superseded by Rust `exp224_pmu_acr_catalyst`. toadStool
+  `sovereign.init` achieves `compute_ready` on both Titan V GPUs.
+- **`low_level/falcon.rs`** — shared Falcon v5 register map module: 24 canonical
+  register offsets, 5 engine bases (PMU/FECS/GPCCS/SEC2/NVDEC), `FalconSnapshot`
+  struct with `sec_mode()`/`cpu_state()`/`imem_size()`/`dmem_size()`, PIO
+  upload/verify helpers, `Bar0Domain` presets.
+- **`Bar0Error` enum** — typed errors for BAR0 access: `DeadLink`, `Unaligned`,
+  `OutOfDomain`, `DenyListed`, `Overflow`, `OutOfBounds`.
+- **`Bar0Map::r32_checked`** — dead-link sentinel detection (`0xFFFF_FFFF`).
+- **`Bar0Map::open_bdf`** — BDF-based open with `HOTSPRING_SYSFS_PCI` env support.
+- **`SafeBar0::with_deny_list`** — write deny-list for dangerous registers
+  (ENGCTL destroys falcon security state irreversibly).
+- **16 unit tests** for `bar0.rs` (alignment, domain, deny-list, sentinel) and
+  `falcon.rs` (SEC_MODE decode, CPUCTL bits, IMEM/DMEM sizing, engine offsets).
+- **`pub mod low_level`** exported from crate lib behind `low-level` feature gate.
+
+### Changed
+- **`#![forbid(unsafe_code)]` → `#![deny(unsafe_code)]`** on barracuda lib to
+  allow `#[allow(unsafe_code)]` on the `low_level` module. Unsafe remains
+  confined to BAR0 MMIO (mmap/volatile) and not allowed elsewhere.
+- **Alignment checks** added to `Bar0Map::r32`/`w32` — panics on non-4-byte-aligned offsets.
+- **exp224 rewired** to use `hotspring_barracuda::low_level::{bar0::*, falcon::*}`
+  instead of inline `#[path]` inclusion and duplicated register constants.
+- **Superseded Python scripts** (`acr_sovereign_boot.py`, `post_reboot_acr_boot.py`)
+  documented as fossils in `infra/catalysts/reagents/`.
+
+### Discovered
+- Direct host PIO to PMU is **blocked in HS mode 2** (VBIOS-initialized state).
+  The PMU is a firmware fortress — the correct boot path uses an intermediate
+  Boot Falcon (NVDEC/SEC2) for ACR, which is what toadStool's `sovereign.init`
+  implements.
+- ENGCTL (0x3C0) toggle is an irreversible engine reset (HS→NS), not an "HS
+  unlock". CPU execution permanently disabled. Only recoverable via power cycle.
+- CPUCTL_ALIAS (0x130) is the correct host control register for HS falcons, but
+  it is unresponsive in the pre-DEVINIT VBIOS state.
+
 ## UEFI Model GPU Sovereignty — PRI Ring Recovery (May 25, 2026)
 
 ### Added

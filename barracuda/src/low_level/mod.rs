@@ -6,5 +6,7 @@
 //! the unsafe surface is audited in one place and callers use safe APIs.
 
 pub mod bar0;
+pub mod falcon;
 
-pub use bar0::{Bar0Domain, Bar0Map, Bar0View, SafeBar0};
+pub use bar0::{Bar0Domain, Bar0Error, Bar0Map, Bar0View, DenyEntry, SafeBar0};
+pub use falcon::{FalconSnapshot, DEAD_LINK};

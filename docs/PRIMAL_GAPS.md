@@ -1900,7 +1900,8 @@ Next: hardware validation on Titan V and K80.
      upgraded to idiomatic Rust 1.81+ lint expectation.
   3. **Full audit re-confirmed:**
      - **TODO/FIXME/HACK:** Zero in all library code.
-     - **`unsafe`:** 9 blocks in `low_level/bar0.rs` (MMIO — inherently unsafe, well-audited),
+     - **`unsafe`:** `low_level/` module (`bar0.rs` + `falcon.rs`) uses `#[allow(unsafe_code)]`
+       for MMIO mmap/volatile — inherently unsafe, well-audited. Lib uses `#![deny(unsafe_code)]`.
        1 in `validate_5060_dual_use.rs` (CUDA FFI, binary only). No evolution possible.
      - **External deps:** All pure Rust except `cudarc` (CUDA FFI, feature-gated) and `wgpu`
        (Vulkan backend, unavoidable for GPU). `blake3` explicitly avoids C build path.
