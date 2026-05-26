@@ -166,7 +166,6 @@ wateringHole/gk110/
 wateringHole/*.bin
 wateringHole/vbios/*.rom
 wateringHole/mmiotraces/
-wateringHole/nvidia-closed-volta-580/
 
 # ----- Extracted firmware binaries (large, machine-local) -----
 data/firmware/**/*.bin

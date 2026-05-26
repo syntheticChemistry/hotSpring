@@ -7,6 +7,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Diesel Engine Evolution: Reset-on-Release Fix (May 26, 2026)
+
+### Added
+- **Experiment 225**: Catalyst TPC Persistence Test — tested whether TPC PRI
+  stations survive nvidia-470 catalyst unbind → vfio-pci rebind. **RESULT:**
+  nvidia RM failed to initialize GPU; `vfio-pci` reset-on-release destroyed
+  VBIOS warm state (`PMC_ENABLE 0x5fecdff1 → 0x40000020`). Titan V #1 ended
+  at Tier 0 (Cold). Root cause: FLR suppression applied too late in handoff
+  pipeline — after `VfioAnchor` drop triggered `vfio_pci_core_release()`.
+- **`prepare_anchor_release()`** in `guarded_sysfs.rs` — composable helper
+  that pins bridges, disables FLR on target + IOMMU siblings before anchor
+  drop. Foundation for the FLR-first anchor release pattern.
+- **`VfioAnchor::release_prepared()`** in `vfio_anchor.rs` — self-consuming
+  release method with debug assertion that `reset_method` is empty, catching
+  callers that skip `prepare_anchor_release()`.
+- **Step 0e anchor release guard** in `execute_handoff` — reads PMC_ENABLE
+  after anchor release and halts with clear diagnostic if GPU went cold
+  (popcount < 10). Prevents wasting 60s on doomed catalyst settle.
+- **Post-settle RM health check** — after seeder settle period, verifies
+  nvidia RM completed DEVINIT. Logs failure but continues for forensics.
+
+### Changed
+- **RPC handler**: Both `sovereign_warm_handoff` and `sovereign_catalyst_boot`
+  now call `prepare_anchor_release()` BEFORE `VfioAnchor` drop, and use
+  `release_prepared()` instead of implicit drop. This is the Exp 225 fix.
+- **Step 5 FLR** in `execute_handoff` documented as safety belt (idempotent
+  for direct callers; RPC handler already suppresses FLR before anchor release).
+- **`is_catalyst`** detection moved earlier in `execute_handoff` (before
+  Step 0e) to enable anchor release guard; duplicate definition removed.
+
 ## Sovereignty Audit + PostPrimordial Checkpoint (May 26, 2026)
 
 ### Changed
