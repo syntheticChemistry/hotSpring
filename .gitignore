@@ -210,6 +210,13 @@ control/gromacs_fel/cazyme_gh10_v2/COLVAR
 control/gromacs_fel/cazyme_gh10_v2/HILLS
 control/gromacs_fel/cazyme_gh10_v2/#*
 
+# ----- pseudoSpore raw observables (belong in lithoSpore/braids, not git) -----
+pseudoSpore_*/modules/*/COLVAR*
+pseudoSpore_*/modules/*/HILLS*
+pseudoSpore_*/modules/*/Kernels*
+pseudoSpore_*/modules/*/*.xtc
+pseudoSpore_*/modules/*/*.trr
+
 # ----- GuideStone refresh (simulation working data — multi-GB) -----
 control/gromacs_fel/guidestone_refresh/**/*.xtc
 control/gromacs_fel/guidestone_refresh/**/*.trr
