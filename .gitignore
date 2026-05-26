@@ -210,6 +210,38 @@ control/gromacs_fel/cazyme_gh10_v2/COLVAR
 control/gromacs_fel/cazyme_gh10_v2/HILLS
 control/gromacs_fel/cazyme_gh10_v2/#*
 
+# ----- GuideStone refresh (simulation working data — multi-GB) -----
+control/gromacs_fel/guidestone_refresh/**/*.xtc
+control/gromacs_fel/guidestone_refresh/**/*.trr
+control/gromacs_fel/guidestone_refresh/**/*.tpr
+control/gromacs_fel/guidestone_refresh/**/*.cpt
+control/gromacs_fel/guidestone_refresh/**/*.edr
+control/gromacs_fel/guidestone_refresh/**/*.log
+control/gromacs_fel/guidestone_refresh/**/COLVAR*
+control/gromacs_fel/guidestone_refresh/**/HILLS*
+control/gromacs_fel/guidestone_refresh/**/PLUMED.OUT
+control/gromacs_fel/guidestone_refresh/**/bck.*
+
+# ----- PLUMED-NEST targets (ingested simulation data — large) -----
+control/plumed_nest/target_*/output/
+control/plumed_nest/target_*/**/*.xtc
+control/plumed_nest/target_*/**/*.trr
+control/plumed_nest/target_*/**/*.cpt
+control/plumed_nest/target_*/**/*.edr
+control/plumed_nest/target_*/**/*.log
+control/plumed_nest/target_*/**/bck.*
+control/plumed_nest/target_02_chignolin_opes/output/
+
+# ----- PLUMED build (vendored upstream — 1 GB) -----
+control/plumed_nest/build/
+
+# ----- Rust build artifacts -----
+control/plumed_nest/nest-validate/target/
+staging/cazyme-fel/target/
+
+# ----- Simulation output .gro (large solvated systems) -----
+control/gromacs_fel/guidestone_refresh/**/*.gro
+
 # ----- Python cache -----
 **/__pycache__/
 # ============================================================

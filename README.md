@@ -134,7 +134,7 @@ Deploy: `biomeos deploy --graph graphs/<name>.toml`
 
 ## Current Status (2026-05-26)
 
-> **225 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **700 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 65 validation suites (3 tiers: smoke/nucleus/silicon), 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **24 RPC methods** (`sovereign.catalyst_diff`, `sovereign.catalyst_boot` added) | **zero `dyn` dispatch, `#[deny(unsafe_code)]` on lib with `#[allow(unsafe_code)]` on `low_level` module (unsafe confined to BAR0 MMIO + falcon PIO), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** — RTX 5060 dispatch PROVEN (8/8), **Titan V VFIO Tier 1 sovereign** (Exp 209-217: anchor-fd adoption, CE runlist discovery, PBDMA pipeline validated, PMU path closed, binary-patch warm handoff proven, sovereign driver rotation codified, pipeline consolidated, TPC wall confirmed firmware-dependent Exp 217) | **Sovereignty Tier Model** — Tier 0 (cold/vendor wall), Tier 1 (warm infrastructure — **HW validated**, `classify_tier` confirmed on both Titan Vs: `tpc_alive=false`, `tpc_status=0xBADF5040`), Tier 1+ (PRI recovery — **validated** Exp 221), Tier 2 (warm compute — **NOT achieved**: TPC PRI stations require GPCCS firmware execution, HS fuse-locked on GV100; `compute_ready` is init health check, not dispatch readiness; Exp 225 identified `vfio-pci` reset-on-release as catalyst pipeline blocker — **diesel engine FLR-first fix applied**), Tier 3 (full sovereign — research target) | **Vendor-atheistic target**: sovereign compute across generations (Volta GV100 → Blackwell SM120) — not just agnostic to vendor, but independent of vendor entirely | **Warm-catch pipeline in pure Rust** (`toadstool device warm-catch <BDF>` — ELF patcher + ember orchestrator) | **Vendor-agnostic `BootPipeline` trait** (KeplerInit + VoltaInit + VegaInit) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: toadStool boot-time GPU management via plasmidBin ecoBin** | **Compile-then-dispatch pipeline (coralReef→toadStool) wired** | **Circuit-breaker discovery + TOML-driven capability aliases** | **PLX D3cold keepalive VALIDATED** (PlxKeepalive + PlxGuardian) | **VBIOS interpreter live HW validated** (Exp 204) | **PowerSafetyProfile** (K80 fire post-mortem → generation-aware PMC_ENABLE staging) | **Sovereign Boot Abstraction** — `SovereignBootState` enum (unified warm/cold model), `WarmKeepalive` facade, `sovereign.profile` RPC with µs-precision timing + register snapshots, twin-card profiling experiments on dual Titan V (Exp 207) | **Hardware Line Codified** — cold boot = power-on reset = boot ROM trains HBM2 = same wall vendor faces; warm keepalive systemd fd store prevents transitions back to cold | **Warm Keepalive PROVEN** (Exp 208) — **183ms warm pipeline** (76× faster than cold), falcon warm preservation eliminates 3.7s ACR re-boot, fd store end-to-end validated, GPUs stay warm across `systemctl restart`, cold early-exit 200ms | **GPC Boundary Analysis** (Exp 210) — PTOP_DEVICE_INFO_V2 parser fixed, CE runlist discovered, sovereignty tier model codified, all engine domains power-gated after nouveau unbind
+> **225 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **700 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 65 validation suites (3 tiers: smoke/nucleus/silicon), 129 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **24 RPC methods** (`sovereign.catalyst_diff`, `sovereign.catalyst_boot` added) | **zero `dyn` dispatch, `#[deny(unsafe_code)]` on lib with `#[allow(unsafe_code)]` on `low_level` module (unsafe confined to BAR0 MMIO + falcon PIO), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** — RTX 5060 dispatch PROVEN (8/8), **Titan V VFIO Tier 1 sovereign** (Exp 209-217: anchor-fd adoption, CE runlist discovery, PBDMA pipeline validated, PMU path closed, binary-patch warm handoff proven, sovereign driver rotation codified, pipeline consolidated, TPC wall confirmed firmware-dependent Exp 217) | **Sovereignty Tier Model** — Tier 0 (cold/vendor wall), Tier 1 (warm infrastructure — **HW validated**, `classify_tier` confirmed on both Titan Vs: `tpc_alive=false`, `tpc_status=0xBADF5040`), Tier 1+ (PRI recovery — **validated** Exp 221), Tier 2 (warm compute — **NOT achieved**: TPC PRI stations require GPCCS firmware execution, HS fuse-locked on GV100; `compute_ready` is init health check, not dispatch readiness; Exp 225 identified `vfio-pci` reset-on-release as catalyst pipeline blocker — **diesel engine FLR-first fix applied**), Tier 3 (full sovereign — research target) | **Vendor-atheistic target**: sovereign compute across generations (Volta GV100 → Blackwell SM120) — not just agnostic to vendor, but independent of vendor entirely | **Warm-catch pipeline in pure Rust** (`toadstool device warm-catch <BDF>` — ELF patcher + ember orchestrator) | **Vendor-agnostic `BootPipeline` trait** (KeplerInit + VoltaInit + VegaInit) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: toadStool boot-time GPU management via plasmidBin ecoBin** | **Compile-then-dispatch pipeline (coralReef→toadStool) wired** | **Circuit-breaker discovery + TOML-driven capability aliases** | **PLX D3cold keepalive VALIDATED** (PlxKeepalive + PlxGuardian) | **VBIOS interpreter live HW validated** (Exp 204) | **PowerSafetyProfile** (K80 fire post-mortem → generation-aware PMC_ENABLE staging) | **Sovereign Boot Abstraction** — `SovereignBootState` enum (unified warm/cold model), `WarmKeepalive` facade, `sovereign.profile` RPC with µs-precision timing + register snapshots, twin-card profiling experiments on dual Titan V (Exp 207) | **Hardware Line Codified** — cold boot = power-on reset = boot ROM trains HBM2 = same wall vendor faces; warm keepalive systemd fd store prevents transitions back to cold | **Warm Keepalive PROVEN** (Exp 208) — **183ms warm pipeline** (76× faster than cold), falcon warm preservation eliminates 3.7s ACR re-boot, fd store end-to-end validated, GPUs stay warm across `systemctl restart`, cold early-exit 200ms | **GPC Boundary Analysis** (Exp 210) — PTOP_DEVICE_INFO_V2 parser fixed, CE runlist discovered, sovereignty tier model codified, all engine domains power-gated after nouveau unbind
 >
 > **Catalyst Driver Pattern for TPC Sovereignty (Exp 219, HW validated 2026-05-24):** Proprietary nvidia-470 treated as chemical catalyst — loaded once to initialize GPU state, BAR0 golden state captured (83,623 alive registers across 22 Volta domains in 897ms via domain-scoped scan), driver removed, state available for replay. **26s total pipeline** (was 7+ min timeout before profiling). Surgical `NopCallAt` patches for `nv_pci_remove` (4 offsets) allow PCI resource cleanup while preserving GPU warm state. Fire-and-poll unbind keeps toadstool-ember responsive during 7s RM teardown. SBR bridge reset recovers dirty GPU state without reboot. Tier 1 (WarmInfrastructure) confirmed on live Titan V. 3-layer preservation operational: recipe JSON + frozen .ko (41MB) + replay sequence (83K writes). Three RPCs: `sovereign.catalyst_diff` (twin-card diff), `sovereign.catalyst_boot` (catalyst-free replay), `sovereign.warm_handoff nvidia_catalyst_titanv`. 3-layer catalyst preservation: recipe TOML (`infra/catalysts/recipes/`), frozen `.ko` binary (`infra/catalysts/frozen/`), product JSONs (`infra/catalysts/products/`). `engine_init_path` wired into `sovereign.init_ember` for golden state replay. **All 63 tests pass.**
 >
@@ -193,6 +193,7 @@ Deploy: `biomeos deploy --graph graphs/<name>.toml`
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
+| **CompChem FEL (ABG 50-58)** | ✅ **Paper 50 GPU PROVEN** | FES Gaussian sum shader (11-14×, RMSD 1e-14), sovereign MD kernel decomposition in progress |
 
 Full validation table (225 rows) with per-experiment details: [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md)
 
@@ -358,23 +359,23 @@ See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
 ## Quick Start
 
 ```bash
-# Full regeneration — clones repos, downloads data, sets up envs, runs everything
-# (~12 hours, ~30 GB disk space, GPU recommended)
-bash scripts/regenerate-all.sh
+# guideStone Primal Proof (bare mode — no NUCLEUS required)
+./scripts/validate-primal-proof.sh
 
-# Or step by step:
-bash scripts/regenerate-all.sh --deps-only   # Clone + download + env setup (~10 min)
-bash scripts/regenerate-all.sh --sarkas      # Sarkas MD: 12 DSF cases (~3 hours)
-bash scripts/regenerate-all.sh --surrogate   # Surrogate learning (~5.5 hours)
-bash scripts/regenerate-all.sh --nuclear     # Nuclear EOS L1+L2 (~3.5 hours)
-bash scripts/regenerate-all.sh --ttm         # TTM models (~1 hour)
-bash scripts/regenerate-all.sh --dry-run     # See what would be done
+# BarraCuda validation (all 65 suites, 3 tiers)
+cd barracuda && cargo run --release --bin validate_all
 
-# Or manually:
-bash scripts/clone-repos.sh       # Clone + patch upstream repos
-bash scripts/download-data.sh     # Download Zenodo archive (~6 GB)
-bash scripts/setup-envs.sh        # Create Python environments
+# CompChem GuideStone pipeline (Rust-orchestrated, requires GROMACS+PLUMED env)
+./pseudoSpore_hotSpring-CompChem-GuideStone_v1.5.0/run
+
+# CompChem validation only (existing data)
+cd control/plumed_nest && ./nest-validate/target/release/nest-validate validate
 ```
+
+> **Note**: Legacy regeneration scripts (`regenerate-all.sh`, `clone-repos.sh`,
+> `download-data.sh`, `setup-envs.sh`) have been fossilized to `scripts/fossils/`.
+> Their functionality is superseded by `nest-validate guidestone run` (CompChem)
+> and `cargo run --release --bin validate_all` (BarraCuda).
 
 ```bash
 # guideStone Primal Proof (bare mode — no NUCLEUS required)
@@ -401,17 +402,16 @@ cargo run --release --bin sarkas_gpu -- --scale   # GPU vs CPU scaling
 
 All large data (21+ GB) is gitignored but fully reproducible:
 
-| Data | Size | Script | Time |
-|------|------|--------|------|
-| Upstream repos (Sarkas, TTM, Plasma DB) | ~500 MB | `clone-repos.sh` | 2 min |
-| Zenodo archive (surrogate learning) | ~6 GB | `download-data.sh` | 5 min |
-| Sarkas simulations (12 DSF cases) | ~15 GB | `regenerate-all.sh --sarkas` | 3 hr |
-| TTM reproduction (3 species) | ~50 MB | `regenerate-all.sh --ttm` | 1 hr |
-| **Total regeneratable** | **~22 GB** | `regenerate-all.sh` | **~12 hr** |
+| Data | Size | Tool | Time |
+|------|------|------|------|
+| CompChem FEL (4 systems × metadynamics) | ~8 GB | `nest-validate guidestone run` | ~3 hr |
+| BarraCuda GPU validation (65 suites) | ~100 MB | `cargo run --bin validate_all` | ~20 min |
+| Upstream repos (Sarkas, TTM, Plasma DB) | ~500 MB | manual clone (see `scripts/fossils/`) | 2 min |
+| Zenodo archive (surrogate learning) | ~6 GB | manual download | 5 min |
+| Sarkas simulations (12 DSF cases) | ~15 GB | `cargo run --bin sarkas_gpu -- --paper` | 3.6 hr |
 
-Upstream repos are pinned to specific versions and automatically patched:
-- **Sarkas**: v1.0.0 + 3 patches (NumPy 2.x, pandas 2.x, Numba 0.60 compat)
-- **TTM**: latest + 1 patch (NumPy 2.x `np.math.factorial` removal)
+> Legacy orchestration (`regenerate-all.sh`) is fossilized. Each domain now has its
+> own Rust-native pipeline entry point.
 
 ---
 
@@ -507,15 +507,16 @@ hotSpring/
 │   │   └── archive/                  # Older handoffs (May 7-11 era, fossil record)
 │   └── mmiotraces/                    # GPU mmiotrace captures
 │
-├── scripts/                            # Build, regeneration, deployment, boot scripts
+├── scripts/                            # Build, deployment, boot scripts
 │   ├── boot/                          # Systemd units, wake scripts, install scripts
+│   ├── fossils/                       # Fossilized scripts (superseded by Rust tooling)
+│   ├── archive/                       # Archived hardware experiment scripts (fossil record)
 │   ├── validate-primal-proof.sh       # Primal proof validation (bare + NUCLEUS modes)
 │   ├── build-guidestone.sh            # Build guideStone artifact (dual-arch, container, launchers)
 │   ├── build-container.sh             # Build + export OCI container image
 │   ├── prepare-usb.sh                 # Prepare USB liveSpore (ext4/exFAT modes)
 │   ├── harvest-ecobin.sh             # ecoBin musl-static build + plasmidBin submission
-│   ├── ci-coverage-gate.sh           # CI coverage threshold enforcement (90% line)
-│   └── regenerate-all.sh             # Full science regeneration pipeline
+│   └── ci-coverage-gate.sh           # CI coverage threshold enforcement (90% line)
 │
 ├── sporeprint/                         # SporePrint / primals.eco publishing
 ├── tools/                              # Composition scripts, helpers
@@ -536,6 +537,7 @@ hotSpring/
 | [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md) | Full validation table, benchmark data, studies, document index |
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation |
 | [`specs/PAPER_REVIEW_QUEUE.md`](specs/PAPER_REVIEW_QUEUE.md) | Papers to review/reproduce, prioritized by tier |
+| [`specs/SOVEREIGN_COMPCHEM_EVOLUTION.md`](specs/SOVEREIGN_COMPCHEM_EVOLUTION.md) | Papers 50-58: sovereign all-atom MD kernel decomposition (7 GPU kernels) |
 | [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md) | Sovereign validation ladder / cross-cutting matrix (DRM, drivers, hardware) |
 | [`whitePaper/baseCamp/`](whitePaper/baseCamp/) | Per-domain research briefings (19 docs) |
 | [`validation/README`](validation/README) | guideStone artifact documentation — quick start, deployment matrix, cross-platform |
@@ -562,7 +564,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*225 experiments, 700 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*225 experiments, 700 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 129 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** —

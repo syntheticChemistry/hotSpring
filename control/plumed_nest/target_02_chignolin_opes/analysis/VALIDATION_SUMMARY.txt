@@ -1,0 +1,22 @@
+
+======================================================================
+VALIDATION REPORT: Target 02 — Chignolin (OPES + OPES-Explore)
+======================================================================
+
+Simulation time: 0.5 ns
+HLDA mean: 0.913 (folded > 1.0)
+Transitions: 3
+ΔG_fold: -28.49855348752182 kJ/mol
+
+Total checks: 3
+Pass rate: 67%
+Industry standard: FAIL
+
+--- PASSES ---
+  [PASS] Observed 3 folding/unfolding transitions
+  [PASS] FE convergence < 4 kJ/mol over last 3 windows
+
+--- FAILURES ---
+  [FAIL] ΔG_fold = -28.5 kJ/mol outside range (-12.0, -3.0)
+
+======================================================================

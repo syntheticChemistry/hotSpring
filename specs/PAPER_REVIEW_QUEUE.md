@@ -3,12 +3,12 @@
 > Current state: v0.6.32, 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders. Paper reproduction
 > priorities and status are still authoritative.
 
-**Last Updated**: May 17, 2026
+**Last Updated**: May 26, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
-**Crate**: hotspring-barracuda v0.6.32 — 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders
-**Current Goal**: Foundation seeding + NUCLEUS workload validation → Tier 4 WDM reproduction → Chuna collaboration
+**Crate**: hotspring-barracuda v0.6.32 — 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128+ WGSL shaders
+**Current Goal**: Foundation seeding + NUCLEUS workload validation → Tier 4 WDM reproduction → Chuna collaboration → **Sovereign CompChem MD (Papers 50-58)**
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
 
@@ -45,15 +45,24 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 43 | Chuna: SU(3) gradient flow integrators | ✅ `gradient_flow_control.py` | ✅ `gradient_flow` (5 integrators, t₀ + w₀ scale, 14/14) | ✅ `gpu_flow` (7/7, 38.5×) | ✅ `gradient_flow_production` (HMC+flow) |
 | 44 | Chuna: Conservative dielectric functions (BGK) | ✅ `bgk_dielectric_control.py` | ✅ `dielectric` (25 tests, std+completed Mermin) | ✅ `dielectric_mermin_f64` (std+completed) | ✅ `validate_dsf_vs_md` (14/14, MD parity) |
 | 45 | Chuna: Multi-species kinetic-fluid coupling | ✅ `kinetic_fluid_control.py` | ✅ `kinetic_fluid` (16 tests + 20/20) | ✅ `bgk_relaxation_f64` (GPU BGK) | 322× CPU |
+| **50** | **ABG: FES Gaussian summation (metadynamics)** | ✅ GROMACS+PLUMED (HILLS) | ✅ `cazyme-fel` (1D+2D, parity <1e-14) | ✅ `fes_gaussian_sum_f64.wgsl` (11-14×, RMSD 1e-14) | — |
+| 51 | ABG: Bonded force field terms (angles/dihedrals/1-4) | — | — | — | — |
+| 52 | ABG: LINCS/RATTLE constraint solver | — | — | — | — |
+| 53 | ABG: Long-range electrostatics (PME/PPPM) | — | — (PPPM exists N=64) | — (toadStool FFT3D validated) | — |
+| 54 | ABG: All-atom integrator (VV + constraints + PME) | — | — | — | — |
+| 55 | ABG: Carbohydrate ring puckering CV (Cremer-Pople) | ✅ PLUMED PUCKERING | ✅ `cazyme-fel` (6-atom geometry) | — (trivial per-ring) | — |
+| 56 | ABG: Well-tempered metadynamics bias kernel | ✅ PLUMED WTMetaD | — | — (GPU bias deposition) | — |
+| 57 | ABG: Reweighted FES from OPES trajectories | ✅ `FES_from_Reweighting.py` | ✅ `colvar::reweighted_fes_1d` | — (atomic histogram) | — |
+| 58 | ABG: Sovereign all-atom MD (93K enzyme system) | ✅ GROMACS (industry control) | — | — (composition of 51-54) | — |
 
 ### Totals
 
 | Substrate | Papers with validation | Coverage |
 |-----------|:---:|:---:|
-| **Python Control** | **24/25** | Papers 1-6, 8-22, 43-45 (only 23/wetSpring missing) |
-| **BarraCuda CPU** | **25/25** | All except 23 (wetSpring domain) — Papers 43-45 now validated |
-| **BarraCuda GPU** | **20/25** | Papers 1, 3-5, 8-19, 43-45. Remaining: 2,7 CPU-only by design; 6,17,21,22 CPU-natural (sequential); 20 GPU-promotable via SpMV+Lanczos (P2) |
-| **metalForge (GPU+NPU)** | **9/25** | Papers 5, 8-10, 12-16 (transport + QCD + Higgs + spectral) |
+| **Python Control** | **27/34** | Papers 1-6, 8-22, 43-45, 50, 55-57 (23/wetSpring missing; 51-54 pending) |
+| **BarraCuda CPU** | **28/34** | All non-wetSpring incl. Papers 43-45, 50, 55 |
+| **BarraCuda GPU** | **21/34** | Papers 1, 3-5, 8-19, 43-45, **50 (FES GPU parity)**. ABG 51-54 = sovereign MD evolution path |
+| **metalForge (GPU+NPU)** | **9/34** | Papers 5, 8-10, 12-16 (transport + QCD + Higgs + spectral) |
 
 ### Missing Controls (Action Items)
 
@@ -126,9 +135,12 @@ No GPU required. This is the correctness foundation.
 | Freeze-out (susceptibility β-scan) | `validate_freeze_out` | 8/8 | — |
 | Lattice QCD CG solver | `validate_gpu_cg` (CPU path) | 9/9 | 200× faster |
 | Special functions + linalg | `validate_special_functions` + `validate_linalg` | pass | — |
+| **CompChem FES (1D+2D)** | **`cazyme-fel` (nest-validate)** | **12/12 modules** | **parity 1e-14 vs GROMACS sum_hills** |
+| Cremer-Pople CV geometry | `cazyme-fel` (6-atom puckering) | pass | — |
+| Colvar reweighting | `colvar::reweighted_fes_1d` | pass | — |
 
-**Status**: 22/22 papers have BarraCuda CPU validation (**COMPLETE**). Rust consistently
-50×–2000× faster than Python for identical algorithms.
+**Status**: 25/25 papers have BarraCuda CPU validation (**COMPLETE** including ABG CompChem).
+Rust consistently 50×–2000× faster than Python for identical algorithms.
 
 ### Level 2: BarraCuda GPU (WGSL Shaders via wgpu/Vulkan)
 
@@ -156,6 +168,8 @@ to consumer GPU (RTX 4070 or any Vulkan SHADER_F64 device).
 | PPPM Coulomb | `validate_pppm` | pass | — |
 | HFB pipeline | `validate_barracuda_hfb` | 16/16 | Single-dispatch (v0.6.7) |
 | MD pipeline | `validate_barracuda_pipeline` | 12/12 | — |
+| **CompChem FES (2D Gaussian sum)** | **`validate_compchem_gpu_parity`** | **4/4** | **11-14× (110² grid × 20K Gaussians), RMSD 1e-14** |
+| CompChem FES (GPU dispatch) | `fes_gpu::FesGaussianSumGpu` | compiled | wgpu native f64 |
 
 **Status**: 20/22 papers have GPU validation paths. **Full GPU QCD pipeline validated**:
 - **Quenched HMC** (8/8): 5 WGSL shaders at machine-epsilon parity

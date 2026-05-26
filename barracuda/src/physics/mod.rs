@@ -15,6 +15,9 @@ pub mod average_atom;
 /// BCS pairing gap solver on GPU (bisection in WGSL).
 #[cfg(feature = "barracuda-local")]
 pub mod bcs_gpu;
+/// FES Gaussian summation on GPU (metadynamics CompChem).
+#[cfg(feature = "barracuda-local")]
+pub mod fes_gpu;
 /// Physical constants (CODATA 2018, nuclear, Skyrme).
 pub mod constants;
 /// BGK dielectric functions (Chuna & Murillo 2024, arXiv:2405.07871).

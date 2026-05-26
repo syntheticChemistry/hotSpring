@@ -1,0 +1,32 @@
+# Cremer-Pople 2D puckering CVs for -1 subsite beta-D-xylose in GH10 xylanase (PDB 2D24)
+# Using Cartesian (qx, qy) to avoid polar singularity and periodicity issues
+#
+# INDEX TRANSLATION (domain → computation):
+#   PDB 2D24 serial → GROMACS topology index (residue BXYL 437)
+#   C1: 6599 → 6278
+#   C2: 6600 → 6286
+#   C3: 6601 → 6290
+#   C4: 6602 → 6294
+#   C5: 6603 → 6282
+#   O5: 6607 → 6285
+
+puck: PUCKERING ATOMS=6278,6286,6290,6294,6282,6285
+
+# 2D well-tempered metadynamics on (qx, qy)
+# Same parameters as free xylose for direct comparison
+
+METAD ...
+LABEL=metad
+ARG=puck.qx,puck.qy
+PACE=500
+HEIGHT=1.2
+SIGMA=0.02,0.02
+FILE=HILLS_2d
+BIASFACTOR=15.0
+TEMP=300.0
+GRID_MIN=-0.12,-0.12
+GRID_MAX=0.12,0.12
+GRID_BIN=100,100
+... METAD
+
+PRINT STRIDE=10 ARG=puck.theta,puck.phi,puck.amplitude,puck.qx,puck.qy,puck.qz,metad.bias FILE=COLVAR_2d

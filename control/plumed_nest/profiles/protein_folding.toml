@@ -1,0 +1,94 @@
+# Domain Profile: Protein Folding (Enhanced Sampling)
+# Applies to: Chignolin, small proteins, folding free energy calculations
+# Methods: OPES, OPES-Explore, well-tempered metadynamics
+# Evolved from: plumID:24.029 (Ray & Rizzi, JCTC 2024)
+
+[profile]
+id = "protein-folding-opes"
+version = "1.0"
+tools = ["gromacs", "plumed"]
+
+[translation]
+enabled = true
+domain_frame = "protein-structure"
+computation_frame = "enhanced-sampling-md"
+topology_format = "gromacs-top"
+
+[[translation.entity_group]]
+name = "protein"
+atoms = ["CA", "N", "C", "O", "CB"]
+residue_filter = ["ALA", "GLY", "TYR", "ASP", "PRO", "GLU", "THR", "TRP"]
+
+[[translation.entity_group]]
+name = "solvent"
+atoms = ["OW", "HW1", "HW2"]
+residue_filter = ["SOL", "TIP3"]
+
+[derivation]
+tool = "plumed"
+find_paths = ["plumed/*.dat", "*.dat"]
+
+[[derivation.contract]]
+inputs = "COLVAR"
+outputs = "analysis/fes_*.dat"
+command = "plumed sum_hills --hills output/HILLS --mintozero"
+
+[[derivation.contract]]
+inputs = "Kernels.data"
+outputs = "analysis/fes_reweight.dat"
+command = "python3 analysis_scripts/FES_from_Reweighting.py"
+
+[figures]
+enabled = true
+generator = "python3"
+
+[[figures.plot]]
+type = "1d_fes"
+pattern = "analysis/fes_*.dat"
+x_label = "CV (HLDA / RMSD)"
+y_label = "Free Energy (kJ/mol)"
+
+[[figures.plot]]
+type = "timeseries"
+pattern = "output/COLVAR*"
+x_label = "Time (ns)"
+y_label = "RMSD / End-to-end distance (nm)"
+
+[audit]
+config_fidelity = true
+scientific_claims = true
+simulation_time = true
+topology_crossref = true
+mdp_headers = true
+
+[audit.claims]
+[[audit.claims.validator]]
+key_pattern = "folding_free_energy"
+output_file = "analysis/fes_reweight.dat"
+type = "barrier_height"
+expected_range = [-12.0, -3.0]
+
+[[audit.claims.validator]]
+key_pattern = "folded_state"
+output_file = "output/COLVAR"
+type = "population"
+[[audit.claims.validator.zones]]
+name = "folded"
+min = 0.0
+max = 0.15
+[[audit.claims.validator.zones]]
+name = "unfolded"
+min = 0.3
+max = 2.0
+
+[simulation_time]
+config_format = "mdp"
+time_unit = "ps"
+[simulation_time.time_fields]
+nsteps = "nsteps"
+dt = "dt"
+
+[tolerances]
+folding_free_energy_kj = 4.0
+rmsd_threshold_nm = 0.15
+convergence_block_kj = 2.0

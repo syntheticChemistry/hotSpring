@@ -1,0 +1,101 @@
+# Domain Profile: Binding Free Energy (Protein-Ligand)
+# Applies to: Drug discovery, absolute/relative binding free energy
+# Methods: OneOPES, funnel metadynamics, multi-replica
+# Evolved from: plumID:24.017 (Karrenbrock et al., JPCL 2024)
+#               plumID:20.000 (Capelli et al., JCTC 2019)
+
+[profile]
+id = "binding-free-energy"
+version = "1.0"
+tools = ["gromacs", "plumed"]
+
+[translation]
+enabled = true
+domain_frame = "protein-ligand-complex"
+computation_frame = "enhanced-sampling-binding"
+topology_format = "gromacs-top"
+
+[[translation.entity_group]]
+name = "protein"
+atoms = ["CA", "N", "C", "O"]
+residue_filter = []
+
+[[translation.entity_group]]
+name = "ligand"
+atoms = []
+residue_filter = ["LIG", "MOL", "UNK"]
+
+[[translation.entity_group]]
+name = "binding_site"
+atoms = []
+residue_filter = []
+
+[derivation]
+tool = "plumed"
+find_paths = ["plumed/*.dat", "replica_*/plumed.dat"]
+
+[[derivation.contract]]
+inputs = "replica_*/COLVAR"
+outputs = "analysis/binding_fes.dat"
+command = "python3 scripts/compute_binding_fe.py"
+
+[[derivation.contract]]
+inputs = "replica_*/Kernels.data"
+outputs = "analysis/convergence.dat"
+command = "python3 scripts/check_convergence.py"
+
+[figures]
+enabled = true
+generator = "python3"
+
+[[figures.plot]]
+type = "1d_fes"
+pattern = "analysis/binding_fes.dat"
+x_label = "Protein-Ligand Distance (nm)"
+y_label = "Free Energy (kJ/mol)"
+
+[[figures.plot]]
+type = "convergence"
+pattern = "analysis/convergence.dat"
+x_label = "Simulation Time (ns)"
+y_label = "ΔG_bind (kJ/mol)"
+
+[audit]
+config_fidelity = true
+scientific_claims = true
+simulation_time = true
+topology_crossref = true
+mdp_headers = true
+
+[audit.claims]
+[[audit.claims.validator]]
+key_pattern = "binding_free_energy"
+output_file = "analysis/binding_fes.dat"
+type = "free_energy_difference"
+expected_range = [-60.0, -10.0]
+
+[[audit.claims.validator]]
+key_pattern = "bound_state"
+output_file = "analysis/binding_fes.dat"
+type = "minimum_location"
+[[audit.claims.validator.zones]]
+name = "bound"
+min = 0.0
+max = 0.5
+[[audit.claims.validator.zones]]
+name = "unbound"
+min = 2.0
+max = 5.0
+
+[simulation_time]
+config_format = "mdp"
+time_unit = "ps"
+[simulation_time.time_fields]
+nsteps = "nsteps"
+dt = "dt"
+
+[tolerances]
+binding_fe_kj = 8.0
+binding_fe_kcal = 2.0
+replica_convergence_kj = 4.0
+experimental_deviation_kcal = 2.0

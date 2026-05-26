@@ -1,0 +1,94 @@
+# PLUMED-NEST Tolerances Registry
+# Aggregated from reproduced targets — quantitative thresholds for parity validation
+#
+# Each tolerance class defines acceptable deviation from Tier 0 (GROMACS+PLUMED)
+# baselines when comparing Tier 1 (barraCuda) and Tier 2 (NUCLEUS) implementations.
+#
+# Units: kJ/mol for energies, rad for angles, nm for distances, ns for time
+
+[meta]
+version = "1.0"
+derived_from = ["plumID:24.020", "plumID:24.029", "plumID:22.028", "plumID:25.007", "plumID:24.017", "plumID:20.000"]
+last_updated = "2026-05-25"
+
+# === Metadynamics (canonical) ===
+[metadynamics]
+# From Target 1: Alanine dipeptide
+minimum_location_tolerance_rad = 0.3
+barrier_height_tolerance_kj = 5.0
+convergence_window_kj = 2.0
+gaussian_count_minimum = 5000
+bias_factor_range = [4.0, 20.0]
+sigma_tolerance_fraction = 0.1
+justification = "Canonical metadynamics on alanine dipeptide; barriers converge within 5 kJ/mol after ~5000 Gaussians (Barducci et al. 2008)"
+
+# === OPES (next-gen enhanced sampling) ===
+[opes]
+# From Target 2: Chignolin folding
+barrier_estimate_tolerance_kj = 4.0
+kernel_compression_tolerance = 0.05
+folding_fe_tolerance_kj = 4.0
+rmsd_threshold_nm = 0.15
+explore_barrier_min_kj = 10.0
+explore_barrier_max_kj = 50.0
+justification = "OPES converges faster than metadynamics; folding ΔG for chignolin within 4 kJ/mol of reference (Ray & Rizzi 2024)"
+
+# === Carbohydrate puckering ===
+[puckering]
+# From Targets 5 & 6: N-glycan pucker, CAZyme glycan
+theta_peak_tolerance_rad = 0.2
+phi_period_tolerance_rad = 0.3
+population_4c1_min_fraction = 0.85
+population_4c1_enzyme_min_fraction = 0.50
+boat_population_max_fraction = 0.10
+dihedral_barrier_tolerance_kj = 5.0
+justification = "4C1 chair dominates (>85%) in free glycans; enzyme binding shifts toward transition states (Grothaus et al. 2022, 2025)"
+
+# === REST-RECT (replica exchange) ===
+[rest_rect]
+# From Targets 5 & 6
+exchange_rate_min = 0.10
+exchange_rate_max = 0.40
+rect_scaling_min = 1.0
+rect_scaling_max = 14.0
+replica_count_min = 8
+convergence_ns_per_replica = 50.0
+justification = "REST-RECT requires 10-40% exchange acceptance; minimum 50 ns/replica for dihedral convergence (Grothaus et al. 2022)"
+
+# === Binding free energy ===
+[binding]
+# From Targets 3 & 4
+absolute_fe_tolerance_kj = 8.0
+absolute_fe_tolerance_kcal = 2.0
+relative_fe_tolerance_kcal = 1.0
+funnel_restraint_force_kj_nm2 = 1000.0
+bound_state_distance_max_nm = 0.5
+unbound_distance_min_nm = 2.0
+replica_count_oneopes = 8
+justification = "OneOPES achieves <2 kcal/mol from experiment for absolute binding (Karrenbrock et al. 2024)"
+
+# === Nucleation / materials ===
+[nucleation]
+# From Target 8
+nucleation_barrier_tolerance_kj = 10.0
+polymorph_fe_tolerance_kj = 5.0
+gnn_cv_retraining_threshold = 0.1
+system_size_minimum_molecules = 500
+justification = "Crystal nucleation barriers have ~10 kJ/mol uncertainty due to finite-size effects (Zou & Tiwary 2023)"
+
+# === QM/MM (frontier) ===
+[qmmm]
+# From Target 7
+activation_barrier_tolerance_kj = 8.0
+committor_probability_tolerance = 0.1
+ml_cv_accuracy_threshold = 0.90
+justification = "QM/MM activation energies have ~2 kcal/mol systematic error from DFT functional choice (Das et al. 2025)"
+
+# === Parity thresholds (Tier 0 → Tier 1 → Tier 2) ===
+[parity]
+tier0_to_tier1_max_deviation_kj = 1.0
+tier1_to_tier2_max_deviation_kj = 2.0
+cv_computation_tolerance_absolute = 1e-6
+bias_accumulation_tolerance_kj = 0.1
+force_computation_tolerance_kj_nm = 0.01
+justification = "Sub-kJ/mol parity required for Tier 0→1 (GPU shader); 2 kJ/mol for Tier 1→2 (IPC composition overhead)"

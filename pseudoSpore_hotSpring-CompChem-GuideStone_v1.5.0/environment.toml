@@ -1,0 +1,46 @@
+# Environment snapshot at emit time
+# Captures the exact hardware/software stack used for validation
+
+[host]
+hostname = "pop-os"
+os = "linux 6.17.9-76061709-generic"
+arch = "x86_64"
+
+[cpu]
+model = "AMD EPYC 7452 32-Core Processor"
+cores_physical = 32
+threads_available = 64
+
+[gpu]
+model = "NVIDIA GeForce RTX 3090"
+driver = "580.126.18"
+memory_mib = 24576
+cuda_version = "12.x"
+
+[software]
+gromacs_version = "2026.0-conda_forge"
+gromacs_binary = "gmx"
+gromacs_precision = "single"
+gromacs_simd = "AVX2_256"
+plumed_version = "2.10"
+plumed_kernel = "libplumedKernel.so"
+plumed_modules = "all"
+conda_environment = "gromacs-fel"
+python_version = "3.12"
+rust_edition = "2021"
+
+[validation_tools]
+nest_validate_version = "0.2.0"
+cazyme_fel_version = "0.1.0"
+b3sum_available = true
+
+[simulation_parameters]
+default_ntmpi = 1
+default_ntomp = 8
+gpu_offload = true
+pme_on_gpu = true
+
+[emit]
+git_sha = "a240182"
+timestamp = "2026-05-26T11:44:00Z"
+emit_tool = "nest-validate + manual assembly"

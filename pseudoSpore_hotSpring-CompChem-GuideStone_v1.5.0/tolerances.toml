@@ -1,0 +1,89 @@
+# GuideStone Tolerances — quantitative acceptance criteria per module
+# Derived from PLUMED-NEST reproducibility and Tier parity testing
+
+[meta]
+version = "1.0"
+derived_from = ["plumID:24.020", "plumID:24.029", "control/gromacs_fel/validation_matrix.json"]
+last_updated = "2026-05-26"
+
+# === Per-module tolerances ===
+
+[[tolerance]]
+name = "fes_basin_position"
+value = 0.3
+unit = "rad"
+applies_to = ["01_alanine_dipeptide", "03_free_xylose_1d", "05_enzyme_bound_1d"]
+justification = "Metadynamics basin positions converge within 0.3 rad after sufficient Gaussians (Barducci 2008)"
+reference = "plumID:24.020"
+
+[[tolerance]]
+name = "fes_barrier_height"
+value = 5.0
+unit = "kJ/mol"
+applies_to = ["01_alanine_dipeptide", "03_free_xylose_1d", "05_enzyme_bound_1d"]
+justification = "Well-tempered metadynamics barriers converge within 5 kJ/mol of infinite-time limit"
+reference = "Barducci et al. Phys. Rev. Lett. 100, 020603 (2008)"
+
+[[tolerance]]
+name = "fes_convergence_window"
+value = 2.0
+unit = "kJ/mol"
+applies_to = ["01_alanine_dipeptide"]
+justification = "Block-averaged FES variation in final 20% of simulation"
+reference = "Grossfield et al. LAJP 1, 23 (2009)"
+
+[[tolerance]]
+name = "opes_folding_fe"
+value = 4.0
+unit = "kJ/mol"
+applies_to = ["02_chignolin_opes"]
+justification = "OPES free energy estimates converge within 4 kJ/mol with sufficient transitions"
+reference = "Ray & Rizzi, JCTC (2024)"
+
+[[tolerance]]
+name = "opes_transition_minimum"
+value = 6.0
+unit = "count"
+applies_to = ["02_chignolin_opes"]
+justification = "Minimum 6 fold/unfold transitions for statistically meaningful ΔG estimate"
+reference = "Invernizzi & Parrinello, J. Phys. Chem. Lett. 11, 2731 (2020)"
+
+[[tolerance]]
+name = "tier_parity_1d"
+value = 1.0
+unit = "kJ/mol"
+applies_to = ["03_free_xylose_1d", "05_enzyme_bound_1d"]
+justification = "Tier 0→2 FES RMSD must be <1 kJ/mol for 1D landscapes"
+reference = "control/gromacs_fel/validation_matrix.json"
+
+[[tolerance]]
+name = "tier_parity_2d"
+value = 2.0
+unit = "kJ/mol"
+applies_to = ["04_free_xylose_2d", "06_enzyme_bound_2d"]
+justification = "Tier 0→2 FES RMSD must be <2 kJ/mol for 2D landscapes (higher dimensionality allows more deviation)"
+reference = "control/gromacs_fel/validation_matrix.json"
+
+[[tolerance]]
+name = "puckering_4c1_population"
+value = 0.85
+unit = "fraction"
+applies_to = ["03_free_xylose_1d"]
+justification = "4C1 chair must be dominant (>85%) in free pyranose at 300K"
+reference = "Grothaus et al. Chem. Eur. J. (2022)"
+
+[[tolerance]]
+name = "enzyme_barrier_reduction"
+value = 5.0
+unit = "kJ/mol"
+applies_to = ["05_enzyme_bound_1d"]
+justification = "Enzyme must lower at least one conformational barrier by detectable amount vs free sugar"
+reference = "Iglesias-Fernández et al. JACS 137, 7528 (2015)"
+
+[[tolerance]]
+name = "refresh_shift_maximum"
+value = 3.0
+unit = "kJ/mol"
+applies_to = "all"
+justification = "Re-running with updated software stack must not shift FES basins by more than 3 kJ/mol (statistical noise floor)"
+reference = "Internal: GuideStone v0.7→v1.5 refresh protocol"

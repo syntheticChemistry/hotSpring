@@ -1,0 +1,107 @@
+# Domain Profile: Canonical Metadynamics (Foundation)
+# Applies to: Well-tempered metadynamics on simple systems
+# Methods: Well-tempered metadynamics, standard CVs (TORSION, DISTANCE)
+# Evolved from: plumID:24.020 / Lugano tutorial / Masterclass 21.4
+# Baseline: Alanine dipeptide phi/psi 2D FEL
+
+[profile]
+id = "metadynamics-canonical"
+version = "1.0"
+tools = ["gromacs", "plumed"]
+
+[translation]
+enabled = true
+domain_frame = "molecular-structure"
+computation_frame = "well-tempered-metadynamics"
+topology_format = "gromacs-top"
+
+[[translation.entity_group]]
+name = "backbone"
+atoms = ["N", "CA", "C", "O"]
+residue_filter = []
+
+[derivation]
+tool = "plumed"
+find_paths = ["plumed/*.dat"]
+
+[[derivation.contract]]
+inputs = "output/HILLS"
+outputs = "analysis/fes_2d.dat"
+command = "plumed sum_hills --hills output/HILLS --mintozero --outfile analysis/fes_2d.dat"
+
+[[derivation.contract]]
+inputs = "output/HILLS"
+outputs = "analysis/fes_phi.dat"
+command = "plumed sum_hills --hills output/HILLS --mintozero --idw phi --outfile analysis/fes_phi.dat"
+
+[[derivation.contract]]
+inputs = "output/HILLS"
+outputs = "analysis/fes_stride_*.dat"
+command = "plumed sum_hills --hills output/HILLS --mintozero --stride 1000"
+
+[figures]
+enabled = true
+generator = "python3"
+
+[[figures.plot]]
+type = "2d_fes"
+pattern = "analysis/fes_2d.dat"
+x_label = "phi (rad)"
+y_label = "psi (rad)"
+
+[[figures.plot]]
+type = "1d_fes"
+pattern = "analysis/fes_phi.dat"
+x_label = "phi (rad)"
+y_label = "Free Energy (kJ/mol)"
+
+[[figures.plot]]
+type = "convergence"
+pattern = "analysis/fes_stride_*.dat"
+x_label = "phi (rad)"
+y_label = "Free Energy (kJ/mol)"
+
+[audit]
+config_fidelity = true
+scientific_claims = true
+simulation_time = true
+topology_crossref = false
+mdp_headers = true
+
+[audit.claims]
+[[audit.claims.validator]]
+key_pattern = "c7eq_minimum"
+output_file = "analysis/fes_2d.dat"
+type = "minimum_location"
+[[audit.claims.validator.zones]]
+name = "C7eq"
+min = -1.8
+max = -1.0
+
+[[audit.claims.validator]]
+key_pattern = "c7ax_minimum"
+output_file = "analysis/fes_2d.dat"
+type = "minimum_location"
+[[audit.claims.validator.zones]]
+name = "C7ax"
+min = 0.8
+max = 1.6
+
+[[audit.claims.validator]]
+key_pattern = "barrier_c7eq_alphaR"
+output_file = "analysis/fes_phi.dat"
+type = "barrier_height"
+expected_range = [15.0, 40.0]
+
+[simulation_time]
+config_format = "mdp"
+time_unit = "ps"
+[simulation_time.time_fields]
+nsteps = "nsteps"
+dt = "dt"
+
+[tolerances]
+minimum_location_rad = 0.3
+barrier_height_kj = 5.0
+convergence_window_kj = 2.0
+gaussian_count_min = 5000

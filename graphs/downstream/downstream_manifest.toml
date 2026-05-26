@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# hotSpring Proto-Nucleate Manifest — local NUCLEUS composition for domain validation
+#
+# This declares the primal composition hotSpring validates against on biomeGate.
+# hotSpring stresses the Node Atomic (proton-heavy) + Nest Atomic for:
+#   - QCD lattice gauge theory (SU(3), gradient flow, Chuna engine)
+#   - CompChem enhanced sampling (metadynamics, OPES, FEL reconstruction)
+#   - Plasma physics (DSF, Sarkas, OCP)
+#
+# The upstream canonical entry lives in primalSpring/graphs/downstream/downstream_manifest.toml
+# (hotspring entry, domain = "qcd_physics"). This local file extends with CompChem specifics.
+#
+# Wave 50 (postPrimordial): all primals from plasmidBin, Songbird mesh federated.
+
+[manifest]
+template = "proto_nucleate_template.toml"
+version = "1.0.0"
+spring = "hotSpring"
+gate = "biomeGate"
+wave = 50
+
+[composition]
+family_id = "hotspring-biome"
+particle_profile = "proton_heavy"
+fragments = ["tower_atomic", "node_atomic", "nest_atomic"]
+
+[composition.primals]
+required = [
+    "beardog",
+    "songbird",
+    "toadstool",
+    "barracuda",
+    "coralreef",
+    "nestgate",
+    "rhizocrypt",
+]
+optional = [
+    "loamspine",
+    "sweetgrass",
+    "squirrel",
+    "biomeos",
+    "petaltongue",
+    "skunkbat",
+]
+
+[validation]
+guidestone_readiness = 5
+guidestone_binary = "nest-validate"
+parity_binary = "barracuda"
+source = "plasmidBin"
+
+[validation.properties]
+deterministic = true
+traceable = true
+self_verifying = true
+env_agnostic = true
+tolerance_documented = true
+
+[validation.capabilities]
+# barraCuda — GPU shader parity for FES Gaussian summation
+compute_dispatch = "compute.dispatch"
+tensor_matmul = "tensor.matmul"
+tensor_create = "tensor.create"
+tensor_add = "tensor.add"
+tensor_scale = "tensor.scale"
+stats_mean = "stats.mean"
+stats_std_dev = "stats.std_dev"
+validate_gpu = "validate.gpu_stack"
+tolerances_get = "tolerances.get"
+# BearDog — BLAKE3 provenance for GuideStone integrity
+crypto_hash = "crypto.hash"
+# toadStool — hardware dispatch
+hardware_probe = "hardware.probe"
+
+[mesh]
+node_id = "biomeGate"
+federation_port = 7700
+bootstrap_peers = ["192.168.1.144:7700"]
+
+[domains]
+
+[domains.qcd]
+description = "Lattice QCD: SU(3) gauge theory, gradient flow, Chuna engine"
+primary_primal = "barracuda"
+validation_binary = "hotspring_unibin"
+papers = [8, 9, 10, 11, 12, 13, 43, 44, 45]
+
+[domains.compchem]
+description = "Computational chemistry: enhanced sampling FEL, metadynamics, OPES"
+primary_primal = "barracuda"
+validation_binary = "nest-validate"
+external_tools = ["GROMACS", "PLUMED"]
+papers = ["Iglesias-Fernandez_2015", "Invernizzi_2020"]
+
+[domains.plasma]
+description = "Plasma physics: DSF, Sarkas MD, OCP transport"
+primary_primal = "barracuda"
+validation_binary = "hotspring_unibin"
+papers = [6]

@@ -1,0 +1,10 @@
+# Minimal puckering CV validation: Single mannose ring
+# Validates PUCKERING action computes correct Cremer-Pople coordinates
+# for comparison against Grothaus et al. 2022 theta distributions
+#
+# Ring atoms: O5, C1, C2, C3, C4, C5 (standard pyranose order)
+# Expected: theta ≈ 0 (4C1 chair dominates at 300K)
+
+puck: PUCKERING ATOMS=1,2,3,4,5,6
+
+PRINT ARG=puck.phi,puck.theta,puck.amplitude STRIDE=100 FILE=COLVAR_pucker FMT=%8.4f

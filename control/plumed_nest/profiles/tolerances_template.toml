@@ -1,0 +1,99 @@
+# tolerances.toml — pseudoSpore artifact tolerance declaration
+# Generated from PLUMED-NEST validation array baselines
+# lithoSpore v2.3.0+ / pseudoSpore v1.5.0+
+#
+# Each named tolerance carries a scientific justification and reference.
+# `litho audit` uses these to validate claims against computed outputs.
+
+[meta]
+standard = "pseudoSpore"
+version = "1.5.0"
+generated_by = "plumed_nest_ingestion_array"
+generated_date = "2026-05-25"
+
+# === Free Energy Surface Tolerances ===
+
+[[tolerance]]
+name = "fes_barrier_convergence"
+value = 5.0
+unit = "kJ/mol"
+justification = "Well-tempered metadynamics converges barriers within 5 kJ/mol after >5000 Gaussians on alanine dipeptide (Barducci et al. PRL 2008; reproduced as Target 01)"
+reference = "plumID:24.020"
+
+[[tolerance]]
+name = "fes_minimum_location"
+value = 0.3
+unit = "rad"
+justification = "FES minima positions converge within 0.3 rad for backbone dihedrals with PACE=500, SIGMA=0.35 (Target 01 alanine dipeptide)"
+reference = "plumID:24.020"
+
+[[tolerance]]
+name = "opes_folding_fe"
+value = 4.0
+unit = "kJ/mol"
+justification = "OPES-based folding free energy for chignolin converges within 4 kJ/mol across CV choices (Ray & Rizzi JCTC 2024)"
+reference = "plumID:24.029"
+
+# === Puckering Tolerances ===
+
+[[tolerance]]
+name = "pucker_theta_peak"
+value = 0.2
+unit = "rad"
+justification = "Cremer-Pople theta peak positions (4C1 at 0, 1C4 at pi) converge within 0.2 rad with REST-RECT 12 replicas (Grothaus et al. JCIM 2022)"
+reference = "plumID:22.028"
+
+[[tolerance]]
+name = "pucker_4c1_population"
+value = 0.85
+unit = "fraction"
+justification = "Free mannose in N-glycans maintains >85% 4C1 chair population at 310K (Grothaus et al. JCIM 2022)"
+reference = "plumID:22.028"
+
+[[tolerance]]
+name = "pucker_enzyme_shift"
+value = 0.50
+unit = "fraction"
+justification = "Enzyme-bound glycans maintain >50% 4C1 but show significant distortion toward transition state conformers (Grothaus et al. 2025 CAZymes)"
+reference = "plumID:25.007"
+
+# === Binding Free Energy Tolerances ===
+
+[[tolerance]]
+name = "absolute_binding_fe"
+value = 8.4
+unit = "kJ/mol"
+justification = "OneOPES absolute binding free energies within 2 kcal/mol (8.4 kJ/mol) of experiment for BRD4/HSP90 (Karrenbrock et al. JPCL 2024)"
+reference = "plumID:24.017"
+
+# === Replica Exchange Tolerances ===
+
+[[tolerance]]
+name = "rect_exchange_rate"
+value = 0.10
+unit = "fraction"
+justification = "REST-RECT requires minimum 10% exchange acceptance for adequate mixing between replicas (Grothaus et al. 2022)"
+reference = "plumID:22.028"
+
+# === Parity Tolerances (Tier 0 → Tier 1 → Tier 2) ===
+
+[[tolerance]]
+name = "tier0_tier1_parity"
+value = 1.0
+unit = "kJ/mol"
+justification = "barraCuda GPU shaders must reproduce GROMACS+PLUMED FES within 1 kJ/mol for CV computation and bias accumulation parity"
+reference = "internal"
+
+[[tolerance]]
+name = "tier1_tier2_parity"
+value = 2.0
+unit = "kJ/mol"
+justification = "Full NUCLEUS IPC composition allows 2 kJ/mol deviation budget from isolated barraCuda shaders due to communication overhead"
+reference = "internal"
+
+[[tolerance]]
+name = "cv_computation_parity"
+value = 1e-6
+unit = "dimensionless"
+justification = "CV computation (TORSION, PUCKERING, DISTANCE) must be numerically identical to double-precision PLUMED reference"
+reference = "internal"

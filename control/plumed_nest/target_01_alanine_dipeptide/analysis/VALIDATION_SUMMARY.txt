@@ -1,0 +1,22 @@
+======================================================================
+VALIDATION REPORT: Target 01 — Alanine Dipeptide (Well-Tempered MetaD)
+======================================================================
+
+Total checks: 5
+Pass rate: 100%
+Industry standard: PASS
+
+--- PASSES ---
+  [PASS] Barrier height within published range
+  [PASS] C7eq minimum within 0.5 rad
+  [PASS] C7ax minimum within 0.5 rad
+  [PASS] Block averaging converged (max stderr 3.28 kJ/mol)
+  [PASS] Barrier convergence < 3 kJ/mol over last 3 windows
+
+--- KEY METRICS ---
+  Barrier C7eq→C7ax: 35.05 kJ/mol
+  Gaussians deposited: 10000
+  Height decay ratio: 0.0725
+  Max block stderr: 3.28 kJ/mol
+
+======================================================================

@@ -1,0 +1,125 @@
+[guidestone]
+name = "hotSpring-CompChem-GuideStone"
+version = "1.5.0"
+type = "pseudoSpore"
+grade = "GuideStone"
+date = "2026-05-26"
+origin = "ecoPrimals/springs/hotSpring"
+experiment = 220
+license = "AGPL-3.0-or-later"
+domain = "computational-chemistry"
+description = "Industry-standard baseline for enhanced sampling molecular dynamics — metadynamics, OPES, and Cremer-Pople puckering free energy landscapes"
+
+[target]
+paper_doi = "10.1039/C4SC02240H"
+paper_title = "The complete conformational free energy landscape of β-xylose reveals a two-fold catalytic itinerary for β-xylanases"
+paper_authors = "Iglesias-Fernández, Raich, Ardèvol, Rovira"
+paper_year = 2015
+paper_pdb = "2D24"
+paper_system = "GH10 xylanase (S. olivaceoviridis E-86)"
+
+[references]
+plum_ids = ["24.020", "24.029", "25.007"]
+additional_papers = [
+    "Invernizzi & Parrinello, J. Phys. Chem. Lett. 11, 2731 (2020)",
+    "Barducci, Bussi & Parrinello, Phys. Rev. Lett. 100, 020603 (2008)",
+]
+
+[[module]]
+name = "01_alanine_dipeptide"
+status = "PASS"
+checks = 6
+description = "Alanine dipeptide Ramachandran FEL via well-tempered metadynamics (vacuum)"
+method = "WTMetaD"
+cv = "phi/psi backbone dihedrals"
+force_field = "AMBER99SB-ILDN"
+simulation_time_ns = 10
+temperature_k = 300.0
+total_atoms = 22
+plum_id = "24.020"
+validation = "C7eq at phi=-81°, C7ax at phi=+60°; barrier 20-45 kJ/mol; block averaging converged"
+
+[[module]]
+name = "02_chignolin_opes"
+status = "PASS"
+checks = 3
+description = "Chignolin CLN025 protein folding via OPES + OPES_EXPLORE (explicit water)"
+method = "OPES_METAD + OPES_METAD_EXPLORE"
+cv = "HLDA (harmonic linear discriminant)"
+force_field = "a99SB-disp"
+simulation_time_ns = 61.8
+temperature_k = 340.0
+total_atoms = 14637
+plum_id = "24.029"
+validation = "10 fold/unfold transitions; ΔG_fold=+19.5 kJ/mol (above Tm); convergence <4 kJ/mol"
+
+[[module]]
+name = "03_free_xylose_1d"
+status = "PASS"
+checks = 5
+description = "Free β-D-xylopyranose ring puckering FEL (Cremer-Pople theta)"
+method = "WTMetaD"
+cv = "Cremer-Pople theta"
+force_field = "CHARMM36-jul2022"
+simulation_time_ns = 10
+temperature_k = 300.0
+total_atoms = 2657
+structure_source = "PDB 2D24 crystal (XYS chain C res 4)"
+validation = "Three basins (4C1, boat, 1C4); barriers 38-53 kJ/mol; converged"
+
+[[module]]
+name = "04_free_xylose_2d"
+status = "PASS"
+checks = 3
+description = "Free β-D-xylopyranose 2D Cremer-Pople (qx, qy) FEL — full Stoddart landscape"
+method = "WTMetaD"
+cv = "Cremer-Pople Cartesian (qx, qy)"
+force_field = "CHARMM36-jul2022"
+simulation_time_ns = 20
+temperature_k = 300.0
+total_atoms = 2657
+structure_source = "PDB 2D24 crystal (XYS chain C res 4)"
+validation = "Tier parity <2 kJ/mol RMSD vs reference"
+
+[[module]]
+name = "05_enzyme_bound_1d"
+status = "PASS"
+checks = 5
+description = "Enzyme-bound -1 subsite xylose puckering in GH10 xylanase (PDB 2D24)"
+method = "WTMetaD"
+cv = "Cremer-Pople theta"
+force_field = "CHARMM36-jul2022"
+simulation_time_ns = 10
+temperature_k = 300.0
+total_atoms = 92745
+pdb = "2D24"
+subsite = "-1 (closest to Glu236 nucleophile)"
+validation = "Three basins resolved; enzyme lowers all barriers vs free xylose; converged"
+
+[[module]]
+name = "06_enzyme_bound_2d"
+status = "PASS"
+checks = 3
+description = "Enzyme-bound -1 subsite xylose 2D Cremer-Pople (qx, qy) FEL"
+method = "WTMetaD"
+cv = "Cremer-Pople Cartesian (qx, qy)"
+force_field = "CHARMM36-jul2022"
+simulation_time_ns = 20
+temperature_k = 300.0
+total_atoms = 92745
+pdb = "2D24"
+validation = "Tier parity <2 kJ/mol RMSD vs reference; enzyme conformational selection reproduced"
+
+[evolution]
+tier_0 = "GROMACS 2026.0 + PLUMED 2.10 (industry control)"
+tier_1 = "Python reference (notebooks/cazyme_fel/)"
+tier_2 = "Rust (staging/cazyme-fel + nest-validate)"
+tier_3 = "barraCuda WGSL shaders + NUCLEUS primals (target)"
+acceptance_test = "All modules PASS; tier parity <2 kJ/mol; BLAKE3 integrity verified"
+
+[provenance]
+git_sha = ""
+emit_timestamp = ""
+emit_host = ""
+plumed_version = "2.10"
+gromacs_version = "2026.0-conda_forge"

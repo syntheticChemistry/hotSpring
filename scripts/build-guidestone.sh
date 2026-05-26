@@ -3,6 +3,12 @@ set -eu
 
 # Build the hotSpring guideStone artifact — arch-first, dual-capability layout.
 #
+# NOTE (postPrimordial): This is an artifact PRODUCTION script — it compiles
+# binaries from source to populate the validation artifact and plasmidBin depot.
+# This is NOT a deployment script. Using target/release/ here is intentional:
+# this script is the source of truth that CREATES the plasmidBin binaries.
+# See: wateringHole/DELTA_SPRING_WAVE50_COVALENT_HPC_BLURB §1 footnote.
+#
 # Produces (per arch):
 #   validation/bin/<arch>/static/<name>   — musl, CPU-only
 #   validation/bin/<arch>/gpu/<name>      — glibc, GPU-capable (host arch only)

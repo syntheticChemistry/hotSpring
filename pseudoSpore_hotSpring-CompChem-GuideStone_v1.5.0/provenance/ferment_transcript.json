@@ -1,0 +1,66 @@
+{
+  "ferment_transcript": {
+    "artifact": "hotSpring-CompChem-GuideStone",
+    "version": "1.5.0",
+    "braid_id": "urn:braid:hotspring-compchem-guidestone-v1.5.0",
+    "dag_session_id": "urn:dag:hotspring-compchem-guidestone-2026-05-26",
+    "spine_id": "urn:spine:hotspring-compchem-guidestone-v1.5.0",
+    "hash_algorithm": "BLAKE3",
+    "modules": [
+      {
+        "name": "01_alanine_dipeptide",
+        "method": "well-tempered metadynamics",
+        "cv": "phi/psi backbone dihedrals",
+        "simulation_ns": 10,
+        "source": "control/plumed_nest/target_01_alanine_dipeptide",
+        "plum_id": "24.020"
+      },
+      {
+        "name": "02_chignolin_opes",
+        "method": "OPES_METAD + OPES_METAD_EXPLORE",
+        "cv": "HLDA (harmonic linear discriminant)",
+        "simulation_ns": 61.8,
+        "source": "control/plumed_nest/target_02_chignolin_opes",
+        "plum_id": "24.029"
+      },
+      {
+        "name": "03_free_xylose_1d",
+        "method": "well-tempered metadynamics",
+        "cv": "Cremer-Pople theta",
+        "simulation_ns": 10,
+        "source": "control/gromacs_fel/guidestone_refresh/free_xylose_1d"
+      },
+      {
+        "name": "04_free_xylose_2d",
+        "method": "well-tempered metadynamics",
+        "cv": "Cremer-Pople (qx, qy)",
+        "simulation_ns": 20,
+        "source": "control/gromacs_fel/guidestone_refresh/free_xylose_2d"
+      },
+      {
+        "name": "05_enzyme_bound_1d",
+        "method": "well-tempered metadynamics",
+        "cv": "Cremer-Pople theta",
+        "simulation_ns": 10,
+        "source": "control/gromacs_fel/guidestone_refresh/enzyme_bound_1d"
+      },
+      {
+        "name": "06_enzyme_bound_2d",
+        "method": "well-tempered metadynamics",
+        "cv": "Cremer-Pople (qx, qy)",
+        "simulation_ns": 20,
+        "source": "control/gromacs_fel/guidestone_refresh/enzyme_bound_2d"
+      }
+    ],
+    "evolution": {
+      "from": "lithoSpore_handoff_v0.7.0",
+      "changes": [
+        "Added PLUMED-NEST validated targets (01: alanine dipeptide, 02: chignolin OPES)",
+        "Re-ran all CAZyme FEL modules with GROMACS 2026.0 + PLUMED 2.10",
+        "Added Rust-native statistical analysis (autocorrelation, bootstrap CI, KS test)",
+        "Added BLAKE3 integrity verification via nest-validate guidestone",
+        "Promoted to GuideStone-grade (self-verifying with ./validate entry point)"
+      ]
+    }
+  }
+}
