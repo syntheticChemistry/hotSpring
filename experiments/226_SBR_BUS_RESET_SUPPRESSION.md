@@ -133,10 +133,49 @@ Central Dogma evolution replaced these with:
 - Pure Rust `modules.dep` / `modules.builtin` parsing (no `modinfo` binary)
 - `ruzstd` in-process decompression for `.ko.zst` files
 
+## Hardware Validation (Revalidation Sprint Bench 3, 2026-05-26)
+
+### Result: THREE-LAYER DEFENSE VALIDATED
+
+After power cycle + `sovereign.init` on both Titan Vs:
+
+1. `prepare_anchor_release("0000:02:00.0")` — bridge pinned, FLR disabled
+2. VfioAnchor released (VFIO device fds closed)
+3. **PMC_ENABLE survived: `0x5FECDFF1` (popcount=23)**
+
+The anchor release guard confirmed all 23 engines intact. The module was
+patched (13/13 targets), ksymtab stripped, renamed nvidia→nvsov.
+
+### Pipeline Stall
+
+The vfio-pci unbind entered kernel D-state (child killed after 10s timeout,
+kernel eventually completed). The subsequent nvsov `insmod` / PCI probe
+blocked for ~405s before the 420s RPC timeout killed the handoff thread.
+
+**Root cause**: nvidia RM probe hangs when encountering a GPU that has been
+through `sovereign.init` (ACR boot, FECS running, PRAMIN configured). The
+driver expects raw VBIOS POST state for its initialization sequence.
+
+**Mitigation**: The catalyst pattern may need to skip `sovereign.init` on the
+target GPU and operate on the raw VBIOS POST state (PMC_ENABLE=0x40000121,
+popcount=4). This requires modifying the handoff pipeline to accept Tier 0
+GPUs as valid catalyst targets.
+
+### Key Finding
+
+The `no_bus_reset.ko` module was NOT loaded (the code path wasn't in the
+deployed binary). The warm state survived because the daemon holds a
+VfioAnchor on the HD Audio sibling function (`02:00.1`), keeping the IOMMU
+group's `open_count > 0` and preventing the kernel's `pci_reset_bus()` SBR.
+
+This means Layer 2 (SBR suppression via `no_bus_reset.ko`) may be
+unnecessary as long as the daemon holds the audio sibling anchor. However,
+the module provides defense-in-depth for cases where the audio function
+anchor is not held.
+
 ## Status
 
-- **Code**: Complete — integrated into `sovereign_handoff.rs` diesel engine pipeline
-- **Hardware validation**: PENDING — requires power cycle to restore Tier 1,
-  then three-layer defense test (Bench 3 of Revalidation Sprint)
-- **Next**: Exp 227 (PMU ACR Revalidation) provides ember-wired diagnostic
-  for post-defense GPU state verification
+- **Defense**: VALIDATED — warm state survives anchor release
+- **Catalyst pipeline**: BLOCKED — nvsov probe hangs on sovereign-init'd GPU
+- **Next**: Skip sovereign.init on catalyst target, or investigate RM probe
+  compatibility with warm GPU state
