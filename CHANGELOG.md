@@ -16,12 +16,12 @@ This file covers the spring as a whole. For crate-level details see
   Reset) when all devices in the dev_set have `open_count==0`. SBR resets
   everything behind the PCIe bridge (`00:01.3`), bypassing per-device
   `reset_method` entirely.
-- **`suppress_bus_reset()`** in `guarded_sysfs.rs` — compiles a tiny GPL
+- **`suppress_bus_reset()`** in `guarded_sysfs/driver_ops.rs` (was `guarded_sysfs.rs` — split S276) — compiles a tiny GPL
   kernel module (`no_bus_reset.ko`) via kbuild that sets
   `PCI_DEV_FLAGS_NO_BUS_RESET` on the target device, making
   `pci_bus_resetable()` return false and `pci_reset_bus()` return
   `-ENOTTY`.
-- **`restore_bus_reset()`** in `guarded_sysfs.rs` — unloads the module
+- **`restore_bus_reset()`** in `guarded_sysfs/driver_ops.rs` — unloads the module
   and cleans up build artifacts.
 - **Three-layer reset defense** in `prepare_anchor_release()`: (1) bridge
   power pinning, (2) per-device FLR/PM suppression, (3) bus-level SBR

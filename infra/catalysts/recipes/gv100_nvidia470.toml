@@ -4,11 +4,11 @@
 # DKMS source. Given the same DKMS source + kernel, the recipe
 # reproduces an identical patched module.
 #
-# The PatchSet in module_patch.rs is the code-level implementation.
-# This TOML externalizes it for archival and iteration.
+# The PatchSet in module_patch/patch_sets/nvidia.rs (was module_patch.rs — split S276)
+# is the code-level implementation. This TOML externalizes it for archival and iteration.
 #
 # RECONCILED: 2026-05-26 — aligned with live `nvidia_catalyst_handoff()`
-# in `module_patch.rs`. Key changes from Exp 219 original:
+# in `module_patch/patch_sets/nvidia.rs`. Key changes from Exp 219 original:
 #   - nv_pci_remove: RetAtEntry → surgical NopCallAt (4 offsets)
 #   - gpuStateUnload_IMPL, gpuStateDestroy_IMPL, _deviceTeardown,
 #     clTeardown_IMPL, fecsBufferTeardown: REMOVED (PCI resource cleanup

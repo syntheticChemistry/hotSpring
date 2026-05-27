@@ -370,12 +370,12 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ### GAP-HS-031: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177) (RESOLVED)
 
-- **Primal:** coralReef (coral-driver / coral-kmod / uvm_compute)
+- **Primal:** coralReef (coral-driver — coral-kmod **fossilized S276**, ABI in `toadstool_cylinder::nv::rm_abi`)
 - **Severity:** Critical (was blocking sovereign dispatch on RTX 5060)
 - **Status:** RESOLVED (April 19, 2026) — RTX 5060 sovereign VFIO dispatch LIVE. f64 div/sqrt MUFU polyfills, semaphore fence ordering, UVM write access, QMD v5.0 all proven.
 - **Description:** Experiment 175-177 evolved the Blackwell dispatch investigation.
   The full WGSL→SM120 SASS compile pipeline works on RTX 5060 (GB206). Channel
-  creation, GPFIFO allocation, and doorbell mechanism all work via coral-kmod.
+  creation, GPFIFO allocation, and doorbell mechanism all work via coral-kmod (now fossilized — RM ABI in `nv/rm_abi.rs`).
   
   **Resolved sub-issues:**
   - Channel class: fixed to BLACKWELL_CHANNEL_GPFIFO_A (0xC96F, matches CUDA)
@@ -393,11 +393,12 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   4. `GR_CTXSW_SETUP_BIND` with `vMemPtr=0` relies on demand-paging via UVM (step 1)
   5. SM hits "Invalid Address Space" (ESR 0x10) on first CBUF/context access
   
-  CUDA avoids this because it has working UVM fault handling. coral-kmod has kernel
-  privilege to call GPU_PROMOTE_CTX and eagerly allocate GR context buffers.
+  CUDA avoids this because it has working UVM fault handling. coral-kmod (now
+  fossilized S276) had kernel privilege to call GPU_PROMOTE_CTX and eagerly
+  allocate GR context buffers.
   
-- **Action:** Re-enable GPU_PROMOTE_CTX in coral-kmod for Blackwell. Allocate
-  context buffers from kernel context to bypass demand-paging dependency on UVM.
+- **Action:** If kernel privilege needed, rebuild from Rust types in `nv/rm_abi.rs`.
+  Allocate context buffers from kernel context to bypass demand-paging dependency on UVM.
   
   PCI device ID 0x2d05 was NOT in the original Blackwell range
   (0x2900..=0x2999). Fixed to include 0x2B00..=0x2DFF.
@@ -1424,14 +1425,13 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
     (zombie `[toadstool-ember] <defunct>` processes). `toadstool device warm-fecs` cannot
     relay to ember. GPUs are cold (FECS PRI timeout). Warm API wiring is
     correct but hardware E2E requires upstream ember fix.
-  - **Kernel-module evolution roadmap:** `coral-kmod` already proxies nvidia
-    RM via `/dev/coral-rm` for Blackwell. Long-term: expand to standalone
-    GPU compute driver — graduate `vfio_compute/` init + dispatch from
-    userspace MMIO into kernel module. Module binds PCI device directly,
-    exposes `/dev/coral-gpu{N}`, GPU stays visible without VFIO isolation.
-    Warm boot experiments are R&D for register sequences that move into module.
-    Pattern: hotSpring solves locally, hands patterns upstream, primals absorb
-    and abstract, hotSpring resolves with their new abstraction.
+  - **Kernel-module evolution roadmap:** ~~`coral-kmod` already proxies nvidia
+    RM via `/dev/coral-rm` for Blackwell.~~ **S276: coral-kmod fossilized.** RM ABI
+    absorbed into `toadstool_cylinder::nv::rm_abi` (22 repr(C) structs). Userspace
+    RM path now via catalyst pipeline + `rm_trigger` Rust binary. Long-term: if kernel
+    module path resurfaces, it will be built fresh from Rust types, not resurrected C.
+    Warm boot experiments are R&D for register sequences; pattern: hotSpring solves
+    locally, hands patterns upstream, primals absorb and abstract.
 - **Validation:** 590/590 lib tests pass. `cargo check --features sovereign-dispatch`
   compiles clean with VFIO feature and warm API.
 - **Ownership audit (May 12, 2026 — ember/glowplug dual-existence resolved):**
