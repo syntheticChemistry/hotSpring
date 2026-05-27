@@ -100,22 +100,78 @@ litho audit lithoSpore_hotSpring-CompChem-GuideStone_v1.6.1.img
 
 The `[artifact]` key in `scope.toml` ensures `litho promote` can consume this pseudoSpore directly (backward-compatible shim alongside `[guidestone]`).
 
+### 5. NUCLEUS Nest Deployment (postPrimordial)
+
+Full NUCLEUS nest deployment with provenance trio signing. This is the target path for pseudoSpore 2.0 and requires the biomeOS CLI, a live Nest Atomic, and the provenance trio services.
+
+```bash
+# Deploy with NUCLEUS ingest (postPrimordial path)
+nest-validate guidestone deploy \
+  pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1/ \
+  --nucleus
+
+# The pipeline will:
+#   1-6: Standard pipeline (hash → validate → emit → hash → verify → package)
+#   7:   biomeos nucleus ingest → NestGate content-addressed store
+#        Falls back to litho ingest if biomeos is unavailable
+```
+
+**NUCLEUS Ingest Flow:**
+
+```
+biomeos nucleus ingest <pseudoSpore-dir> --verify
+  → NestGate content-addressed store (receives envelope + data)
+  → rhizoCrypt: DAG merkle root verified against BLAKE3 chain
+  → loamSpine: spine_id registered in ledger with braid linkage
+  → sweetGrass: attribution braid linked to lineage chain + bibliography DOIs
+  → receipts/nucleus_ingest.toml written with gate + timestamp
+```
+
+**Provenance Trio Signing Contract:**
+
+| Primal | Role | Contract |
+|--------|------|----------|
+| rhizoCrypt | DAG merkle integrity | `dag_merkle_root` matches BLAKE3 chain; DAG session registered |
+| loamSpine | Ledger registration | `spine_id` registered in loamSpine ledger with `braid_id` and parent linkage |
+| sweetGrass | Attribution braid | Lineage chain + bibliography DOIs + PLUMED-NEST plum_ids linked |
+
+**Prerequisites:**
+- `biomeos` CLI binary (in PATH or `plasmidBin`)
+- Live Nest Atomic with NestGate, rhizoCrypt, loamSpine, sweetGrass services
+- cellMembrane network permeability to NUCLEUS VPS (if remote)
+- All standard pipeline artifacts present (scope.toml, data.toml, liveSpore.json)
+
+**Current Status:** Slots are wired and pending. The deploy pipeline detects biomeos availability and falls back gracefully. primalSpring exp115 will validate the live path.
+
 ## Wire Format Compatibility
 
 | Consumer | Key Required | Status |
 |----------|-------------|--------|
 | nest-validate | `[guidestone]` | Present ✓ |
 | litho promote | `[artifact]` | Present ✓ (v1.6.1 shim) |
+| biomeos nucleus ingest | `liveSpore.json` + `data.toml` | Present ✓ |
 | sporeprint CI | `liveSpore.json` | Present ✓ |
 | BLAKE3 verify | `data.toml` | Present ✓ |
 
-## Data Provenance
+## Data Provenance — Three Eras
 
 ```
-lithoSpore_handoff_v0.7.0
-  → pseudoSpore v1.5.0 (GuideStone promotion, 46/46 PASS)
-    → pseudoSpore v1.6.0 (Alistaire data drop + PLUMED-NEST aggregate + exploration roadmap)
-      → pseudoSpore v1.6.1 (full-data + litho ingest compatibility + agentic pipeline)
+Era 1: Ad-Hoc (v1.0.0 — v1.6.0)
+  Hand-authored scope.toml blindly copied to validation.json and liveSpore.json
+
+  lithoSpore_handoff_v0.7.0
+    → pseudoSpore v1.5.0 (GuideStone promotion, 46/46 PASS)
+      → pseudoSpore v1.6.0 (Alistaire data drop + PLUMED-NEST aggregate + exploration roadmap)
+
+Era 2: Pipeline-Derived (v1.6.1)
+  Every metadata value extracted from authoritative data files and cross-checked
+
+        → pseudoSpore v1.6.1 (pipeline-derived metadata + agentic deploy)
+
+Era 3: NUCLEUS Nest Deploy (v2.0+ target)
+  Provenance trio independently signs via biomeos nucleus ingest
+
+          → pseudoSpore v2.0 (provenance trio signed, NUCLEUS-registered)
 ```
 
 Parent Merkle: `cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea`

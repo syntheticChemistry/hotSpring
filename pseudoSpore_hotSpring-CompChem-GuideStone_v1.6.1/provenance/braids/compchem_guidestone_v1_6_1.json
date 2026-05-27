@@ -24,8 +24,34 @@
     "Updated index_map.toml rosetta_stone with proper braid URIs",
     "Added nest-validate guidestone deploy subcommand for fully agentic pipeline",
     "Fixed PDB 2D24 resolution: 1.41 -> 1.85 Å (sourced from PDB REMARK 2)",
-    "Corrected catalytic itinerary to match paper: two-fold (2SO→[2,5B]‡→5S1 and 1S3→[4H3]‡→4C1)"
+    "Corrected catalytic itinerary to match paper: two-fold (2SO→[2,5B]‡→5S1 and 1S3→[4H3]‡→4C1)",
+    "PIPELINE INTEGRITY: validation.json now populated from real validation_results.json (not fabricated check_N)",
+    "PIPELINE INTEGRITY: liveSpore.validations[] carries full structured results (basin counts, RMSD, transitions)",
+    "PIPELINE INTEGRITY: cross_check_scope() verifies scope.toml against GRO/MDP/COLVAR/topology/PLUMED data",
+    "PIPELINE INTEGRITY: receipts/environment.toml auto-detected via env::Environment::detect() (not copied)",
+    "PIPELINE INTEGRITY: module target.toml file paths corrected to match shipped layout",
+    "PIPELINE INTEGRITY: module 02 nsteps corrected 25M→30.9M (derived from COLVARb)",
+    "PIPELINE INTEGRITY: modules 01-02 [external_sources] explicitly marks PLUMED-NEST-sourced metadata",
+    "PIPELINE INTEGRITY: tolerance authority model formalized — root tolerances.toml is design registry"
   ],
+  "guidestone_integrity": {
+    "transition_date": "2026-05-27",
+    "status": "pipeline-derived",
+    "prior_status": "ad-hoc (hand-authored scope.toml copied without cross-check)",
+    "fields_verified": 19,
+    "fields_mismatches": 0,
+    "validation_source": "validation_results.json (real checks: BLAKE3, FES parity, OPES transitions)",
+    "environment_source": "env::Environment::detect() + system probes",
+    "cross_check_sources": [
+      "structures/*.gro (total_atoms)",
+      "configs/*.mdp (temperature_k via ref_t, simulation_time via nsteps*dt)",
+      "topologies/*.top (force_field via #include/-ff)",
+      "modules/*/COLVAR* (simulation_time_ns via last timestamp)",
+      "modules/*/plumed.dat (temperature_k via TEMP=)",
+      "structures/*.pdb (resolution_angstrom via REMARK 2)"
+    ],
+    "note": "This marks the transition from ad-hoc metadata transcoding to pipeline-derived verifiable metadata. Every value in the artifact is now traceable to an authoritative data source via code."
+  },
   "bibliography": {
     "primary_paper": {
       "doi": "10.1039/C4SC02240H",
@@ -124,6 +150,56 @@
       }
     }
   },
+  "provenance_trio": {
+    "status": "pending",
+    "target_composition": "nest_atomic",
+    "rhizocrypt": {
+      "role": "DAG merkle integrity",
+      "status": "pending",
+      "contract": "dag_merkle_root matches BLAKE3 chain; DAG session registered in rhizoCrypt",
+      "dag_session_id": "urn:dag:hotspring-compchem-guidestone-2026-05-26",
+      "signed_by": null,
+      "signed_at": null
+    },
+    "loamspine": {
+      "role": "Ledger registration",
+      "status": "pending",
+      "contract": "spine_id registered in loamSpine ledger with braid_id and parent linkage",
+      "spine_id": "urn:spine:hotspring-compchem-guidestone-v1.6.1",
+      "signed_by": null,
+      "signed_at": null
+    },
+    "sweetgrass": {
+      "role": "Attribution braid",
+      "status": "pending",
+      "contract": "sweetGrass braid links lineage chain + bibliography DOIs + PLUMED-NEST plum_ids",
+      "braid_id": "urn:braid:hotspring-compchem-guidestone-v1.6.1",
+      "signed_by": null,
+      "signed_at": null
+    },
+    "note": "Slots pending until biomeos nucleus ingest runs against a live Nest Atomic with provenance trio services. primalSpring exp115 validates this path."
+  },
+  "deployment_eras": [
+    {
+      "era": 1,
+      "name": "ad-hoc",
+      "range": "v1.0.0 — v1.6.0",
+      "description": "Hand-authored scope.toml blindly copied to validation.json and liveSpore.json"
+    },
+    {
+      "era": 2,
+      "name": "pipeline-derived",
+      "range": "v1.6.1",
+      "date": "2026-05-27",
+      "description": "Every metadata value extracted from authoritative data files (GRO/MDP/COLVAR/PDB/topology) and cross-checked"
+    },
+    {
+      "era": 3,
+      "name": "nucleus-nest-deploy",
+      "range": "v2.0+ (target)",
+      "description": "Provenance trio (rhizoCrypt/loamSpine/sweetGrass) independently sign the artifact via biomeos nucleus ingest"
+    }
+  ],
   "lineage": [
     "urn:braid:hotspring-cazyme-fel-v1.0.0",
     "urn:braid:hotspring-cazyme-fel-v1.2.1",

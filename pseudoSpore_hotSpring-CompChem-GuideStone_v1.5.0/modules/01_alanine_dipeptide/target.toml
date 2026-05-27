@@ -10,10 +10,14 @@ cv_names = [
 ]
 
 [files]
-hills = "output/HILLS"
-colvar = "output/COLVAR"
-plumed_dat = "plumed/plumed.dat"
-tpr = "inputs/topol.tpr"
+hills = "HILLS"
+plumed_dat = "plumed.dat"
+
+[external_sources]
+# These values come from PLUMED-NEST plum_id 19.009 — not verifiable from shipped data
+total_atoms = 22
+force_field = "AMBER99SB-ILDN"
+source = "PLUMED-NEST 19.009"
 
 [reference]
 barrier_range_kjmol = [
@@ -34,9 +38,11 @@ y = -0.7
 tolerance_rad = 0.5
 
 [tolerances]
+# Authority: root tolerances.toml; module overrides documented below
+_authority = "tolerances.toml"
 barrier_kjmol = 5.0
-basin_position_rad = 0.5
-convergence_std_kjmol = 3.0
+basin_position_rad = 0.5      # override: root=0.3; 2D phi/psi basins are broader
+convergence_std_kjmol = 3.0    # override: root=2.0; vacuum system has higher variance
 block_stderr_kjmol = 5.0
 folding_fe_kjmol = 4.0
 

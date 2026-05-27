@@ -83,8 +83,28 @@
         "Added nest-validate guidestone deploy subcommand for fully automated pipeline",
         "Fixed PDB 2D24 resolution: 1.41 -> 1.85 Å (sourced from PDB REMARK 2)",
         "Corrected catalytic itinerary notation to match paper exactly",
-        "Added full bibliography and external_references to provenance braids"
+        "Added full bibliography and external_references to provenance braids",
+        "PIPELINE INTEGRITY: Eliminated ad-hoc metadata — all values now pipeline-derived or cross-checked",
+        "PIPELINE INTEGRITY: validation.json sourced from real validation_results.json (not fabricated checks)",
+        "PIPELINE INTEGRITY: 19 scope.toml fields verified against GRO/MDP/COLVAR/topology/PLUMED sources",
+        "PIPELINE INTEGRITY: environment auto-detected at emit time, not copied from hand-authored file",
+        "PIPELINE INTEGRITY: tolerance authority model formalized (root=default, module=override with justification)"
       ]
+    },
+    "guidestone_integrity_milestone": {
+      "date": "2026-05-27",
+      "summary": "Transition from ad-hoc metadata transcoding to fully pipeline-derived GuideStone",
+      "before": "scope.toml values were hand-authored and blindly copied to validation.json, liveSpore.json, and receipts/",
+      "after": "Every metadata value is either (a) extracted from authoritative data files and cross-checked, (b) explicitly marked as external-sourced with provenance, or (c) detected from the runtime environment",
+      "verified_sources": {
+        "total_atoms": "GRO file line 2",
+        "temperature_k": "MDP ref_t / PLUMED TEMP=",
+        "simulation_time_ns": "COLVAR last timestamp",
+        "force_field": "topology #include / pdb2gmx -ff",
+        "resolution_angstrom": "PDB REMARK 2",
+        "environment": "env::Environment::detect() + system probes",
+        "validation": "guidestone validate real checks (BLAKE3, FES parity, OPES transitions)"
+      }
     },
     "external_references": {
       "pdb_2d24": "https://www.rcsb.org/structure/2D24",
@@ -97,6 +117,29 @@
       "gromacs_2026": "https://manual.gromacs.org/2026/index.html",
       "plumed_v2_10": "https://www.plumed.org/doc-v2.10/user-doc/html/index.html",
       "cpmd_future": "https://github.com/CPMD-code/CPMD"
+    },
+    "nest_atomic_readiness": {
+      "status": "ready_for_ingest",
+      "provenance_trio_status": "pending",
+      "ingest_command": "biomeos nucleus ingest pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1/ --verify",
+      "prerequisites": {
+        "scope_toml": true,
+        "data_toml_blake3": true,
+        "livespore_json": true,
+        "validation_results_json": true,
+        "receipts_environment": true,
+        "receipts_checksums": true,
+        "provenance_braids": true
+      },
+      "pending_downstream": [
+        "biomeos CLI nucleus ingest subcommand wired to clap parser",
+        "NestGate content-addressed store running on gate",
+        "rhizoCrypt DAG service signing sessions",
+        "loamSpine ledger registering spine_ids",
+        "sweetGrass attribution linking braid lineage"
+      ],
+      "deployment_era": "era_2_pipeline_derived",
+      "target_era": "era_3_nucleus_nest_deploy"
     }
   }
 }

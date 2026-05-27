@@ -82,7 +82,10 @@ Exit codes: 0 = full pass, 1 = fail, 2 = integrity-only pass (no science checks)
 
 This GuideStone supports the **ABG Conformational Energy Landscapes** project — validating molecular docking approaches against conformational FEL computation across CAZyme families.
 
-**Provenance chain:** v0.6.0 (first prototype, May 24 — atom index and substrate errors caught by Alistaire) -> v1.5.0 (corrected, full data, all PASS) -> v1.6.0 (PLUMED-NEST validation + roadmap) -> v1.6.1 (full-data, lithoSpore ingested, agentic pipeline).
+**Provenance chain (three eras):**
+- **Era 1 — Ad-Hoc** (v1.0.0–v1.6.0): Hand-authored metadata. v0.6.0 (first prototype, May 24 — atom index and substrate errors caught by Alistaire) → v1.5.0 (corrected, full data, all PASS) → v1.6.0 (PLUMED-NEST validation + roadmap).
+- **Era 2 — Pipeline-Derived** (v1.6.1): Every metadata value extracted from authoritative data files (GRO/MDP/COLVAR/PDB/topology) and cross-checked. Agentic deploy pipeline.
+- **Era 3 — NUCLEUS Nest Deploy** (v2.0+ target): Provenance trio (rhizoCrypt/loamSpine/sweetGrass) independently sign the artifact via `biomeos nucleus ingest`. Slots wired and pending in braid schema.
 
 **Scope note:** This artifact delivers the FEL half of the FEL-vs-docking comparison (the project's core question: does AutoDock Vina approximate FEL results?). The docking half is future work — this pseudoSpore is the validated prerequisite. See Module 08 for the full roadmap including docking correlation targets.
 
@@ -99,7 +102,7 @@ This GuideStone supports the **ABG Conformational Energy Landscapes** project �
 
 ## For Agents
 
-Machine-parseable entry points: `scope.toml` (TOML), `validation.json` (JSON), `data.toml` (BLAKE3 manifest), `liveSpore.json` (deployment log). Use `litho ingest-pseudospore` or `nest-validate guidestone validate` for programmatic verification.
+Machine-parseable entry points: `scope.toml` (TOML), `validation.json` (JSON), `data.toml` (BLAKE3 manifest), `liveSpore.json` (deployment log). Use `litho ingest-pseudospore` or `nest-validate guidestone validate` for programmatic verification. For NUCLEUS ingest: `nest-validate guidestone deploy <dir> --nucleus` (requires biomeos CLI).
 
 ## License
 

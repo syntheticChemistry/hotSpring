@@ -553,6 +553,38 @@ fn find_litho_binary() -> Option<String> {
     None
 }
 
+/// Locate the biomeos CLI binary — plasmidBin first, then PATH.
+/// NUCLEUS gateway operations (ingest/emit) are owned by biomeOS per SPORE_OWNERSHIP_MATRIX.md.
+fn find_biomeos_binary() -> Option<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let candidates = [
+        format!("{}/Development/ecoPrimals/primals/biomeOS/target/release/biomeos", home),
+        format!("{}/Development/ecoPrimals/primals/biomeOS/target/debug/biomeos", home),
+        "biomeos".to_string(),
+    ];
+    for c in &candidates {
+        if Command::new(c).arg("--version").output().map(|o| o.status.success()).unwrap_or(false) {
+            return Some(c.clone());
+        }
+    }
+    None
+}
+
+/// Write a TOML receipt for a successful NUCLEUS ingest, consumed by liveSpore.json emit.
+fn write_nucleus_ingest_receipt(dir: &Path, binary: &str, gate: &str) {
+    let receipts = dir.join("receipts");
+    std::fs::create_dir_all(&receipts).ok();
+    let content = format!(
+        "[nucleus_ingest]\ntimestamp = \"{}\"\nbinary = \"{}\"\ngate = \"{}\"\nstatus = \"ingested\"\nprovenance_trio = \"pending_signing\"\n",
+        chrono_now(), binary, gate
+    );
+    let path = receipts.join("nucleus_ingest.toml");
+    std::fs::write(&path, &content).unwrap_or_else(|e| {
+        eprintln!("    [WARN] Could not write nucleus ingest receipt: {}", e);
+    });
+    println!("    [OK] Wrote {}", path.display());
+}
+
 /// Local verify fallback when litho is not available.
 fn guidestone_verify_local(args: &[String]) {
     guidestone_verify(args);
@@ -694,18 +726,29 @@ fn read_scope_field(scope_path: &Path, table: &str, key: &str) -> Option<String>
     parsed.get(table)?.get(key)?.as_str().map(|s| s.to_string())
 }
 
-fn guidestone_emit(args: &[String]) {
-    let dir = args.first().map(|s| PathBuf::from(s)).unwrap_or_else(|| {
-        eprintln!("Usage: nest-validate guidestone emit <guidestone-dir>");
-        process::exit(1);
-    });
+// ══════════════════════════════════════════════════════════════════════
+// Ownership Boundaries (per SPORE_OWNERSHIP_MATRIX.md):
+//   Domain Science Validation — owned by nest-validate (this crate)
+//   Envelope Operations       — owned by litho CLI (delegated when available)
+//   NUCLEUS Gateway            — owned by biomeos CLI (delegated when available)
+// ══════════════════════════════════════════════════════════════════════
 
-    let scope_path = dir.join("scope.toml");
-    let artifact_name = read_scope_field(&scope_path, "guidestone", "name")
-        .or_else(|| read_scope_field(&scope_path, "artifact", "name"))
+/// Domain science validation: PDB resolution, scope cross-check, validation.json.
+/// Ownership: nest-validate (hotSpring domain science).
+fn emit_domain_validation(dir: &Path, scope_path: &Path, artifact_version: &str) {
+    validate_pdb_resolution(dir);
+    cross_check_scope(dir, scope_path);
+    generate_validation_json(dir, scope_path, artifact_version);
+}
+
+/// Envelope operations: liveSpore.json, receipts/environment.toml, receipts/checksums.blake3.
+/// Ownership: litho CLI (postPrimordial). Falls back to local generation.
+fn emit_envelope(dir: &Path, scope_path: &Path) {
+    let artifact_name = read_scope_field(scope_path, "guidestone", "name")
+        .or_else(|| read_scope_field(scope_path, "artifact", "name"))
         .unwrap_or_else(|| "unknown-artifact".to_string());
-    let artifact_version = read_scope_field(&scope_path, "guidestone", "version")
-        .or_else(|| read_scope_field(&scope_path, "artifact", "version"))
+    let artifact_version = read_scope_field(scope_path, "guidestone", "version")
+        .or_else(|| read_scope_field(scope_path, "artifact", "version"))
         .unwrap_or_else(|| "0.0.0".to_string());
 
     let git_sha = Command::new("git")
@@ -723,11 +766,9 @@ fn guidestone_emit(args: &[String]) {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_default();
 
-    // Derive parent from scope.toml parent_braid (authoritative) or fallback to decrement
-    let parent_braid = read_scope_field(&scope_path, "provenance", "parent_braid")
+    let parent_braid = read_scope_field(scope_path, "provenance", "parent_braid")
         .unwrap_or_default();
     let parent_version = if !parent_braid.is_empty() {
-        // Extract version from braid URN like "urn:braid:hotspring-compchem-guidestone-v1.6.0"
         parent_braid.rsplit("-v").next()
             .unwrap_or(&decrement_minor(&artifact_version))
             .to_string()
@@ -735,7 +776,6 @@ fn guidestone_emit(args: &[String]) {
         decrement_minor(&artifact_version)
     };
 
-    // Build lineage evolution from braid JSON if available, else from parent
     let lineage_dir = dir.join("provenance/braids");
     let evolution = if let Some(braid_json) = find_current_braid_json(&lineage_dir, &artifact_version) {
         if let Ok(data) = std::fs::read_to_string(&braid_json) {
@@ -764,12 +804,58 @@ fn guidestone_emit(args: &[String]) {
         format!("v{} → v{}", parent_version, artifact_version)
     };
 
-    // PLUMED: prefer scope.toml plumed_version, fallback to binary detection
-    let plumed_version = read_scope_field(&scope_path, "provenance", "plumed_version")
+    let plumed_version = read_scope_field(scope_path, "provenance", "plumed_version")
         .unwrap_or_else(|| detect_tool_version("plumed", &["--no-mpi", "info", "--version"]));
 
-    // Unified liveSpore.json schema: envelope + validations
-    // Per PSEUDOSPORE_STANDARD.md and SPORE_OWNERSHIP_MATRIX.md
+    let validations = {
+        let vr_path = dir.join("validation_results.json");
+        if vr_path.exists() {
+            match std::fs::read_to_string(&vr_path)
+                .ok()
+                .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+            {
+                Some(vr) => {
+                    println!("  liveSpore: populating validations[] from validation_results.json");
+                    serde_json::json!([{
+                        "tool": vr.get("validator").and_then(|v| v.as_str()).unwrap_or("nest-validate"),
+                        "tool_version": vr.get("validator_version").and_then(|v| v.as_str()).unwrap_or("0.2.0"),
+                        "timestamp": vr.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown"),
+                        "overall": vr.get("overall").and_then(|v| v.as_str()).unwrap_or("UNKNOWN"),
+                        "total_pass": vr.get("total_pass").and_then(|v| v.as_u64()).unwrap_or(0),
+                        "total_fail": vr.get("total_fail").and_then(|v| v.as_u64()).unwrap_or(0),
+                        "checks": vr.get("checks").cloned().unwrap_or(serde_json::json!([])),
+                    }])
+                }
+                None => serde_json::json!([]),
+            }
+        } else {
+            serde_json::json!([])
+        }
+    };
+
+    let nucleus_receipt = dir.join("receipts/nucleus_ingest.toml");
+    let trio_status = if nucleus_receipt.exists() { "ingested" } else { "pending" };
+
+    // When litho CLI is available, delegate envelope generation
+    // For now, generate locally with the same schema litho expects
+    if let Some(ref litho_bin) = find_litho_binary() {
+        println!("  Envelope: delegating to litho CLI ({})...", litho_bin);
+        let litho_emit = Command::new(litho_bin)
+            .arg("emit-pseudospore")
+            .arg(dir.canonicalize().unwrap_or(dir.to_path_buf()))
+            .arg("--from-validation-results")
+            .status();
+        match litho_emit {
+            Ok(s) if s.success() => {
+                println!("    [OK] litho CLI emitted envelope artifacts");
+                return;
+            }
+            _ => {
+                println!("    [INFO] litho CLI emit not yet wired — falling back to local generation");
+            }
+        }
+    }
+
     let live_spore = serde_json::json!({
         "envelope": {
             "artifact": artifact_name,
@@ -783,7 +869,7 @@ fn guidestone_emit(args: &[String]) {
             "validation": format!("nest-validate validate + cazyme-fel parity"),
             "provenance_chain": {
                 "parent": format!("pseudoSpore_{}_v{}", artifact_name, parent_version),
-                "parent_merkle": read_scope_field(&scope_path, "provenance", "dag_merkle_root")
+                "parent_merkle": read_scope_field(scope_path, "provenance", "dag_merkle_root")
                     .unwrap_or_default(),
                 "evolution": evolution,
             },
@@ -793,8 +879,10 @@ fn guidestone_emit(args: &[String]) {
                 "nest_validate": "0.2.0",
                 "cazyme_fel": "0.1.0",
             },
+            "provenance_trio_status": trio_status,
+            "deployment_era": if trio_status == "ingested" { "nucleus_nest_deploy" } else { "pipeline_derived" },
         },
-        "validations": []
+        "validations": validations,
     });
 
     let output_path = dir.join("liveSpore.json");
@@ -802,17 +890,24 @@ fn guidestone_emit(args: &[String]) {
     std::fs::write(&output_path, &json_str).unwrap();
     println!("Emitted: {}", output_path.display());
 
-    // Cross-check PDB resolution in index_map.toml against actual PDB REMARK 2
-    validate_pdb_resolution(&dir);
+    generate_receipts_environment(dir);
+    generate_checksums_blake3(dir);
+}
 
-    // Also generate validation.json from scope.toml module statuses
-    generate_validation_json(&dir, &scope_path, &artifact_version);
+/// Orchestrator: domain validation then envelope emission.
+fn guidestone_emit(args: &[String]) {
+    let dir = args.first().map(|s| PathBuf::from(s)).unwrap_or_else(|| {
+        eprintln!("Usage: nest-validate guidestone emit <guidestone-dir>");
+        process::exit(1);
+    });
 
-    // Generate receipts/environment.toml for litho ingest compatibility
-    generate_receipts_environment(&dir);
+    let scope_path = dir.join("scope.toml");
+    let artifact_version = read_scope_field(&scope_path, "guidestone", "version")
+        .or_else(|| read_scope_field(&scope_path, "artifact", "version"))
+        .unwrap_or_else(|| "0.0.0".to_string());
 
-    // Also generate receipts/checksums.blake3 from present files
-    generate_checksums_blake3(&dir);
+    emit_domain_validation(&dir, &scope_path, &artifact_version);
+    emit_envelope(&dir, &scope_path);
 }
 
 fn decrement_minor(version: &str) -> String {
@@ -859,60 +954,134 @@ fn detect_tool_version(binary: &str, args: &[&str]) -> String {
 }
 
 fn generate_validation_json(dir: &Path, scope_path: &Path, version: &str) {
-    let content = match std::fs::read_to_string(scope_path) {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-    let parsed: toml::Value = match content.parse() {
-        Ok(v) => v,
-        Err(_) => return,
-    };
+    let results_path = dir.join("validation_results.json");
+    let has_real_results = results_path.exists();
 
-    let modules: Vec<serde_json::Value> = parsed.get("module")
-        .and_then(|m| m.as_array())
-        .map(|arr| arr.iter().map(|m| {
-            let raw_status = m.get("status").and_then(|v| v.as_str()).unwrap_or("UNKNOWN");
-            let is_roadmap = m.get("type").and_then(|v| v.as_str()) == Some("roadmap");
-            let litho_status = match raw_status {
-                "PROPOSED" => "SKIP",
-                s if is_roadmap && s != "PASS" => "SKIP",
-                s => s,
-            };
-            let n_checks = m.get("checks").and_then(|v| v.as_integer()).unwrap_or(0);
-            let checks_array: Vec<serde_json::Value> = (0..n_checks).map(|i| {
-                serde_json::json!({
-                    "name": format!("check_{}", i + 1),
-                    "status": litho_status,
-                })
-            }).collect();
+    if has_real_results {
+        let results_text = match std::fs::read_to_string(&results_path) {
+            Ok(t) => t,
+            Err(_) => { eprintln!("  WARN: validation_results.json exists but unreadable"); return; },
+        };
+        let results: serde_json::Value = match serde_json::from_str(&results_text) {
+            Ok(v) => v,
+            Err(_) => { eprintln!("  WARN: validation_results.json parse error"); return; },
+        };
+
+        let checks = results.get("checks").and_then(|c| c.as_array()).cloned().unwrap_or_default();
+        let overall = results.get("overall").and_then(|v| v.as_str()).unwrap_or("UNKNOWN");
+        let total_pass = results.get("total_pass").and_then(|v| v.as_u64()).unwrap_or(0);
+        let total_fail = results.get("total_fail").and_then(|v| v.as_u64()).unwrap_or(0);
+        let timestamp = results.get("timestamp").and_then(|v| v.as_str())
+            .map(|s| s.to_string()).unwrap_or_else(chrono_now);
+
+        let mut module_map: std::collections::BTreeMap<String, Vec<serde_json::Value>> =
+            std::collections::BTreeMap::new();
+
+        for check in &checks {
+            let module = check.get("module").and_then(|v| v.as_str())
+                .or_else(|| check.get("phase").and_then(|v| v.as_str()))
+                .unwrap_or("global").to_string();
+            module_map.entry(module).or_default().push(check.clone());
+        }
+
+        let modules: Vec<serde_json::Value> = module_map.iter().map(|(name, checks)| {
+            let pass_count = checks.iter().filter(|c|
+                c.get("status").and_then(|v| v.as_str()) == Some("PASS")
+            ).count();
+            let fail_count = checks.iter().filter(|c|
+                c.get("status").and_then(|v| v.as_str()) == Some("FAIL")
+            ).count();
+            let module_status = if fail_count > 0 { "FAIL" }
+                else if pass_count > 0 { "PASS" }
+                else { "SKIP" };
             serde_json::json!({
-                "name": m.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-                "status": litho_status,
-                "checks": checks_array,
-                "checks_total": n_checks,
-                "checks_passed": if litho_status == "PASS" { n_checks } else { 0 },
+                "name": name,
+                "status": module_status,
+                "checks": checks,
+                "checks_total": checks.len(),
+                "checks_passed": pass_count,
             })
-        }).collect())
-        .unwrap_or_default();
+        }).collect();
 
-    let all_pass = modules.iter().all(|m| {
-        let s = m.get("status").and_then(|v| v.as_str()).unwrap_or("");
-        s == "PASS" || s == "SKIP"
-    });
+        let status = if overall == "PASS" { "VERIFIED" } else { "DEGRADED" };
 
-    let validation = serde_json::json!({
-        "version": version,
-        "status": if all_pass { "VERIFIED" } else { "DEGRADED" },
-        "modules": modules,
-        "overall": if all_pass { "PASS" } else { "CONDITIONAL" },
-        "validator": "nest-validate 0.2.0",
-        "timestamp": chrono_now(),
-    });
+        let validation = serde_json::json!({
+            "version": version,
+            "status": status,
+            "modules": modules,
+            "overall": overall,
+            "total_pass": total_pass,
+            "total_fail": total_fail,
+            "validator": "nest-validate 0.2.0",
+            "timestamp": timestamp,
+            "source": "validation_results.json (pipeline-derived)",
+        });
 
-    let path = dir.join("validation.json");
-    if let Ok(json_str) = serde_json::to_string_pretty(&validation) {
-        let _ = std::fs::write(&path, json_str);
-        println!("Generated: {}", path.display());
+        let path = dir.join("validation.json");
+        if let Ok(json_str) = serde_json::to_string_pretty(&validation) {
+            let _ = std::fs::write(&path, json_str);
+            println!("Generated: {} (from real validation results)", path.display());
+        }
+    } else {
+        eprintln!("  WARN: no validation_results.json — run `guidestone validate` first");
+        eprintln!("  Falling back to scope.toml projection (ad-hoc, NOT pipeline-derived)");
+
+        let content = match std::fs::read_to_string(scope_path) {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+        let parsed: toml::Value = match content.parse() {
+            Ok(v) => v,
+            Err(_) => return,
+        };
+
+        let modules: Vec<serde_json::Value> = parsed.get("module")
+            .and_then(|m| m.as_array())
+            .map(|arr| arr.iter().map(|m| {
+                let raw_status = m.get("status").and_then(|v| v.as_str()).unwrap_or("UNKNOWN");
+                let is_roadmap = m.get("type").and_then(|v| v.as_str()) == Some("roadmap");
+                let litho_status = match raw_status {
+                    "PROPOSED" => "SKIP",
+                    s if is_roadmap && s != "PASS" => "SKIP",
+                    s => s,
+                };
+                let n_checks = m.get("checks").and_then(|v| v.as_integer()).unwrap_or(0);
+                let checks_array: Vec<serde_json::Value> = (0..n_checks).map(|i| {
+                    serde_json::json!({
+                        "name": format!("check_{}", i + 1),
+                        "status": litho_status,
+                    })
+                }).collect();
+                serde_json::json!({
+                    "name": m.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                    "status": litho_status,
+                    "checks": checks_array,
+                    "checks_total": n_checks,
+                    "checks_passed": if litho_status == "PASS" { n_checks } else { 0 },
+                })
+            }).collect())
+            .unwrap_or_default();
+
+        let all_pass = modules.iter().all(|m| {
+            let s = m.get("status").and_then(|v| v.as_str()).unwrap_or("");
+            s == "PASS" || s == "SKIP"
+        });
+
+        let validation = serde_json::json!({
+            "version": version,
+            "status": if all_pass { "VERIFIED" } else { "DEGRADED" },
+            "modules": modules,
+            "overall": if all_pass { "PASS" } else { "CONDITIONAL" },
+            "validator": "nest-validate 0.2.0",
+            "timestamp": chrono_now(),
+            "source": "scope.toml projection (ad-hoc fallback — run validate first)",
+        });
+
+        let path = dir.join("validation.json");
+        if let Ok(json_str) = serde_json::to_string_pretty(&validation) {
+            let _ = std::fs::write(&path, json_str);
+            println!("Generated: {} (WARNING: ad-hoc fallback)", path.display());
+        }
     }
 }
 
@@ -1016,44 +1185,374 @@ fn extract_pdb_resolution(structures_dir: &Path) -> Option<(f64, String)> {
     None
 }
 
-fn generate_receipts_environment(dir: &Path) {
-    let env_path = dir.join("environment.toml");
-    let content = match std::fs::read_to_string(&env_path) {
-        Ok(c) => c,
-        Err(_) => return,
+/// Cross-check scope.toml claims against data actually present in the artifact.
+/// Extracts total_atoms from GRO, simulation_time from COLVAR/MDP, temperature from MDP/PLUMED,
+/// and force_field from topology files, then compares against declared values.
+fn cross_check_scope(dir: &Path, scope_path: &Path) {
+    println!();
+    println!("  \x1b[36m┌─ Scope Cross-Check (pipeline-derived vs claimed) ──────┐\x1b[0m");
+
+    let scope_text = match std::fs::read_to_string(scope_path) {
+        Ok(t) => t,
+        Err(_) => { println!("    \x1b[33mSKIP\x1b[0m: scope.toml not readable"); return; }
     };
-    let parsed: toml::Value = match content.parse() {
+    let scope: toml::Value = match scope_text.parse() {
         Ok(v) => v,
-        Err(_) => return,
+        Err(_) => { println!("    \x1b[33mSKIP\x1b[0m: scope.toml parse error"); return; }
     };
 
+    let modules = match scope.get("module").and_then(|m| m.as_array()) {
+        Some(arr) => arr,
+        None => { println!("    \x1b[33mSKIP\x1b[0m: no [[module]] entries"); return; }
+    };
+
+    let structures_dir = dir.join("structures");
+    let topologies_dir = dir.join("topologies");
+    let configs_dir = dir.join("configs");
+
+    // Extract total_atoms from GRO files
+    let gro_atoms: std::collections::HashMap<String, usize> = {
+        let mut map = std::collections::HashMap::new();
+        if structures_dir.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&structures_dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.extension().and_then(|e| e.to_str()) == Some("gro") {
+                        if let Ok(text) = std::fs::read_to_string(&p) {
+                            if let Some(line2) = text.lines().nth(1) {
+                                if let Ok(n) = line2.trim().parse::<usize>() {
+                                    let name = p.file_stem().unwrap_or_default()
+                                        .to_string_lossy().to_string();
+                                    map.insert(name, n);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        map
+    };
+
+    // Extract force_field from topology files (from #include or -ff flag in header)
+    let top_forcefields: std::collections::HashMap<String, String> = {
+        let mut map = std::collections::HashMap::new();
+        if topologies_dir.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&topologies_dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.extension().and_then(|e| e.to_str()) == Some("top") {
+                        if let Ok(text) = std::fs::read_to_string(&p) {
+                            let ff = extract_forcefield_from_top(&text);
+                            if let Some(ff_name) = ff {
+                                let name = p.file_stem().unwrap_or_default()
+                                    .to_string_lossy().to_string();
+                                map.insert(name, ff_name);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        map
+    };
+
+    // Module-level GRO mapping: which modules use which GRO
+    let module_gro_map: std::collections::HashMap<&str, &str> = [
+        ("03_free_xylose_1d", "free_xylose_solv"),
+        ("04_free_xylose_2d", "free_xylose_solv"),
+        ("05_enzyme_bound_1d", "enzyme_complex_solv"),
+        ("06_enzyme_bound_2d", "enzyme_complex_solv"),
+    ].iter().cloned().collect();
+
+    let module_top_map: std::collections::HashMap<&str, &str> = [
+        ("03_free_xylose_1d", "free_xylose"),
+        ("04_free_xylose_2d", "free_xylose"),
+        ("05_enzyme_bound_1d", "enzyme_complex"),
+        ("06_enzyme_bound_2d", "enzyme_complex"),
+    ].iter().cloned().collect();
+
+    // MDP mapping: which modules use which MDP
+    let module_mdp_map: std::collections::HashMap<&str, &str> = [
+        ("03_free_xylose_1d", "mdp_xylose_1d.mdp"),
+        ("04_free_xylose_2d", "mdp_xylose_2d.mdp"),
+        ("05_enzyme_bound_1d", "mdp_enzyme_1d.mdp"),
+        ("06_enzyme_bound_2d", "mdp_enzyme_2d.mdp"),
+    ].iter().cloned().collect();
+
+    let mut mismatches = 0usize;
+    let mut verified = 0usize;
+
+    for module in modules {
+        let name = module.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let claimed_atoms = module.get("total_atoms").and_then(|v| v.as_integer()).map(|v| v as usize);
+        let claimed_temp = module.get("temperature_k").and_then(|v| v.as_float());
+        let claimed_sim_ns = module.get("simulation_time_ns").and_then(|v| v.as_float())
+            .or_else(|| module.get("simulation_time_ns").and_then(|v| v.as_integer()).map(|v| v as f64));
+        let claimed_ff = module.get("force_field").and_then(|v| v.as_str());
+
+        // Cross-check total_atoms vs GRO
+        if let (Some(claimed), Some(gro_key)) = (claimed_atoms, module_gro_map.get(name.as_ref() as &str)) {
+            if let Some(&derived) = gro_atoms.get(*gro_key) {
+                if claimed == derived {
+                    println!("    \x1b[32m  OK\x1b[0m: {} total_atoms = {} (matches {}.gro)", name, claimed, gro_key);
+                    verified += 1;
+                } else {
+                    println!("    \x1b[31mWARN\x1b[0m: {} total_atoms: scope={} vs GRO={} ({}.gro)", name, claimed, derived, gro_key);
+                    mismatches += 1;
+                }
+            }
+        }
+
+        // Cross-check force_field vs topology
+        if let (Some(claimed), Some(top_key)) = (claimed_ff, module_top_map.get(name.as_ref() as &str)) {
+            if let Some(derived) = top_forcefields.get(*top_key) {
+                if claimed.to_lowercase().replace('-', "").contains(&derived.to_lowercase().replace('-', "").replace("_", "")) 
+                    || derived.to_lowercase().contains(&claimed.to_lowercase().replace('-', ""))
+                {
+                    println!("    \x1b[32m  OK\x1b[0m: {} force_field = \"{}\" (confirmed from {}.top)", name, claimed, top_key);
+                    verified += 1;
+                } else {
+                    println!("    \x1b[31mWARN\x1b[0m: {} force_field: scope=\"{}\" vs topology=\"{}\" ({}.top)", name, claimed, derived, top_key);
+                    mismatches += 1;
+                }
+            }
+        }
+
+        // Cross-check temperature from MDP (modules 03-06)
+        if let (Some(claimed), Some(mdp_file)) = (claimed_temp, module_mdp_map.get(name.as_ref() as &str)) {
+            let mdp_path = configs_dir.join(mdp_file);
+            if mdp_path.exists() {
+                if let Ok(mdp_text) = std::fs::read_to_string(&mdp_path) {
+                    if let Some(derived) = extract_mdp_field(&mdp_text, "ref_t") {
+                        if (claimed - derived).abs() < 0.1 {
+                            println!("    \x1b[32m  OK\x1b[0m: {} temperature_k = {:.1} (matches {} ref_t)", name, claimed, mdp_file);
+                            verified += 1;
+                        } else {
+                            println!("    \x1b[31mWARN\x1b[0m: {} temperature_k: scope={:.1} vs MDP={:.1} ({})", name, claimed, derived, mdp_file);
+                            mismatches += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Cross-check temperature from PLUMED TEMP= (modules 01, 02)
+        if claimed_temp.is_some() && !module_mdp_map.contains_key(name.as_ref() as &str) {
+            let mod_dir = dir.join("modules").join(name);
+            let plumed_path = mod_dir.join("plumed.dat");
+            if plumed_path.exists() {
+                if let Ok(plu_text) = std::fs::read_to_string(&plumed_path) {
+                    if let Some(derived_temp) = extract_plumed_temp(&plu_text) {
+                        let claimed = claimed_temp.unwrap();
+                        if (claimed - derived_temp).abs() < 0.1 {
+                            println!("    \x1b[32m  OK\x1b[0m: {} temperature_k = {:.1} (matches plumed.dat TEMP=)", name, claimed);
+                            verified += 1;
+                        } else {
+                            println!("    \x1b[31mWARN\x1b[0m: {} temperature_k: scope={:.1} vs plumed.dat TEMP={:.1}", name, claimed, derived_temp);
+                            mismatches += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Cross-check simulation_time_ns from COLVAR (last time value)
+        if let Some(claimed_ns) = claimed_sim_ns {
+            let mod_dir = dir.join("modules").join(name);
+            let colvar_candidates = ["COLVAR", "COLVARb", "COLVAR_2d"];
+            for cv_name in &colvar_candidates {
+                let cv_path = mod_dir.join(cv_name);
+                if cv_path.exists() {
+                    if let Some(derived_ns) = extract_colvar_time_ns(&cv_path) {
+                        let tolerance_ns = claimed_ns * 0.05; // 5% tolerance
+                        if (claimed_ns - derived_ns).abs() <= tolerance_ns.max(0.5) {
+                            println!("    \x1b[32m  OK\x1b[0m: {} simulation_time_ns = {:.1} (matches {} → {:.1} ns)", name, claimed_ns, cv_name, derived_ns);
+                            verified += 1;
+                        } else {
+                            println!("    \x1b[31mWARN\x1b[0m: {} simulation_time_ns: scope={:.1} vs {}={:.1} ns", name, claimed_ns, cv_name, derived_ns);
+                            mismatches += 1;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    println!();
+    if mismatches > 0 {
+        println!("    \x1b[31mCross-check: {} verified, {} mismatches\x1b[0m", verified, mismatches);
+    } else if verified > 0 {
+        println!("    \x1b[32mCross-check: {} fields verified, 0 mismatches\x1b[0m", verified);
+    } else {
+        println!("    \x1b[33mCross-check: no verifiable data files found\x1b[0m");
+    }
+    println!();
+}
+
+fn extract_forcefield_from_top(top_text: &str) -> Option<String> {
+    // Try extracting from -ff flag in pdb2gmx command line comment
+    for line in top_text.lines().take(30) {
+        if line.contains("-ff ") {
+            let parts: Vec<&str> = line.split("-ff ").collect();
+            if parts.len() >= 2 {
+                return parts[1].split_whitespace().next()
+                    .map(|s| s.to_string());
+            }
+        }
+    }
+    // Fallback: parse #include line for force field directory name
+    for line in top_text.lines() {
+        if line.starts_with("#include") && line.contains(".ff/") {
+            let ff_part = line.split(".ff/").next()?;
+            let ff_name = ff_part.rsplit('/').next()
+                .or_else(|| ff_part.rsplit('"').nth(1))
+                .unwrap_or(ff_part)
+                .trim_start_matches('"')
+                .trim_start_matches("./");
+            return Some(ff_name.to_string());
+        }
+    }
+    None
+}
+
+fn extract_mdp_field(mdp_text: &str, field: &str) -> Option<f64> {
+    for line in mdp_text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with(';') { continue; }
+        if let Some(idx) = trimmed.find('=') {
+            let key = trimmed[..idx].trim();
+            if key == field {
+                let val_str = trimmed[idx + 1..].trim()
+                    .split(';').next().unwrap_or("")
+                    .trim();
+                return val_str.parse().ok();
+            }
+        }
+    }
+    None
+}
+
+fn extract_plumed_temp(plumed_text: &str) -> Option<f64> {
+    for line in plumed_text.lines() {
+        if line.contains("TEMP=") {
+            for token in line.split_whitespace() {
+                if token.starts_with("TEMP=") {
+                    return token.strip_prefix("TEMP=")?.parse().ok();
+                }
+            }
+        }
+    }
+    None
+}
+
+fn extract_colvar_time_ns(colvar_path: &Path) -> Option<f64> {
+    let file = std::fs::File::open(colvar_path).ok()?;
+    let reader = std::io::BufReader::new(file);
+    let mut last_time_ps: Option<f64> = None;
+
+    use std::io::BufRead;
+    for line in reader.lines().flatten() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with('@') {
+            continue;
+        }
+        if let Some(first_field) = trimmed.split_whitespace().next() {
+            if let Ok(t) = first_field.parse::<f64>() {
+                last_time_ps = Some(t);
+            }
+        }
+    }
+
+    last_time_ps.map(|ps| ps / 1000.0)
+}
+
+fn generate_receipts_environment(dir: &Path) {
     let receipts_dir = dir.join("receipts");
     let _ = std::fs::create_dir_all(&receipts_dir);
 
-    let mut output = String::from("# receipts/environment.toml — litho ingest-pseudospore compatible\n");
-    output.push_str("# Auto-generated from root environment.toml by nest-validate guidestone emit\n\n");
+    let detected = env::Environment::detect();
 
-    // Map [emit_host] -> [hardware] for litho compatibility
-    if let Some(host) = parsed.get("emit_host").and_then(|v| v.as_table()) {
-        output.push_str("[hardware]\n");
-        for (key, val) in host {
-            output.push_str(&format!("{} = {}\n", key, val));
+    let hostname = std::process::Command::new("hostname")
+        .output().ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let uname = std::process::Command::new("uname")
+        .arg("-a")
+        .output().ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let python_version = std::process::Command::new("python3")
+        .arg("--version")
+        .output().ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|| "not found".to_string());
+
+    let rustc_version = std::process::Command::new("rustc")
+        .arg("--version")
+        .output().ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|| "not found".to_string());
+
+    let mut output = String::from("# receipts/environment.toml — pipeline-detected at emit time\n");
+    output.push_str("# Generated by env::Environment::detect() + system probes\n\n");
+
+    output.push_str("[hardware]\n");
+    output.push_str(&format!("hostname = \"{}\"\n", hostname));
+    output.push_str(&format!("uname = \"{}\"\n", uname.replace('"', "'")));
+    output.push_str(&format!("cpus = {}\n", detected.n_cpus));
+    output.push_str(&format!("gpu = {}\n", detected.gpu_available));
+    output.push('\n');
+
+    output.push_str("[software]\n");
+    output.push_str(&format!("gromacs = \"{}\"\n",
+        detected.gmx_version.as_deref().unwrap_or("not found")));
+    output.push_str(&format!("plumed = \"{}\"\n",
+        detected.plumed_version.as_deref().unwrap_or("not found")));
+    output.push_str(&format!("python = \"{}\"\n", python_version));
+    output.push_str(&format!("rustc = \"{}\"\n", rustc_version));
+    output.push_str("nest_validate = \"0.2.0\"\n");
+    output.push('\n');
+
+    if let Some(ref conda_env) = detected.conda_env {
+        output.push_str("[conda]\n");
+        output.push_str(&format!("env = \"{}\"\n", conda_env));
+        if let Some(ref prefix) = detected.conda_prefix {
+            output.push_str(&format!("prefix = \"{}\"\n", prefix.display()));
         }
         output.push('\n');
     }
 
-    // Copy [software] verbatim
-    if let Some(sw) = parsed.get("software").and_then(|v| v.as_table()) {
-        output.push_str("[software]\n");
-        for (key, val) in sw {
-            output.push_str(&format!("{} = {}\n", key, val));
-        }
-        output.push('\n');
-    }
+    output.push_str("[detection]\n");
+    output.push_str("method = \"env::Environment::detect() + system probes\"\n");
+    output.push_str(&format!("timestamp = \"{}\"\n", chrono_now()));
+    output.push_str("source = \"pipeline-derived (not hand-authored)\"\n");
 
     let path = receipts_dir.join("environment.toml");
     let _ = std::fs::write(&path, &output);
-    println!("Generated: {}", path.display());
+    println!("Generated: {} (pipeline-detected)", path.display());
+
+    // Also cross-check against root environment.toml if it exists
+    let root_env_path = dir.join("environment.toml");
+    if root_env_path.exists() {
+        if let Ok(root_text) = std::fs::read_to_string(&root_env_path) {
+            let root_parsed: Result<toml::Value, _> = root_text.parse();
+            if let Ok(root) = root_parsed {
+                let root_gmx = root.get("software")
+                    .and_then(|s| s.get("gromacs"))
+                    .and_then(|v| v.as_str());
+                if let (Some(root_ver), Some(det_ver)) = (root_gmx, &detected.gmx_version) {
+                    if !det_ver.contains(root_ver) && !root_ver.contains(det_ver.as_str()) {
+                        eprintln!("  WARN: environment.toml gromacs=\"{}\" vs detected=\"{}\"",
+                            root_ver, det_ver);
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn generate_checksums_blake3(dir: &Path) {
@@ -1265,6 +1764,7 @@ fn guidestone_validate(args: &[String]) {
 
     let mut total_pass = 0usize;
     let mut total_fail = 0usize;
+    let mut check_results: Vec<serde_json::Value> = Vec::new();
 
     // Phase 1: BLAKE3 integrity
     println!("  \x1b[36m┌─ Phase 1: BLAKE3 Integrity ─────────────────────────────┐\x1b[0m");
@@ -1313,10 +1813,20 @@ fn guidestone_validate(args: &[String]) {
         if external_count > 0 {
             println!("    \x1b[36mINFO\x1b[0m: {} external files tracked (in lithoSpore braids)", external_count);
         }
+        check_results.push(serde_json::json!({
+            "phase": "blake3_integrity",
+            "pass": phase_pass,
+            "fail": phase_fail,
+            "external": external_count,
+            "status": if phase_fail == 0 { "PASS" } else { "FAIL" },
+        }));
         total_pass += phase_pass;
         total_fail += phase_fail;
     } else {
         println!("    \x1b[33mSKIP\x1b[0m: data.toml not found");
+        check_results.push(serde_json::json!({
+            "phase": "blake3_integrity", "status": "SKIP",
+        }));
     }
     println!();
 
@@ -1337,6 +1847,10 @@ fn guidestone_validate(args: &[String]) {
 
         if !hills_path.exists() {
             println!("    \x1b[33mSKIP\x1b[0m: {} (no {})", module, hills_name);
+            check_results.push(serde_json::json!({
+                "module": module, "check": "fes_parity", "status": "SKIP",
+                "reason": format!("{} not found", hills_name),
+            }));
             continue;
         }
 
@@ -1347,21 +1861,35 @@ fn guidestone_validate(args: &[String]) {
             ) {
                 Ok((_fes, parity)) => {
                     if let Some(p) = &parity {
-                        if p.rmsd_kjmol <= 2.0 {
+                        let pass = p.rmsd_kjmol <= 2.0;
+                        if pass {
                             println!("    \x1b[32mPASS\x1b[0m: {} — RMSD {:.2} kJ/mol", module, p.rmsd_kjmol);
                             total_pass += 1;
                         } else {
                             println!("    \x1b[31mFAIL\x1b[0m: {} — RMSD {:.2} kJ/mol (>2.0)", module, p.rmsd_kjmol);
                             total_fail += 1;
                         }
+                        check_results.push(serde_json::json!({
+                            "module": module, "check": "fes_parity_2d",
+                            "status": if pass { "PASS" } else { "FAIL" },
+                            "rmsd_kjmol": (p.rmsd_kjmol * 100.0).round() / 100.0,
+                            "tolerance_kjmol": 2.0,
+                        }));
                     } else {
                         println!("    \x1b[32mPASS\x1b[0m: {} — 2D FES reconstructed", module);
                         total_pass += 1;
+                        check_results.push(serde_json::json!({
+                            "module": module, "check": "fes_reconstruct_2d", "status": "PASS",
+                        }));
                     }
                 }
                 Err(e) => {
                     println!("    \x1b[31mFAIL\x1b[0m: {} — {}", module, e);
                     total_fail += 1;
+                    check_results.push(serde_json::json!({
+                        "module": module, "check": "fes_parity_2d", "status": "FAIL",
+                        "error": e.to_string(),
+                    }));
                 }
             }
         } else {
@@ -1369,7 +1897,9 @@ fn guidestone_validate(args: &[String]) {
                 &hills_path, if fes_path.exists() { Some(fes_path.as_path()) } else { None }, 110,
             ) {
                 Ok(result) => {
-                    if result.chair_basins_found >= 2 {
+                    let pass = result.chair_basins_found >= 2;
+                    let rmsd = result.parity.as_ref().map(|p| p.rmsd_kjmol);
+                    if pass {
                         if let Some(p) = &result.parity {
                             if p.rmsd_kjmol <= 2.0 {
                                 println!("    \x1b[32mPASS\x1b[0m: {} — {} basins, RMSD {:.2} kJ/mol", module, result.chair_basins_found, p.rmsd_kjmol);
@@ -1384,10 +1914,21 @@ fn guidestone_validate(args: &[String]) {
                         println!("    \x1b[31mFAIL\x1b[0m: {} — only {} chair basins", module, result.chair_basins_found);
                         total_fail += 1;
                     }
+                    check_results.push(serde_json::json!({
+                        "module": module, "check": "fes_parity_1d",
+                        "status": if pass { "PASS" } else { "FAIL" },
+                        "basins_found": result.chair_basins_found,
+                        "rmsd_kjmol": rmsd.map(|v| (v * 100.0).round() / 100.0),
+                        "tolerance_kjmol": 1.0,
+                    }));
                 }
                 Err(e) => {
                     println!("    \x1b[31mFAIL\x1b[0m: {} — {}", module, e);
                     total_fail += 1;
+                    check_results.push(serde_json::json!({
+                        "module": module, "check": "fes_parity_1d", "status": "FAIL",
+                        "error": e.to_string(),
+                    }));
                 }
             }
         }
@@ -1398,7 +1939,6 @@ fn guidestone_validate(args: &[String]) {
     println!("  \x1b[36m┌─ Phase 3: Enhanced Sampling Analysis ───────────────────┐\x1b[0m");
     let mod01 = dir.join("modules/01_alanine_dipeptide");
     if mod01.join("HILLS").exists() {
-        // Alanine dipeptide uses 2D HILLS (phi/psi); validate via native FES reconstruction
         let hills_path = mod01.join("HILLS");
         match hills::detect_dimensionality(&hills_path) {
             Ok(2) => {
@@ -1410,7 +1950,8 @@ fn guidestone_validate(args: &[String]) {
                             50, 50, (true, true),
                         );
                         let minima = fes::find_minima_2d(&fes, 5.0, 3);
-                        if minima.len() >= 2 {
+                        let pass = minima.len() >= 2;
+                        if pass {
                             println!("    \x1b[32mPASS\x1b[0m: 01_alanine_dipeptide — {} minima in 2D FES ({} Gaussians)",
                                 minima.len(), h.n_gaussians());
                             total_pass += 1;
@@ -1418,27 +1959,49 @@ fn guidestone_validate(args: &[String]) {
                             println!("    \x1b[31mFAIL\x1b[0m: 01_alanine_dipeptide — only {} minima", minima.len());
                             total_fail += 1;
                         }
+                        check_results.push(serde_json::json!({
+                            "module": "01_alanine_dipeptide", "check": "fes_2d_minima",
+                            "status": if pass { "PASS" } else { "FAIL" },
+                            "minima_found": minima.len(),
+                            "gaussians": h.n_gaussians(),
+                            "minimum_required": 2,
+                        }));
                     }
                     Ok(h) => {
                         println!("    \x1b[31mFAIL\x1b[0m: 01_alanine_dipeptide — insufficient Gaussians ({})", h.n_gaussians());
                         total_fail += 1;
+                        check_results.push(serde_json::json!({
+                            "module": "01_alanine_dipeptide", "check": "fes_2d_minima",
+                            "status": "FAIL", "gaussians": h.n_gaussians(),
+                        }));
                     }
                     Err(e) => {
                         println!("    \x1b[31mFAIL\x1b[0m: 01_alanine_dipeptide — parse error: {}", e);
                         total_fail += 1;
+                        check_results.push(serde_json::json!({
+                            "module": "01_alanine_dipeptide", "check": "fes_2d_minima",
+                            "status": "FAIL", "error": e.to_string(),
+                        }));
                     }
                 }
             }
             _ => {
-                // Fallback for 1D HILLS
                 match hills::parse_hills_1d(&hills_path) {
                     Ok(h) if h.n_gaussians() >= 5000 => {
                         println!("    \x1b[32mPASS\x1b[0m: 01_alanine_dipeptide — 1D validated ({} Gaussians)", h.n_gaussians());
                         total_pass += 1;
+                        check_results.push(serde_json::json!({
+                            "module": "01_alanine_dipeptide", "check": "fes_1d",
+                            "status": "PASS", "gaussians": h.n_gaussians(),
+                        }));
                     }
                     _ => {
                         println!("    \x1b[31mFAIL\x1b[0m: 01_alanine_dipeptide — insufficient data");
                         total_fail += 1;
+                        check_results.push(serde_json::json!({
+                            "module": "01_alanine_dipeptide", "check": "fes_1d",
+                            "status": "FAIL",
+                        }));
                     }
                 }
             }
@@ -1452,28 +2015,65 @@ fn guidestone_validate(args: &[String]) {
             Ok(cv) if cv.n_frames > 1000 => {
                 let hlda = cv.column("hlda").unwrap_or_default();
                 let (fold, unfold) = colvar::count_transitions(&hlda, 1.2, 0.3);
-                if fold + unfold >= 6 {
+                let transitions = fold + unfold;
+                let sim_ns = cv.total_time_ns();
+                let pass = transitions >= 6;
+                if pass {
                     println!("    \x1b[32mPASS\x1b[0m: 02_chignolin_opes — {} transitions, {:.1} ns",
-                        fold + unfold, cv.total_time_ns());
+                        transitions, sim_ns);
                     total_pass += 1;
                 } else {
-                    println!("    \x1b[31mFAIL\x1b[0m: 02_chignolin_opes — only {} transitions", fold + unfold);
+                    println!("    \x1b[31mFAIL\x1b[0m: 02_chignolin_opes — only {} transitions", transitions);
                     total_fail += 1;
                 }
+                check_results.push(serde_json::json!({
+                    "module": "02_chignolin_opes", "check": "opes_transitions",
+                    "status": if pass { "PASS" } else { "FAIL" },
+                    "transitions": transitions,
+                    "fold": fold, "unfold": unfold,
+                    "simulation_ns": (sim_ns * 10.0).round() / 10.0,
+                    "n_frames": cv.n_frames,
+                    "minimum_transitions": 6,
+                }));
             }
             Ok(cv) => {
                 println!("    \x1b[33mSKIP\x1b[0m: 02_chignolin_opes — insufficient frames ({})", cv.n_frames);
+                check_results.push(serde_json::json!({
+                    "module": "02_chignolin_opes", "check": "opes_transitions",
+                    "status": "SKIP", "n_frames": cv.n_frames,
+                }));
             }
             Err(e) => {
                 println!("    \x1b[31mFAIL\x1b[0m: 02_chignolin_opes — parse error: {}", e);
                 total_fail += 1;
+                check_results.push(serde_json::json!({
+                    "module": "02_chignolin_opes", "check": "opes_transitions",
+                    "status": "FAIL", "error": e.to_string(),
+                }));
             }
         }
     }
     println!();
 
-    // Summary
+    // Write validation_results.json — machine-readable, consumed by emit
     let total = total_pass + total_fail;
+    let overall_status = if total_fail == 0 && total > 0 { "PASS" } else if total_fail > 0 { "FAIL" } else { "EMPTY" };
+    let results_doc = serde_json::json!({
+        "validator": "nest-validate",
+        "validator_version": "0.2.0",
+        "timestamp": chrono_now(),
+        "overall": overall_status,
+        "total_pass": total_pass,
+        "total_fail": total_fail,
+        "checks": check_results,
+    });
+    let results_path = dir.join("validation_results.json");
+    if let Ok(json_str) = serde_json::to_string_pretty(&results_doc) {
+        let _ = std::fs::write(&results_path, &json_str);
+        println!("  Wrote: {}", results_path.display());
+    }
+
+    // Summary
     println!("  \x1b[36m┌─ Summary ──────────────────────────────────────────────┐\x1b[0m");
     println!("    Checks: {}", total);
     println!("    Pass:   \x1b[32m{}\x1b[0m", total_pass);
@@ -2149,16 +2749,17 @@ fn run_parity_barracuda(args: &[String]) {
 }
 
 /// Fully agentic pseudoSpore deployment pipeline.
-/// Chains: hash → emit → hash → verify → validate → package → (optional) litho ingest/promote.
+/// Chains: hash → validate → emit → hash → verify → package → ingest (biomeos nucleus | litho | manual).
 fn guidestone_deploy(args: &[String]) {
     let dir = args.iter().find(|a| !a.starts_with('-')).map(|s| PathBuf::from(s)).unwrap_or_else(|| {
-        eprintln!("Usage: nest-validate guidestone deploy <dir> [--litho-root <path>] [--tarball] [--desktop] [--promote]");
+        eprintln!("Usage: nest-validate guidestone deploy <dir> [--litho-root <path>] [--tarball] [--desktop] [--promote] [--nucleus]");
         process::exit(1);
     });
 
     let tarball = args.iter().any(|a| a == "--tarball");
     let desktop = args.iter().any(|a| a == "--desktop");
     let promote = args.iter().any(|a| a == "--promote");
+    let nucleus = args.iter().any(|a| a == "--nucleus");
     let litho_root = extract_flag(args, "--litho-root").map(PathBuf::from);
 
     if !dir.is_dir() {
@@ -2189,16 +2790,20 @@ fn guidestone_deploy(args: &[String]) {
     println!("    [OK] data.toml generated");
     println!();
 
-    // Step 2: Emit (liveSpore.json, validation.json, receipts/*)
-    println!("  \x1b[36mStep 2/7:\x1b[0m Emitting provenance + receipts...");
+    // Step 2: Validate (science checks) — runs BEFORE emit so validation_results.json
+    // is available for emit to populate validation.json and liveSpore.validations[]
+    println!("  \x1b[36mStep 2/7:\x1b[0m Full science validation...");
+    guidestone_validate(&hash_args);
+    println!();
+
+    // Step 3: Emit (liveSpore.json, validation.json, receipts/*) — consumes validation_results.json
+    println!("  \x1b[36mStep 3/7:\x1b[0m Emitting provenance + receipts...");
     guidestone_emit(&hash_args);
     println!();
 
-    // Step 3: Re-hash (incorporate final liveSpore.json hash)
-    // When tarball is requested, use --data-only to split [present]/[external]
-    // so verify works on the tarball without trajectory files
+    // Step 4: Re-hash (incorporate final liveSpore.json hash)
     let use_data_only = tarball || desktop;
-    println!("  \x1b[36mStep 3/7:\x1b[0m Re-hashing with final liveSpore.json{}...",
+    println!("  \x1b[36mStep 4/7:\x1b[0m Re-hashing with final liveSpore.json{}...",
              if use_data_only { " (--data-only for tarball)" } else { "" });
     {
         let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
@@ -2212,19 +2817,13 @@ fn guidestone_deploy(args: &[String]) {
             .expect("Failed to run guidestone hash");
         std::fs::write(&data_toml_path, &output.stdout).unwrap();
     }
-    // Re-generate checksums.blake3 with updated data.toml
     generate_checksums_blake3(&dir);
     println!("    [OK] data.toml + checksums.blake3 regenerated");
     println!();
 
-    // Step 4: Verify (BLAKE3 integrity gate)
-    println!("  \x1b[36mStep 4/7:\x1b[0m BLAKE3 integrity verification...");
+    // Step 5: Verify (BLAKE3 integrity gate)
+    println!("  \x1b[36mStep 5/7:\x1b[0m BLAKE3 integrity verification...");
     guidestone_verify(&hash_args);
-    println!();
-
-    // Step 5: Validate (science checks)
-    println!("  \x1b[36mStep 5/7:\x1b[0m Full science validation...");
-    guidestone_validate(&hash_args);
     println!();
 
     // Step 6: Package tarball
@@ -2268,73 +2867,109 @@ fn guidestone_deploy(args: &[String]) {
         println!();
     }
 
-    // Step 7: litho ingest + optional promote
-    // Per SPORE_OWNERSHIP_MATRIX.md: NUCLEUS gateway belongs to biomeOS.
-    // Future: `biomeos nucleus ingest` replaces this step.
-    // Current: delegates to `litho ingest-pseudospore` as transitional path.
-    if let Some(ref lr) = litho_root {
-        println!("  \x1b[36mStep 7/7:\x1b[0m lithoSpore ingestion (future: biomeos nucleus ingest)...");
-        let litho_bin = which_binary("litho").unwrap_or_else(|| {
-            let cargo_target = lr.join("target/release/litho");
-            if cargo_target.exists() {
-                cargo_target.to_string_lossy().to_string()
-            } else {
-                "cargo".to_string()
-            }
-        });
+    // ── Step 7: NUCLEUS ingest / litho ingest / manual ──────────────────
+    // Ownership: NUCLEUS gateway → biomeOS CLI (postPrimordial)
+    //            Envelope ingest → litho CLI (transitional)
+    // Per SPORE_OWNERSHIP_MATRIX.md
+    let biomeos_bin = if nucleus { find_biomeos_binary() } else { None };
+    let mut nucleus_ingested = false;
 
-        let ingest_status = if litho_bin == "cargo" {
-            Command::new("cargo")
-                .args(["run", "--", "ingest-pseudospore"])
-                .arg(dir.canonicalize().unwrap_or(dir.clone()))
-                .args(["--artifact-root", "."])
-                .arg("--verify")
-                .current_dir(lr)
-                .status()
-        } else {
-            Command::new(&litho_bin)
-                .arg("ingest-pseudospore")
-                .arg(dir.canonicalize().unwrap_or(dir.clone()))
-                .args(["--artifact-root", &lr.to_string_lossy()])
-                .arg("--verify")
-                .status()
-        };
+    if let Some(ref bio) = biomeos_bin {
+        // Tier 1 (postPrimordial): biomeos nucleus ingest
+        println!("  \x1b[36mStep 7/7:\x1b[0m NUCLEUS nest ingest via biomeos CLI...");
+        let canon_dir = dir.canonicalize().unwrap_or(dir.clone());
+        let ingest_status = Command::new(bio)
+            .args(["nucleus", "ingest"])
+            .arg(&canon_dir)
+            .arg("--verify")
+            .status();
 
         match ingest_status {
-            Ok(s) if s.success() => println!("    [OK] pseudoSpore ingested into lithoSpore registry"),
-            Ok(s) => eprintln!("    [WARN] litho ingest exited with {:?}", s.code()),
-            Err(e) => eprintln!("    [WARN] Could not run litho ingest: {}", e),
+            Ok(s) if s.success() => {
+                println!("    [OK] pseudoSpore ingested into NUCLEUS via NestGate");
+                nucleus_ingested = true;
+                write_nucleus_ingest_receipt(&dir, bio, "nestgate");
+            }
+            Ok(s) => {
+                eprintln!("    [WARN] biomeos nucleus ingest exited with {:?} — falling back to litho", s.code());
+            }
+            Err(e) => {
+                eprintln!("    [WARN] biomeos nucleus ingest failed: {} — falling back to litho", e);
+            }
         }
+    } else if nucleus {
+        println!("    [INFO] --nucleus requested but biomeos binary not found — falling back to litho");
+    }
 
-        if promote {
-            println!();
-            println!("  \x1b[36mBonus:\x1b[0m lithoSpore promotion...");
-            let promote_status = if litho_bin == "cargo" {
+    if !nucleus_ingested {
+        if let Some(ref lr) = litho_root {
+            // Tier 2 (transitional): litho ingest-pseudospore
+            println!("  \x1b[36mStep 7/7:\x1b[0m lithoSpore envelope ingestion (transitional)...");
+            let litho_bin = which_binary("litho").unwrap_or_else(|| {
+                let cargo_target = lr.join("target/release/litho");
+                if cargo_target.exists() {
+                    cargo_target.to_string_lossy().to_string()
+                } else {
+                    "cargo".to_string()
+                }
+            });
+
+            let ingest_status = if litho_bin == "cargo" {
                 Command::new("cargo")
-                    .args(["run", "--", "promote"])
-                    .args(["--pseudospore", &dir.canonicalize().unwrap_or(dir.clone()).to_string_lossy()])
-                    .args(["--output", "."])
+                    .args(["run", "--", "ingest-pseudospore"])
+                    .arg(dir.canonicalize().unwrap_or(dir.clone()))
+                    .args(["--artifact-root", "."])
+                    .arg("--verify")
                     .current_dir(lr)
                     .status()
             } else {
                 Command::new(&litho_bin)
-                    .arg("promote")
-                    .args(["--pseudospore", &dir.canonicalize().unwrap_or(dir.clone()).to_string_lossy()])
-                    .args(["--output", &lr.to_string_lossy()])
+                    .arg("ingest-pseudospore")
+                    .arg(dir.canonicalize().unwrap_or(dir.clone()))
+                    .args(["--artifact-root", &lr.to_string_lossy()])
+                    .arg("--verify")
                     .status()
             };
 
-            match promote_status {
-                Ok(s) if s.success() => println!("    [OK] lithoSpore chassis created"),
-                Ok(s) => eprintln!("    [WARN] litho promote exited with {:?}", s.code()),
-                Err(e) => eprintln!("    [WARN] Could not run litho promote: {}", e),
+            match ingest_status {
+                Ok(s) if s.success() => println!("    [OK] pseudoSpore ingested into lithoSpore registry"),
+                Ok(s) => eprintln!("    [WARN] litho ingest exited with {:?}", s.code()),
+                Err(e) => eprintln!("    [WARN] Could not run litho ingest: {}", e),
             }
+
+            if promote {
+                println!();
+                println!("  \x1b[36mBonus:\x1b[0m lithoSpore promotion...");
+                let promote_status = if litho_bin == "cargo" {
+                    Command::new("cargo")
+                        .args(["run", "--", "promote"])
+                        .args(["--pseudospore", &dir.canonicalize().unwrap_or(dir.clone()).to_string_lossy()])
+                        .args(["--output", "."])
+                        .current_dir(lr)
+                        .status()
+                } else {
+                    Command::new(&litho_bin)
+                        .arg("promote")
+                        .args(["--pseudospore", &dir.canonicalize().unwrap_or(dir.clone()).to_string_lossy()])
+                        .args(["--output", &lr.to_string_lossy()])
+                        .status()
+                };
+
+                match promote_status {
+                    Ok(s) if s.success() => println!("    [OK] lithoSpore chassis created"),
+                    Ok(s) => eprintln!("    [WARN] litho promote exited with {:?}", s.code()),
+                    Err(e) => eprintln!("    [WARN] Could not run litho promote: {}", e),
+                }
+            }
+        } else {
+            // Tier 3: manual instructions
+            println!("  \x1b[36mStep 7/7:\x1b[0m No ingest backend available");
+            println!("    To ingest into lithoSpore:  nest-validate guidestone deploy <dir> --litho-root <path>");
+            println!("    To ingest into NUCLEUS:     nest-validate guidestone deploy <dir> --nucleus");
+            println!("    (requires biomeos CLI in PATH or plasmidBin)");
         }
-        println!();
-    } else {
-        println!("  \x1b[36mStep 7/7:\x1b[0m Skipping litho ingest (use --litho-root <path>)");
-        println!();
     }
+    println!();
 
     // Summary
     let elapsed = pipeline_start.elapsed();

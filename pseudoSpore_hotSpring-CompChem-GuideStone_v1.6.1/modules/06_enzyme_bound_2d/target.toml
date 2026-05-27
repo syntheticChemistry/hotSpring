@@ -17,6 +17,8 @@ basins = []
 tier_parity_rmsd_kjmol = 2.0
 
 [tolerances]
+# Authority: root tolerances.toml
+_authority = "tolerances.toml"
 barrier_kjmol = 5.0
 tier_parity_rmsd_kjmol = 2.0
 

@@ -171,3 +171,7 @@ gromacs_version = "2026.0-conda_forge"
 dag_merkle_root = "cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea"
 braid_id = "urn:braid:hotspring-compchem-guidestone-v1.6.1"
 parent_braid = "urn:braid:hotspring-compchem-guidestone-v1.6.0"
+provenance_trio_status = "pending"
+nucleus_ingest_ready = true
+deployment_era = "pipeline_derived"
+target_era = "nucleus_nest_deploy"

@@ -1,10 +1,17 @@
 # GuideStone Tolerances — quantitative acceptance criteria per module
 # Derived from PLUMED-NEST reproducibility and Tier parity testing
+#
+# AUTHORITY MODEL:
+#   This file is the design registry (authoritative defaults).
+#   Module target.toml files may override individual values with documented
+#   justification. Overrides reference this file via `_authority = "tolerances.toml"`.
+#   The pipeline cross-checks both sources and flags undocumented divergences.
 
 [meta]
-version = "1.0"
+version = "1.1"
 derived_from = ["plumID:24.020", "plumID:24.029", "control/gromacs_fel/validation_matrix.json"]
-last_updated = "2026-05-26"
+last_updated = "2026-05-27"
+authority_model = "root=default, module target.toml=override with justification"
 
 # === Per-module tolerances ===
 
