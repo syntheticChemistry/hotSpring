@@ -120,6 +120,10 @@ pub fn compile_and_submit(
         "dispatch_mode": "passthrough",
     });
 
+    if let Some(si) = compile_result.get("shader_info") {
+        submit["shader_info"] = si.clone();
+    }
+
     if let Some(bdf_val) = bdf {
         submit["bdf"] = serde_json::Value::String(bdf_val.to_string());
     }
