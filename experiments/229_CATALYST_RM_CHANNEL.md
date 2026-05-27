@@ -103,4 +103,42 @@ System fully cycled. Both Titan Vs clean on vfio-pci:
 
 Workspace validation: 705 cylinder + 864 server = 1,569 lib tests pass. Full workspace `cargo check` clean.
 
-**Next**: run `sovereign.warm_handoff` with `nvidia_catalyst_titanv` on clean GPU
+### Attempt 2 (2026-05-27, S279): RM Channel Creation Fails
+
+**Fix applied**: Removed anchor_release_guard cold-start halt (Exp 229 fix —
+catalyst pipeline's purpose is to warm a cold GPU, not guard warm state).
+
+**Pipeline ran to completion** (78.7s, `success=true`):
+- 19/19 patches applied, nvsov loaded+bound, GPU opened (major=507)
+- rm_trigger --channel: exit=0 but **root_alloc failed** — `status=0xdeadbeef`
+  (sentinel never overwritten by RM). 0 of 15 steps completed.
+- settle_health: "RM failed DEVINIT: PMC_ENABLE=0x40001121 (popcount=5)"
+- 18,334 alive registers captured post-swap
+- FECS INIT_CTXSW: status=0 (responded)
+- Final tier: Cold (Tier 0)
+
+**Root cause**: `nvidia_catalyst_handoff` patches NOP `init_module` too
+aggressively — bytes at +0x7b/+0x8a overwrite the RM initialization call
+that sets up the channel management state machine. Opening `/dev/nvidia0`
+triggers `rm_init_adapter` (GPU device open), but `NV_ESC_RM_ALLOC` ioctls
+need the full RM client/object infrastructure that only initializes during
+the unpatched `init_module` flow.
+
+**Key observations**:
+- FECS_PC=0x18b37058 (RM firmware range) — FECS IS running
+- FECS INIT_CTXSW returned status=0 (responsive)
+- PMC_ENABLE=0x40001121 (only 5 engines vs ~23 normal)
+- TPC probes: 0xbadf5040 FAULT (all 6 GPCs)
+- GPCCS_CPUCTL=0x10 (halted), PMU_CPUCTL=0x20
+
+**Paths forward**:
+1. Reduce `init_module` patching — allow RM init to complete while still
+   NOPping `nv_pci_remove` cleanup. The init_module bytes (+0x7b/+0x8a)
+   suppress a critical RM init call.
+2. Use the existing `nvidia_warm_handoff` strategy (unpatched nvidia-470)
+   which does full RM init — but this destroys GPU state on removal.
+3. Hybrid: unpatched load for channel creation, then patched reload for
+   warm state preservation.
+
+**Next**: investigate init_module patch scope — which call at +0x7b is being
+NOPped and whether it can be preserved while still suppressing side effects
