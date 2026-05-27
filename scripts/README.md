@@ -10,7 +10,7 @@ or `drivers_probe` are prohibited in new scripts.
 
 | Script | Description | Safe to run? |
 |--------|-------------|-------------|
-| `regenerate-all.sh` | Full project regeneration | Yes |
+| ~~`fossils/regenerate-all.sh`~~ | **FOSSILIZED** → `nest-validate guidestone run` | Replaced by Rust |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
 | ~~`archive/k80_warm_catch.sh`~~ | **ARCHIVED** → `toadstool device warm-catch <BDF> --memory-type gddr5` | Replaced by pure Rust |
 | ~~`archive/titanv_warm_handoff.sh`~~ | **ARCHIVED** → `toadstool device warm-catch <BDF> --memory-type hbm2` | Replaced by pure Rust |

@@ -95,4 +95,12 @@ This is a known PCIe subsystem issue requiring reboot to clear.
 - rm_trigger binary: struct sizes validated (Nvos64Parameters=32, NvChannelAllocParams=368)
 - Pipeline: PCCSR scan, RmChannelEvidence, --channel flag all wired
 
-**Next**: reboot, run `sovereign.warm_handoff` with `nvidia_catalyst_titanv` on clean GPU
+### Post-Reboot Status (S279)
+
+System fully cycled. Both Titan Vs clean on vfio-pci:
+- 0000:02:00.0: Kernel driver in use: vfio-pci
+- 0000:49:00.0: Kernel driver in use: vfio-pci
+
+Workspace validation: 705 cylinder + 864 server = 1,569 lib tests pass. Full workspace `cargo check` clean.
+
+**Next**: run `sovereign.warm_handoff` with `nvidia_catalyst_titanv` on clean GPU
