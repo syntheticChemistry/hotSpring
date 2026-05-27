@@ -108,6 +108,22 @@ The fundamental blocker is **Authenticated Code ROM (ACR)** on Volta (GV100) FEC
 
 4. **Hybrid mode** — keep nvidia-470 loaded for FECS context switching but own the dispatch path via direct BAR0 PBDMA submission. This is not fully sovereign but achieves compute dispatch with vendor-managed initialization.
 
+## Cold-Boot Reproducibility (Post-Reboot Validation)
+
+**Validated:** May 26, 2026 — full AC power cycle, cold start
+
+1. Both Titan Vs confirmed Tier 0 (Cold): `pmc_popcount=4`, `tpc_alive=false`
+2. `sovereign.init` → Tier 1 on both (13.9s each, `pmc_popcount=23`)
+3. `sovereign.warm_handoff` → Tier 2 on both:
+   - Titan V #1: 18,481 alive regs, `tpc_alive=true`, `tpc_status=16`, 76s
+   - Titan V #2: 17,934 alive regs, `tpc_alive=true`, `tpc_status=16`, 76s
+4. Dispatch on both: `compute.dispatch.submit` with coralReef SM70 binary (96 bytes):
+   - Titan V #1: `status=completed`, `non_zero=False`, `word0=0x00000000`
+   - Titan V #2: `status=completed`, `non_zero=False`, `word0=0x00000000`
+5. Catalyst detection confirmed: `FECS PC=0x18b3456f`, `catalyst=true`
+6. TPC preservation confirmed: `tpc_before=[16,16,16,16,16,16] == tpc_after`
+7. GPCCS ACR timeout confirmed: `cpuctl=0x00000000, pc=0x00000000`
+
 ## Validation Commands
 
 ```bash
