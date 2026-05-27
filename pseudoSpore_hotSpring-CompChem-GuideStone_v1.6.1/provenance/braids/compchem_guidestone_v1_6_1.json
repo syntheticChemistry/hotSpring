@@ -1,0 +1,38 @@
+{
+  "braid_id": "urn:braid:hotspring-compchem-guidestone-v1.6.1",
+  "parent_braid": "urn:braid:hotspring-compchem-guidestone-v1.6.0",
+  "artifact": "hotSpring-CompChem-GuideStone",
+  "version": "1.6.1",
+  "timestamp": "2026-05-27T00:00:00Z",
+  "agent": "nest-validate guidestone emit",
+  "agent_version": "0.2.0",
+  "receipt": {
+    "modules_pass": 7,
+    "modules_skip": 1,
+    "modules_total": 8,
+    "blake3_files_total": 65,
+    "trajectory_files_included": 12,
+    "integrity": "BLAKE3 (data.toml [present]/[external])"
+  },
+  "changes": [
+    "Promoted all HILLS/COLVAR/Kernels to [present] — full-data self-contained pseudoSpore",
+    "Added Module 01 COLVAR (500K frames) for complete zero-trust FES re-derivation",
+    "Added receipts/environment.toml with [hardware]+[software] for litho ingest compatibility",
+    "Module 08 status: PROPOSED -> SKIP (roadmap document, not computational result)",
+    "Added [external_braids] to data.toml: PDB:2D24, PLUMED-NEST:24.020/24.029/25.007, CHARMM36",
+    "data.toml uses [present]/[external] split for tarball vs lithoSpore braids",
+    "Updated index_map.toml rosetta_stone with proper braid URIs",
+    "Added nest-validate guidestone deploy subcommand for fully agentic pipeline"
+  ],
+  "lineage": [
+    "urn:braid:hotspring-cazyme-fel-v1.0.0",
+    "urn:braid:hotspring-cazyme-fel-v1.2.1",
+    "urn:braid:hotspring-cazyme-fel-v1.3.0",
+    "urn:braid:hotspring-cazyme-fel-v1.4.0",
+    "urn:braid:hotspring-cazyme-fel-v1.4.1",
+    "urn:braid:hotspring-cazyme-fel-v1.4.2",
+    "urn:braid:hotspring-compchem-guidestone-v1.5.0",
+    "urn:braid:hotspring-compchem-guidestone-v1.6.0",
+    "urn:braid:hotspring-compchem-guidestone-v1.6.1"
+  ]
+}

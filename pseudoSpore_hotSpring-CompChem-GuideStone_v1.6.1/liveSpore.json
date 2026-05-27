@@ -1,0 +1,24 @@
+{
+  "liveSpore": {
+    "artifact": "hotSpring-CompChem-GuideStone",
+    "emit_host": "pop-os",
+    "emit_timestamp": "2026-05-27T11:42:17Z",
+    "git_sha": "6c48a43",
+    "integrity": "BLAKE3 (data.toml)",
+    "tool": "nest-validate guidestone emit",
+    "tool_version": "0.2.0",
+    "validation": "nest-validate validate + cazyme-fel parity",
+    "version": "1.6.1"
+  },
+  "provenance_chain": {
+    "evolution": "v1.5.0 → v1.6.0 → v1.6.1",
+    "parent": "pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.0",
+    "parent_merkle": "cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea"
+  },
+  "software": {
+    "cazyme_fel": "0.1.0",
+    "gromacs": "2026.0-conda_forge",
+    "nest_validate": "0.2.0",
+    "plumed": "2.10"
+  }
+}

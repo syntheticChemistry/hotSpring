@@ -1,0 +1,45 @@
+# Environment captured at emit time.
+# [emit_host] = machine running `nest-validate guidestone emit`
+# [software] = tool versions on PATH during emit
+# Simulations may have run on different hardware; see provenance braids.
+
+[emit_host]
+hostname = "pop-os"
+os = "linux 6.17.9-76061709-generic"
+arch = "x86_64"
+cpu = "AMD EPYC 7452 32-Core Processor"
+cpu_cores = 32
+cpu_threads = 64
+gpu = "NVIDIA GeForce RTX 3090"
+gpu_driver = "580.126.18"
+gpu_memory_mib = 24576
+
+[software]
+gromacs = "2026.0-conda_forge"
+gromacs_precision = "single"
+gromacs_simd = "AVX2_256"
+plumed = "2.10"
+plumed_kernel = "libplumedKernel.so"
+plumed_modules = "all"
+python = "3.12"
+rust_edition = "2021"
+forcefield = "CHARMM36-jul2022"
+conda_environment = "gromacs-fel"
+nest_validate = "0.2.0"
+cazyme_fel = "0.1.0"
+
+[production]
+total_production_ns = 131.8
+modules = 8
+method = "Multi-method: WTMetaD, OPES_METAD, OPES_METAD_EXPLORE"
+
+[simulation_parameters]
+default_ntmpi = 1
+default_ntomp = 8
+gpu_offload = true
+pme_on_gpu = true
+
+[emit]
+git_sha = "a240182"
+timestamp = "2026-05-26T23:03:00Z"
+tool = "nest-validate guidestone emit v0.2.0"

@@ -1,0 +1,34 @@
+[target]
+id = "05_enzyme_bound_1d"
+plum_id = "internal"
+method = "well-tempered metadynamics"
+description = "Enzyme-bound -1 subsite xylose puckering in GH10 xylanase (PDB 2D24)"
+temperature_k = 300.0
+cv_names = ["puck.theta"]
+
+[files]
+hills = "HILLS"
+colvar = "COLVAR"
+plumed_dat = "plumed.dat"
+fes = "fes_theta.dat"
+
+[reference]
+basins = [
+    { name = "4C1", x = 0.15, tolerance_rad = 0.2 },
+    { name = "boat", x = 1.57, tolerance_rad = 0.3 },
+    { name = "1C4", x = 3.0, tolerance_rad = 0.2 },
+]
+barrier_range_kjmol = [30.0, 50.0]
+
+[tolerances]
+barrier_kjmol = 5.0
+basin_position_rad = 0.2
+convergence_std_kjmol = 2.0
+tier_parity_rmsd_kjmol = 1.0
+enzyme_barrier_reduction_kjmol = 5.0
+
+[simulation]
+nsteps = 5000000
+dt_ps = 0.002
+ntmpi = 1
+ntomp = 8

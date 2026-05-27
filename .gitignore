@@ -228,6 +228,7 @@ control/gromacs_fel/guidestone_refresh/**/COLVAR*
 control/gromacs_fel/guidestone_refresh/**/HILLS*
 control/gromacs_fel/guidestone_refresh/**/PLUMED.OUT
 control/gromacs_fel/guidestone_refresh/**/bck.*
+control/gromacs_fel/guidestone_refresh/**/fes_*.dat
 
 # ----- PLUMED-NEST targets (ingested simulation data — large) -----
 control/plumed_nest/target_*/output/
@@ -237,6 +238,9 @@ control/plumed_nest/target_*/**/*.cpt
 control/plumed_nest/target_*/**/*.edr
 control/plumed_nest/target_*/**/*.log
 control/plumed_nest/target_*/**/bck.*
+control/plumed_nest/target_*/COLVAR*
+control/plumed_nest/target_*/Kernels*.data
+control/plumed_nest/target_*/compressed*.Kernels
 control/plumed_nest/target_02_chignolin_opes/output/
 
 # ----- PLUMED build (vendored upstream — 1 GB) -----

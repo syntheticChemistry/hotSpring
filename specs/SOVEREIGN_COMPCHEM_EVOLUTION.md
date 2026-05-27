@@ -180,7 +180,7 @@ Each paper follows the established pattern:
 3. **BarraCuda GPU** — WGSL shader, dispatch via wgpu, validate against CPU (machine-epsilon)
 4. **GuideStone** — Package parity evidence as self-verifying pseudoSpore module
 
-Tolerance classes (from `pseudoSpore v1.5.0`):
+Tolerance classes (from `pseudoSpore v1.6.1`, originally established in v1.5.0):
 
 | Class | Threshold | Application |
 |-------|-----------|-------------|

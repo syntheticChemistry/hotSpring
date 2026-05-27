@@ -389,11 +389,6 @@ fn to_1d_hills_phi(hills_2d: &hills::Hills2D) -> hills::Hills1D {
     }
 }
 
-/// Placeholder for ingest — will replace ingest.sh.
-pub fn ingest_targets(root: &Path, _filter: Option<&str>) {
-    eprintln!("TODO: Implement Rust-native ingestion (download + validate)");
-    eprintln!("Root: {}", root.display());
-}
 
 /// Launch GROMACS+PLUMED simulation with proper process management.
 pub fn run_target_simulation(target_dir: &Path) {

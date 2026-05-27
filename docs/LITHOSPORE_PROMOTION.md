@@ -1,9 +1,10 @@
 # pseudoSpore → lithoSpore Chassis Promotion Plan
 
 **Date**: May 24, 2026
-**Artifact**: hotSpring-CAZyme-FEL v0.6.0
+**Superseded**: May 27, 2026 — promotion gap largely closed by the pseudoSpore Ecosystem Evolution (v1.6.1). Unified `liveSpore.json` schema, `pseudospore-core` crate extraction, and domain-agnostic `litho emit-pseudospore` now provide the shared chassis described below. See `SPORE_OWNERSHIP_MATRIX.md` in `infra/wateringHole/` for the canonical ownership split.
+**Artifact**: hotSpring-CAZyme-FEL v0.6.0 → now pseudoSpore v1.6.1
 **Target**: Unified chassis — same binary validates LTEE data *and* CAZyme FEL data
-**Prerequisite**: Module 3 completion + Alistaire convention confirmation
+**Prerequisite**: Module 3 completion + Alistaire convention confirmation (✅ complete)
 
 ---
 

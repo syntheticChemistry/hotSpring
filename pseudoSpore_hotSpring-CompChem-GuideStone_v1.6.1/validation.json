@@ -1,0 +1,204 @@
+{
+  "modules": [
+    {
+      "checks": [
+        {
+          "name": "check_1",
+          "status": "PASS"
+        },
+        {
+          "name": "check_2",
+          "status": "PASS"
+        },
+        {
+          "name": "check_3",
+          "status": "PASS"
+        },
+        {
+          "name": "check_4",
+          "status": "PASS"
+        },
+        {
+          "name": "check_5",
+          "status": "PASS"
+        },
+        {
+          "name": "check_6",
+          "status": "PASS"
+        }
+      ],
+      "checks_passed": 6,
+      "checks_total": 6,
+      "name": "01_alanine_dipeptide",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "check_1",
+          "status": "PASS"
+        },
+        {
+          "name": "check_2",
+          "status": "PASS"
+        },
+        {
+          "name": "check_3",
+          "status": "PASS"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "name": "02_chignolin_opes",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "check_1",
+          "status": "PASS"
+        },
+        {
+          "name": "check_2",
+          "status": "PASS"
+        },
+        {
+          "name": "check_3",
+          "status": "PASS"
+        },
+        {
+          "name": "check_4",
+          "status": "PASS"
+        },
+        {
+          "name": "check_5",
+          "status": "PASS"
+        }
+      ],
+      "checks_passed": 5,
+      "checks_total": 5,
+      "name": "03_free_xylose_1d",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "check_1",
+          "status": "PASS"
+        },
+        {
+          "name": "check_2",
+          "status": "PASS"
+        },
+        {
+          "name": "check_3",
+          "status": "PASS"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "name": "04_free_xylose_2d",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "check_1",
+          "status": "PASS"
+        },
+        {
+          "name": "check_2",
+          "status": "PASS"
+        },
+        {
+          "name": "check_3",
+          "status": "PASS"
+        },
+        {
+          "name": "check_4",
+          "status": "PASS"
+        },
+        {
+          "name": "check_5",
+          "status": "PASS"
+        }
+      ],
+      "checks_passed": 5,
+      "checks_total": 5,
+      "name": "05_enzyme_bound_1d",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "check_1",
+          "status": "PASS"
+        },
+        {
+          "name": "check_2",
+          "status": "PASS"
+        },
+        {
+          "name": "check_3",
+          "status": "PASS"
+        }
+      ],
+      "checks_passed": 3,
+      "checks_total": 3,
+      "name": "06_enzyme_bound_2d",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "check_1",
+          "status": "PASS"
+        },
+        {
+          "name": "check_2",
+          "status": "PASS"
+        },
+        {
+          "name": "check_3",
+          "status": "PASS"
+        },
+        {
+          "name": "check_4",
+          "status": "PASS"
+        },
+        {
+          "name": "check_5",
+          "status": "PASS"
+        },
+        {
+          "name": "check_6",
+          "status": "PASS"
+        },
+        {
+          "name": "check_7",
+          "status": "PASS"
+        },
+        {
+          "name": "check_8",
+          "status": "PASS"
+        }
+      ],
+      "checks_passed": 8,
+      "checks_total": 8,
+      "name": "07_plumed_nest_validation",
+      "status": "PASS"
+    },
+    {
+      "checks": [],
+      "checks_passed": 0,
+      "checks_total": 0,
+      "name": "08_exploration_roadmap",
+      "status": "SKIP"
+    }
+  ],
+  "overall": "PASS",
+  "status": "VERIFIED",
+  "timestamp": "2026-05-27T11:42:17Z",
+  "validator": "nest-validate 0.2.0",
+  "version": "1.6.1"
+}

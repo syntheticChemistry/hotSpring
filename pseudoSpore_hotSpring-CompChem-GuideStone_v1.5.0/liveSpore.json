@@ -2,8 +2,8 @@
   "liveSpore": {
     "artifact": "hotSpring-CompChem-GuideStone",
     "emit_host": "pop-os",
-    "emit_timestamp": "2026-05-26T15:53:19Z",
-    "git_sha": "a240182",
+    "emit_timestamp": "2026-05-26T20:19:10Z",
+    "git_sha": "6c48a43",
     "integrity": "BLAKE3 (data.toml)",
     "tool": "nest-validate guidestone emit",
     "tool_version": "0.2.0",

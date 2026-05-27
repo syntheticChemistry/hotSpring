@@ -1,0 +1,28 @@
+# receipts/environment.toml — litho ingest-pseudospore compatible
+# Auto-generated from root environment.toml by nest-validate guidestone emit
+
+[hardware]
+arch = "x86_64"
+cpu = "AMD EPYC 7452 32-Core Processor"
+cpu_cores = 32
+cpu_threads = 64
+gpu = "NVIDIA GeForce RTX 3090"
+gpu_driver = "580.126.18"
+gpu_memory_mib = 24576
+hostname = "pop-os"
+os = "linux 6.17.9-76061709-generic"
+
+[software]
+cazyme_fel = "0.1.0"
+conda_environment = "gromacs-fel"
+forcefield = "CHARMM36-jul2022"
+gromacs = "2026.0-conda_forge"
+gromacs_precision = "single"
+gromacs_simd = "AVX2_256"
+nest_validate = "0.2.0"
+plumed = "2.10"
+plumed_kernel = "libplumedKernel.so"
+plumed_modules = "all"
+python = "3.12"
+rust_edition = "2021"
+
