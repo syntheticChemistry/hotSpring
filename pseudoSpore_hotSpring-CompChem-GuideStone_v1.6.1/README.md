@@ -4,7 +4,7 @@
 
 ## What This Is (Plain Language)
 
-Enzymes that break down plant cell walls (xylanases) need their sugar substrate to change shape during catalysis. This artifact computationally proves *how* the enzyme forces that shape change: it lowers the energy barriers between ring conformations, funneling the xylose through a specific pathway (4C1 chair → boat → 2,5B) required to reach the transition state.
+Enzymes that break down plant cell walls (xylanases) need their sugar substrate to change shape during catalysis. This artifact computationally proves *how* the enzyme forces that shape change: it lowers the energy barriers between ring conformations. The paper describes a two-fold catalytic itinerary — 2SO → [2,5B]‡ → 5S1 and 1S3 → [4H3]‡ → 4C1 — where the enzyme active site selectively stabilizes the conformational pathway required to reach the transition state.
 
 We compute "free energy landscapes" — maps showing how much energy it costs for the sugar ring to adopt every possible shape — both floating free in water and locked inside the enzyme active site. The enzyme landscape shows lower barriers and a preferred pathway that matches experimental predictions.
 
@@ -14,7 +14,7 @@ We compute "free energy landscapes" — maps showing how much energy it costs fo
 
 This pseudoSpore contains validated free energy landscapes from 6 independent molecular simulations, a PLUMED-NEST validation aggregate (8 targets), and an exploration roadmap (13 proposed targets). It spans three enhanced sampling methods (well-tempered metadynamics, OPES, OPES_EXPLORE) and two scientific domains (protein folding, carbohydrate conformational landscapes).
 
-**Key finding:** The GH10 xylanase active site lowers conformational barriers for the -1 subsite xylose ring, enabling the 4C1 → 2,5B → 2SO itinerary required for glycoside hydrolysis (Iglesias-Fernández et al., [doi:10.1039/C4SC02240H](https://doi.org/10.1039/C4SC02240H)).
+**Key finding:** The GH10 xylanase active site lowers conformational barriers for the -1 subsite xylose ring, consistent with the two-fold catalytic itinerary (2SO → [2,5B]‡ → 5S1 and 1S3 → [4H3]‡ → 4C1) described by Iglesias-Fernández et al. ([doi:10.1039/C4SC02240H](https://doi.org/10.1039/C4SC02240H)).
 
 ## Quick Start
 

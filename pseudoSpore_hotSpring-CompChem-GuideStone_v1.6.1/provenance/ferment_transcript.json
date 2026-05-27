@@ -80,8 +80,23 @@
         "Module 08 status changed from PROPOSED to SKIP (roadmap, not computational)",
         "Added [external_braids] section to data.toml: PDB, PLUMED-NEST, CHARMM36 URIs",
         "Unified data.toml to single [hashes] section — no present/external split",
-        "Added nest-validate guidestone deploy subcommand for fully automated pipeline"
+        "Added nest-validate guidestone deploy subcommand for fully automated pipeline",
+        "Fixed PDB 2D24 resolution: 1.41 -> 1.85 Å (sourced from PDB REMARK 2)",
+        "Corrected catalytic itinerary notation to match paper exactly",
+        "Added full bibliography and external_references to provenance braids"
       ]
+    },
+    "external_references": {
+      "pdb_2d24": "https://www.rcsb.org/structure/2D24",
+      "primary_doi": "https://doi.org/10.1039/C4SC02240H",
+      "plumed_nest_24_020": "https://www.plumed-nest.org/eggs/24/020/",
+      "plumed_nest_24_029": "https://www.plumed-nest.org/eggs/24/029/",
+      "plumed_nest_22_028": "https://www.plumed-nest.org/eggs/22/028/",
+      "plumed_nest_25_007": "https://www.plumed-nest.org/eggs/25/007/",
+      "charmm36_ff": "https://mackerell.umaryland.edu/charmm_ff.shtml",
+      "gromacs_2026": "https://manual.gromacs.org/2026/index.html",
+      "plumed_v2_10": "https://www.plumed.org/doc-v2.10/user-doc/html/index.html",
+      "cpmd_future": "https://github.com/CPMD-code/CPMD"
     }
   }
 }

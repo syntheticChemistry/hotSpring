@@ -802,6 +802,9 @@ fn guidestone_emit(args: &[String]) {
     std::fs::write(&output_path, &json_str).unwrap();
     println!("Emitted: {}", output_path.display());
 
+    // Cross-check PDB resolution in index_map.toml against actual PDB REMARK 2
+    validate_pdb_resolution(&dir);
+
     // Also generate validation.json from scope.toml module statuses
     generate_validation_json(&dir, &scope_path, &artifact_version);
 
@@ -910,6 +913,64 @@ fn generate_validation_json(dir: &Path, scope_path: &Path, version: &str) {
     if let Ok(json_str) = serde_json::to_string_pretty(&validation) {
         let _ = std::fs::write(&path, json_str);
         println!("Generated: {}", path.display());
+    }
+}
+
+fn validate_pdb_resolution(dir: &Path) {
+    let index_map = dir.join("index_map.toml");
+    if !index_map.exists() { return; }
+
+    let map_text = match std::fs::read_to_string(&index_map) {
+        Ok(t) => t,
+        Err(_) => return,
+    };
+
+    let claimed: Option<f64> = map_text.lines()
+        .find(|l| l.starts_with("resolution_angstrom"))
+        .and_then(|l| l.split('=').nth(1))
+        .and_then(|v| v.trim().split_whitespace().next())
+        .and_then(|v| v.parse().ok());
+
+    let structures_dir = dir.join("structures");
+    if !structures_dir.is_dir() { return; }
+
+    for entry in std::fs::read_dir(&structures_dir).into_iter().flatten() {
+        let path = match entry { Ok(e) => e.path(), Err(_) => continue };
+        if path.extension().and_then(|e| e.to_str()) != Some("pdb") { continue; }
+
+        let pdb_text = match std::fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+
+        let pdb_resolution: Option<f64> = pdb_text.lines()
+            .find(|l| l.starts_with("REMARK   2 RESOLUTION."))
+            .and_then(|l| {
+                l.replace("ANGSTROMS.", "")
+                    .replace("REMARK   2 RESOLUTION.", "")
+                    .trim()
+                    .parse()
+                    .ok()
+            });
+
+        if let (Some(claimed_val), Some(pdb_val)) = (claimed, pdb_resolution) {
+            if (claimed_val - pdb_val).abs() > 0.01 {
+                eprintln!(
+                    "WARNING: index_map.toml resolution_angstrom = {:.2} but {} REMARK 2 says {:.2} Å. \
+                     PDB header is authoritative — fix index_map.toml.",
+                    claimed_val,
+                    path.file_name().unwrap_or_default().to_string_lossy(),
+                    pdb_val
+                );
+            } else {
+                println!(
+                    "  PDB resolution cross-check: {:.2} Å (confirmed from {})",
+                    pdb_val,
+                    path.file_name().unwrap_or_default().to_string_lossy()
+                );
+            }
+            break;
+        }
     }
 }
 

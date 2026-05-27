@@ -124,7 +124,7 @@ conformation?
 | Property | PDB 2D24 (current) | PDB 1E0X (target) |
 |----------|--------------------|--------------------|
 | Organism | *S. olivaceoviridis* E-86 | *S. lividans* |
-| Resolution | 1.41 Å | 1.80 Å |
+| Resolution | 1.85 Å | 1.80 Å |
 | Ligand state | ES Michaelis complex | Glycosyl-enzyme (covalent) |
 | −1 residue | BXYL (non-covalent) | X2F (covalent to Glu236) |
 | Atom count | 92,745 (solvated) | ~80,000 (estimate) |
@@ -143,7 +143,7 @@ conformation?
 - Direct comparison of FEL at two points along the reaction coordinate
 - 2D24 (Michaelis): expect −1 xylose pre-distorted toward TS geometry
 - 1E0X (covalent): expect relaxation toward 4C1 (product state)
-- Tests the "conformational itinerary" hypothesis: 4C1 → 2,5B → 2SO (retaining GH)
+- Tests the "conformational itinerary" hypothesis: two-fold pathway (2SO → [2,5B]‡ → 5S1 and 1S3 → [4H3]‡ → 4C1) in retaining GH enzymes
 - Validates that puckering CVs capture mechanistically relevant conformational changes
 - **Unique:** no one has compared FEL of same enzyme at two catalytic states with metadynamics
 

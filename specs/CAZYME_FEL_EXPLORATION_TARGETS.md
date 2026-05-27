@@ -124,7 +124,7 @@ conformation?
 | Property | PDB 2D24 (current) | PDB 1E0X (target) |
 |----------|--------------------|--------------------|
 | Organism | *S. olivaceoviridis* E-86 | *S. lividans* |
-| Resolution | 1.41 Å | 1.80 Å |
+| Resolution | 1.85 Å | 1.80 Å |
 | Ligand state | ES Michaelis complex | Glycosyl-enzyme (covalent) |
 | −1 residue | BXYL (non-covalent) | X2F (covalent to Glu236) |
 | Atom count | 92,745 (solvated) | ~80,000 (estimate) |
