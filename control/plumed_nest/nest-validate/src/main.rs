@@ -916,9 +916,24 @@ fn generate_validation_json(dir: &Path, scope_path: &Path, version: &str) {
     }
 }
 
+/// Extract PDB resolution from REMARK 2 header and write it into index_map.toml.
+/// The PDB file is the authoritative source — index_map.toml is derived, never hand-authored.
+/// If the value already matches, this is a no-op. If it diverges, the pipeline corrects it.
 fn validate_pdb_resolution(dir: &Path) {
     let index_map = dir.join("index_map.toml");
     if !index_map.exists() { return; }
+
+    let structures_dir = dir.join("structures");
+    if !structures_dir.is_dir() { return; }
+
+    let pdb_resolution = extract_pdb_resolution(&structures_dir);
+    let pdb_resolution = match pdb_resolution {
+        Some((val, source)) => { (val, source) },
+        None => {
+            eprintln!("  PDB resolution: no REMARK 2 found in structures/*.pdb — skipping");
+            return;
+        }
+    };
 
     let map_text = match std::fs::read_to_string(&index_map) {
         Ok(t) => t,
@@ -931,19 +946,56 @@ fn validate_pdb_resolution(dir: &Path) {
         .and_then(|v| v.trim().split_whitespace().next())
         .and_then(|v| v.parse().ok());
 
-    let structures_dir = dir.join("structures");
-    if !structures_dir.is_dir() { return; }
+    let (pdb_val, pdb_source) = pdb_resolution;
 
-    for entry in std::fs::read_dir(&structures_dir).into_iter().flatten() {
-        let path = match entry { Ok(e) => e.path(), Err(_) => continue };
+    match claimed {
+        Some(claimed_val) if (claimed_val - pdb_val).abs() <= 0.01 => {
+            println!(
+                "  PDB resolution: {:.2} Å (confirmed from {}, matches index_map.toml)",
+                pdb_val, pdb_source
+            );
+        }
+        _ => {
+            let old_val_str = claimed.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "missing".to_string());
+            let new_line = format!(
+                "resolution_angstrom = {}  # pipeline-derived from {} REMARK 2",
+                pdb_val, pdb_source
+            );
+            let updated = if let Some(_claimed_val) = claimed {
+                let old_pattern = map_text.lines()
+                    .find(|l| l.starts_with("resolution_angstrom"))
+                    .unwrap_or("");
+                map_text.replace(old_pattern, &new_line)
+            } else {
+                let pdb_line = map_text.lines()
+                    .find(|l| l.starts_with("pdb"))
+                    .map(|l| l.to_string());
+                if let Some(ref pdb_l) = pdb_line {
+                    map_text.replace(pdb_l, &format!("{}\n{}", pdb_l, new_line))
+                } else {
+                    map_text.clone()
+                }
+            };
+
+            if let Err(e) = std::fs::write(&index_map, &updated) {
+                eprintln!("  ERROR: could not update index_map.toml: {}", e);
+                return;
+            }
+            println!(
+                "  PDB resolution: CORRECTED {} → {:.2} Å (pipeline-derived from {} REMARK 2)",
+                old_val_str, pdb_val, pdb_source
+            );
+        }
+    }
+}
+
+fn extract_pdb_resolution(structures_dir: &Path) -> Option<(f64, String)> {
+    for entry in std::fs::read_dir(structures_dir).ok()? {
+        let path = entry.ok()?.path();
         if path.extension().and_then(|e| e.to_str()) != Some("pdb") { continue; }
 
-        let pdb_text = match std::fs::read_to_string(&path) {
-            Ok(t) => t,
-            Err(_) => continue,
-        };
-
-        let pdb_resolution: Option<f64> = pdb_text.lines()
+        let pdb_text = std::fs::read_to_string(&path).ok()?;
+        let resolution: Option<f64> = pdb_text.lines()
             .find(|l| l.starts_with("REMARK   2 RESOLUTION."))
             .and_then(|l| {
                 l.replace("ANGSTROMS.", "")
@@ -953,25 +1005,15 @@ fn validate_pdb_resolution(dir: &Path) {
                     .ok()
             });
 
-        if let (Some(claimed_val), Some(pdb_val)) = (claimed, pdb_resolution) {
-            if (claimed_val - pdb_val).abs() > 0.01 {
-                eprintln!(
-                    "WARNING: index_map.toml resolution_angstrom = {:.2} but {} REMARK 2 says {:.2} Å. \
-                     PDB header is authoritative — fix index_map.toml.",
-                    claimed_val,
-                    path.file_name().unwrap_or_default().to_string_lossy(),
-                    pdb_val
-                );
-            } else {
-                println!(
-                    "  PDB resolution cross-check: {:.2} Å (confirmed from {})",
-                    pdb_val,
-                    path.file_name().unwrap_or_default().to_string_lossy()
-                );
-            }
-            break;
+        if let Some(val) = resolution {
+            let filename = path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            return Some((val, filename));
         }
     }
+    None
 }
 
 fn generate_receipts_environment(dir: &Path) {

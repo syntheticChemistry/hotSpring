@@ -1,10 +1,12 @@
 # Machine-readable domain ↔ computation index mapping
 # Domain = PDB 2D24 serial numbering (biochemistry standard)
 # Computation = GROMACS topology numbering (runtime requirement)
+# resolution_angstrom is pipeline-derived from structures/*.pdb REMARK 2 at emit time.
+# Do NOT hand-edit — nest-validate guidestone emit will overwrite from the PDB header.
 
 [meta]
 pdb = "2D24"
-resolution_angstrom = 1.85  # from PDB REMARK 2: "RESOLUTION.    1.85 ANGSTROMS."
+resolution_angstrom = 1.85  # pipeline-derived from 2D24.pdb REMARK 2
 ring_order = ["C1", "C2", "C3", "C4", "C5", "O5"]
 cremer_pople_convention = "C1-C2-C3-C4-C5-O5"
 

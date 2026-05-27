@@ -4,7 +4,7 @@
 
 [meta]
 pdb = "2D24"
-resolution_angstrom = 1.85  # from PDB REMARK 2: "RESOLUTION.    1.85 ANGSTROMS."
+resolution_angstrom = 1.85  # pipeline-derived from 2D24.pdb REMARK 2
 ring_order = ["C1", "C2", "C3", "C4", "C5", "O5"]
 cremer_pople_convention = "C1-C2-C3-C4-C5-O5"
 
