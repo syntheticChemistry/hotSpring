@@ -20,5 +20,5 @@ prefix = "/home/strandgate/miniconda3/envs/gromacs-fel"
 
 [detection]
 method = "env::Environment::detect() + system probes"
-timestamp = "2026-05-27T14:46:21Z"
+timestamp = "2026-05-27T14:55:34Z"
 source = "pipeline-derived (not hand-authored)"

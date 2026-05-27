@@ -116,7 +116,7 @@
   "overall": "PASS",
   "source": "validation_results.json (pipeline-derived)",
   "status": "VERIFIED",
-  "timestamp": "2026-05-27T14:46:20Z",
+  "timestamp": "2026-05-27T14:55:34Z",
   "total_fail": 0,
   "total_pass": 71,
   "validator": "nest-validate 0.2.0",

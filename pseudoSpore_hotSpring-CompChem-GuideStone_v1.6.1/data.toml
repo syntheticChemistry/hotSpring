@@ -1,38 +1,32 @@
 # data.toml — BLAKE3 integrity manifest
-# Generated: 2026-05-27T14:46:21Z (v1.6.1)
+# Generated: 2026-05-27T14:55:35Z (v1.6.1)
 # Verify with: nest-validate guidestone verify <dir>
 
 [meta]
 hash_algorithm = "BLAKE3"
 
-[hashes]
-"modules/01_alanine_dipeptide/COLVAR" = "bd041e0035db28f3aa9d6fe60e9adb4673a11f7c18847fb77d37d0f73f637b92"
+[present]
+# Files included in this tarball — verifiable offline
 "modules/01_alanine_dipeptide/HILLS" = "1dcf31a247792da166d409b107c2f67af4e00d13b3c2f97da197f1cccd18d0c9"
 "modules/01_alanine_dipeptide/fes_2d.dat" = "19eafa1d9e3b9dcb9e4dbb446a33da4672d80c711e117b8d81c418eb12f03781"
 "modules/01_alanine_dipeptide/fes_phi.dat" = "088ae11c2e0faa23b9bf29a3a72bd8a10031775c4c6b039c1bf91e372f9d233d"
 "modules/01_alanine_dipeptide/fes_psi.dat" = "c3b9f790dd1a6ed5ce4430b50f3321b4d8c41c63fc4d68035d5788439fdd34b2"
 "modules/01_alanine_dipeptide/plumed.dat" = "2c9c9a3714136eac74edea46e587c2cdcb08cfb5c0899fb0d841fcef2a34fe64"
 "modules/01_alanine_dipeptide/target.toml" = "c15416410ad8720053f4a5f201d0f8d825613a384601768d75aaf7790ca52bec"
-"modules/02_chignolin_opes/COLVARb" = "3f692ddfa82fc517aa870a397ad204183380ec6878e34b4a93db9c2e78236d76"
-"modules/02_chignolin_opes/Kernels.data" = "c93d0ff1043ea2f212e94258d4280a698ddae200904dd3b4a1da1e1c7dadd2a2"
 "modules/02_chignolin_opes/plumed.dat" = "cf2e289da19d92b80ca26e04f96b27ce3c7ae222ceaf89e202e61c07c32d419d"
 "modules/02_chignolin_opes/target.toml" = "7a98038f07551bc0d0127ea46253763add18300a4a8d20967221a1a490014ad3"
-"modules/03_free_xylose_1d/COLVAR" = "bce0159ff5184d9656bec9a837ad31887830938414af51f32338684888811629"
 "modules/03_free_xylose_1d/HILLS" = "8993b67c236f47b5721ba73d7ed5ebb6b63ee341713e98041186492040da0003"
 "modules/03_free_xylose_1d/fes_theta.dat" = "7b7eee5e84b7bda74ce0d1ee2f7bfda7db5b567c587445e336c513ec068bca04"
 "modules/03_free_xylose_1d/plumed.dat" = "9cc32f46b50a5ee7e1a3adbdc3d13aa76cc1ea6ca01e031ac6fe156f0164084c"
 "modules/03_free_xylose_1d/target.toml" = "a84ecb1f6ef185be421cd66a710ed84007140d63f048ce0b395f69c211698c83"
-"modules/04_free_xylose_2d/COLVAR_2d" = "a5d88a44d6a0fcf56ed489f2021e97f60d9b1e3acd00454af36e464f3c0b57a4"
 "modules/04_free_xylose_2d/HILLS_2d" = "271bdee39854a575b2168986c3ba1e5cec6ff706f0a7587b01040c4e8da97dee"
 "modules/04_free_xylose_2d/fes_2d.dat" = "1bbccca87c575b6b4a1479ac44be32edbbd9b5cd17ea62f8a6ca9100715fdee2"
 "modules/04_free_xylose_2d/plumed.dat" = "b1cb9223feb0f29a1c1e35e53a7d0ee9ac148efcc699f11940832e92c399e6e2"
 "modules/04_free_xylose_2d/target.toml" = "837fda09702e1af3cc186fcfe7ad1f8433544421c5868d9b2c6854cf35651443"
-"modules/05_enzyme_bound_1d/COLVAR" = "d2582d6fc45c4f43f12e8ab0f22cc46f746c5d7047a904deeb601fb86c3ee5b0"
 "modules/05_enzyme_bound_1d/HILLS" = "4889461ca89a900d0be924276a62b90bf27e563e8f5b5ae977a8a0cda88728bc"
 "modules/05_enzyme_bound_1d/fes_theta.dat" = "a3c8bd68c0b2ed5527b6383a4bdc390d57a739d58583e4e6a45495b5acfe80e1"
 "modules/05_enzyme_bound_1d/plumed.dat" = "34d522bd75025beb1992400df466fbbaa0bd55bf7c0c274f508d3f5f3919791b"
 "modules/05_enzyme_bound_1d/target.toml" = "b8e4ce43a662b14585a3ada4d3385c09deae31b35d095a745ff658c69055480d"
-"modules/06_enzyme_bound_2d/COLVAR_2d" = "926083b05ffb71468b23d008e5fafcf97a285fbfba3732ffc3b32fc649570574"
 "modules/06_enzyme_bound_2d/HILLS_2d" = "29032989986ef8d429935b7ebb222c0041eadae96a7973287c69dfac8cf842e8"
 "modules/06_enzyme_bound_2d/fes_2d.dat" = "01b45b21649d2e0c2b5b90411ddba5a7337ecb32a5479fccec92e1f0d09b1aa5"
 "modules/06_enzyme_bound_2d/plumed.dat" = "d82317a3daf530af39dbbb2f8cfc0fa45bad15f076b1b4aaa2b67f166ccccb6c"
@@ -70,8 +64,19 @@ hash_algorithm = "BLAKE3"
 "topologies/posre_xylose.itp" = "a9a7054f2fffb623c1bcf6b014db4c0da670125662e131b13febd3400ec465a4"
 "topologies/xylose.itp" = "5134c11d8b0e4372b6e73f5354bf3fc5ee9f5bcf635e4ca878a89f14a1938c05"
 "scope.toml" = "10d20cfcfb2225a936ef69f70bf96cfe3769f495e99e80608dc41ddd95bdf1fa"
-"liveSpore.json" = "95cdcd9e72815724a2c8adb7ab286f32e60b0e861f33c41bd88d85bc06bb7c88"
+"liveSpore.json" = "42adb4ee65c42d9b0aa334ccc66513e6f4144470ec9c9851c25b36ac93e84dcd"
+
+[external]
+# Raw trajectory files in lithoSpore braids — not in this tarball
+"modules/01_alanine_dipeptide/COLVAR" = "bd041e0035db28f3aa9d6fe60e9adb4673a11f7c18847fb77d37d0f73f637b92"
+"modules/02_chignolin_opes/COLVARb" = "3f692ddfa82fc517aa870a397ad204183380ec6878e34b4a93db9c2e78236d76"
+"modules/02_chignolin_opes/Kernels.data" = "c93d0ff1043ea2f212e94258d4280a698ddae200904dd3b4a1da1e1c7dadd2a2"
+"modules/03_free_xylose_1d/COLVAR" = "bce0159ff5184d9656bec9a837ad31887830938414af51f32338684888811629"
+"modules/04_free_xylose_2d/COLVAR_2d" = "a5d88a44d6a0fcf56ed489f2021e97f60d9b1e3acd00454af36e464f3c0b57a4"
+"modules/05_enzyme_bound_1d/COLVAR" = "d2582d6fc45c4f43f12e8ab0f22cc46f746c5d7047a904deeb601fb86c3ee5b0"
+"modules/06_enzyme_bound_2d/COLVAR_2d" = "926083b05ffb71468b23d008e5fafcf97a285fbfba3732ffc3b32fc649570574"
 
 [summary]
+present_files = 58
+external_files = 7
 total_files = 65
-total_bytes = 304708811
