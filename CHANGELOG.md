@@ -7,6 +7,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Catalyst Channel + Lockup Forensics — Exp 229 (May 28, 2026)
+
+### Added
+- **Experiment 229**: Catalyst Channel — RM Compute Channel Before Warm Swap.
+  Full end-to-end Tier 2 WarmCompute handoff achieved (Run #9: `success=true`,
+  `total_ms=80886`, 20/20 patches, GPU warm at 23 engines throughout).
+- **`nv_close_device` RetAtEntry patch** — prevents nvidia_close from
+  tearing down RM thread stacks, IRQ handler, and MSI while RM threads
+  are still running. Root cause of lockups #4–#7 (interrupt storm + stack
+  use-after-free).
+- **`nv_pci_remove` RetAtEntry patch** — prevents PCI unbind callback from
+  hanging in `os_delay` polling loop (GPU not quiesced). Enables clean
+  nvsov→vfio-pci warm swap.
+- **`post_exit_quench()`** in `trigger_rm_init` — writes 0xFFFFFFFF to
+  `NV_PMC_INTR_EN_CLEAR_0` (BAR0+0x180) AFTER `nvidia_close` completes,
+  catching re-enabled interrupts. Belt-and-suspenders defense.
+- **`post_exit_intx_disable()`** — sets PCI CMD bit 10 (INTx Disable) after
+  nvidia_close MSI teardown, preventing legacy INTx storm.
+- **`catalyst_watchdog`** background thread — monitors handoff liveness,
+  performs emergency interrupt quench + process kill if pipeline hangs.
+- **`catalyst-sentinel.sh` v2** — BAR0/sysfs-only forensic logger (removed
+  PCI config reads that acquired `pci_lock` and were a secondary lockup
+  vector). Captured evidence for all 9 runs across power cycles.
+- **`docs/exp229-lockup-analysis.md`** — complete forensic record: 5 distinct
+  lockup vectors identified, mitigated, and proven across 9 runs.
+
+### Fixed
+- **System lockup on catalyst handoff** — 7 lockups triaged across power
+  cycles using diesel engine sentinel data. Five distinct vectors cataloged:
+  1. `pci_lock` deadlock from keepalive reads (exclusion guard)
+  2. INTR_EN quench to read-only register 0x140 (fixed: CLEAR@0x180)
+  3. nvidia_close re-enables INTR_EN after quench (post-exit pipeline quench)
+  4. `nv_dev_free_stacks` use-after-free on RM thread stacks (nv_close_device NOP)
+  5. `nv_pci_remove` os_delay hang on unbind (nv_pci_remove NOP)
+
+### Changed
+- **`trigger_rm_init()`** now accepts `bdf` parameter for post-exit quench.
+- **`nvidia_catalyst_handoff` patch set** — 20 targets (was 18): added
+  `nv_close_device` and `nv_pci_remove` RetAtEntry.
+
 ## SBR Bus Reset Suppression — Exp 226 (May 26, 2026)
 
 ### Added

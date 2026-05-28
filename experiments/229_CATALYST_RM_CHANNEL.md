@@ -1,7 +1,7 @@
 # Experiment 229: Catalyst Channel — RM Compute Channel Before Warm Swap
 
-**Date:** 2026-05-27
-**Status:** IN PROGRESS
+**Date:** 2026-05-27 → 2026-05-28
+**Status:** COMPLETE — Tier 2 WarmCompute handoff achieved (Run #9)
 **Hardware:** Dual Titan V (GV100, SM70) — 0000:02:00.0 + 0000:49:00.0
 **Prerequisite:** Exp 228 (Sovereign Dispatch Sprint — pipeline proven, FECS ACR blocks)
 
@@ -140,5 +140,51 @@ the unpatched `init_module` flow.
 3. Hybrid: unpatched load for channel creation, then patched reload for
    warm state preservation.
 
-**Next**: investigate init_module patch scope — which call at +0x7b is being
-NOPped and whether it can be preserved while still suppressing side effects
+### Lockup Series + Diesel Engine Forensics (2026-05-28)
+
+Pivoted from RM channel creation to lockup prevention. 7 system lockups
+triaged across power cycles using sentinel + journal forensics. Five
+distinct vectors cataloged and fixed. See `docs/exp229-lockup-analysis.md`
+for complete forensic record.
+
+**Patches evolved** (18 → 20):
+- Added `nv_close_device` RetAtEntry — prevents stack UAF + IRQ teardown
+- Added `nv_pci_remove` RetAtEntry — prevents unbind `os_delay` hang
+- Added `post_exit_quench()` — catches nvidia_close INTR_EN re-enable
+- Added `post_exit_intx_disable()` — PCI CMD INTx disable
+
+### Run #9: FULL END-TO-END SUCCESS (2026-05-28 11:07)
+
+**`success=true`, tier=warm_compute, total_ms=80,886**
+
+| Step | OK | Duration |
+|------|----|----------|
+| preflight | yes | 682ms |
+| module_prep (20/20 patches) | yes | 301ms |
+| rm_trigger (GPU cold→warm) | yes | 7,230ms |
+| seeder_settle | yes | 60,000ms |
+| warm_swap (nvsov→vfio-pci) | yes | 7,108ms |
+| catalyst_full_capture (62,571 regs) | yes | 1,133ms |
+| fecs_init_ctxsw | yes | 1,210ms |
+| pri_ring_recovery | yes | 134ms |
+| tier_classify → warm_compute | yes | 0ms |
+| module_cleanup (rmmod nvsov) | no | 1,992ms |
+
+Post-handoff: `driver=vfio-pci, PMC_ENABLE=0x5fecdff1 (23 engines), TPC alive`
+
+Key BAR0 state pre-swap: FECS_CPUCTL=0x60 (running), GPCCS_CPUCTL=0x60
+(running), PMU_CPUCTL=0x60 (running), FECS_PC=0x18b3c33e (RM firmware range).
+
+Only failure: `rmmod nvsov` — non-critical, module stays loaded at refcount 0.
+RM channel creation still fails (`device_alloc` status=0x22) but GPU warming
+via `rm_init_adapter` succeeds fully, which is the primary Exp 229 objective.
+
+### Lockup Catalog (diesel engine fossil record)
+
+| # | Vector | Fix | Proven |
+|---|--------|-----|--------|
+| 1-3 | pci_lock deadlock (keepalive) | Exclusion guard | yes |
+| 4-5 | INTR_EN quench to read-only 0x140 | CLEAR register at 0x180 | yes |
+| 6 | nvidia_close re-enables INTR_EN | Post-exit pipeline quench | yes |
+| 7 | nv_dev_free_stacks use-after-free | nv_close_device RetAtEntry | yes |
+| 8 | nv_pci_remove os_delay hang | nv_pci_remove RetAtEntry | yes |
