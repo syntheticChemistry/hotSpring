@@ -1,0 +1,50 @@
+# data.toml — BLAKE3 integrity manifest
+# Generated: 2026-05-26T20:19:10Z
+
+[meta]
+hash_algorithm = "BLAKE3"
+
+[hashes]
+"modules/01_alanine_dipeptide/HILLS" = "1dcf31a247792da166d409b107c2f67af4e00d13b3c2f97da197f1cccd18d0c9"
+"modules/01_alanine_dipeptide/fes_2d.dat" = "19eafa1d9e3b9dcb9e4dbb446a33da4672d80c711e117b8d81c418eb12f03781"
+"modules/01_alanine_dipeptide/fes_phi.dat" = "088ae11c2e0faa23b9bf29a3a72bd8a10031775c4c6b039c1bf91e372f9d233d"
+"modules/01_alanine_dipeptide/fes_psi.dat" = "c3b9f790dd1a6ed5ce4430b50f3321b4d8c41c63fc4d68035d5788439fdd34b2"
+"modules/01_alanine_dipeptide/plumed.dat" = "2c9c9a3714136eac74edea46e587c2cdcb08cfb5c0899fb0d841fcef2a34fe64"
+"modules/01_alanine_dipeptide/target.toml" = "0141621000de124f36d1c57244559d16aaf3e271677ee63b8365aa3dfc3db37d"
+"modules/02_chignolin_opes/COLVARb" = "3f692ddfa82fc517aa870a397ad204183380ec6878e34b4a93db9c2e78236d76"
+"modules/02_chignolin_opes/Kernels.data" = "c93d0ff1043ea2f212e94258d4280a698ddae200904dd3b4a1da1e1c7dadd2a2"
+"modules/02_chignolin_opes/plumed.dat" = "cf2e289da19d92b80ca26e04f96b27ce3c7ae222ceaf89e202e61c07c32d419d"
+"modules/02_chignolin_opes/target.toml" = "514c05b9edee49f0eecd44c451023d98ccad93c5eb28497f4ff3bea176c712df"
+"modules/03_free_xylose_1d/COLVAR" = "bce0159ff5184d9656bec9a837ad31887830938414af51f32338684888811629"
+"modules/03_free_xylose_1d/HILLS" = "8993b67c236f47b5721ba73d7ed5ebb6b63ee341713e98041186492040da0003"
+"modules/03_free_xylose_1d/fes_theta.dat" = "7b7eee5e84b7bda74ce0d1ee2f7bfda7db5b567c587445e336c513ec068bca04"
+"modules/03_free_xylose_1d/plumed.dat" = "9cc32f46b50a5ee7e1a3adbdc3d13aa76cc1ea6ca01e031ac6fe156f0164084c"
+"modules/03_free_xylose_1d/target.toml" = "61cd8438c8bbd43eb34634f55a6a4c114f24c25cdab6b428f876b665942ddeea"
+"modules/04_free_xylose_2d/COLVAR_2d" = "a5d88a44d6a0fcf56ed489f2021e97f60d9b1e3acd00454af36e464f3c0b57a4"
+"modules/04_free_xylose_2d/HILLS_2d" = "271bdee39854a575b2168986c3ba1e5cec6ff706f0a7587b01040c4e8da97dee"
+"modules/04_free_xylose_2d/fes_2d.dat" = "1bbccca87c575b6b4a1479ac44be32edbbd9b5cd17ea62f8a6ca9100715fdee2"
+"modules/04_free_xylose_2d/plumed.dat" = "b1cb9223feb0f29a1c1e35e53a7d0ee9ac148efcc699f11940832e92c399e6e2"
+"modules/04_free_xylose_2d/target.toml" = "b54c1f1037f2814d7540c925f78a87f03510f980825f0193e35e59c8be6e22c8"
+"modules/05_enzyme_bound_1d/COLVAR" = "d2582d6fc45c4f43f12e8ab0f22cc46f746c5d7047a904deeb601fb86c3ee5b0"
+"modules/05_enzyme_bound_1d/HILLS" = "4889461ca89a900d0be924276a62b90bf27e563e8f5b5ae977a8a0cda88728bc"
+"modules/05_enzyme_bound_1d/fes_theta.dat" = "a3c8bd68c0b2ed5527b6383a4bdc390d57a739d58583e4e6a45495b5acfe80e1"
+"modules/05_enzyme_bound_1d/plumed.dat" = "34d522bd75025beb1992400df466fbbaa0bd55bf7c0c274f508d3f5f3919791b"
+"modules/05_enzyme_bound_1d/target.toml" = "25696c8ff5e81543824cc3a1afa8a4fa64990f7f0e74a7e1b15a2748e7d87a93"
+"modules/06_enzyme_bound_2d/COLVAR_2d" = "926083b05ffb71468b23d008e5fafcf97a285fbfba3732ffc3b32fc649570574"
+"modules/06_enzyme_bound_2d/HILLS_2d" = "29032989986ef8d429935b7ebb222c0041eadae96a7973287c69dfac8cf842e8"
+"modules/06_enzyme_bound_2d/fes_2d.dat" = "01b45b21649d2e0c2b5b90411ddba5a7337ecb32a5479fccec92e1f0d09b1aa5"
+"modules/06_enzyme_bound_2d/plumed.dat" = "d82317a3daf530af39dbbb2f8cfc0fa45bad15f076b1b4aaa2b67f166ccccb6c"
+"modules/06_enzyme_bound_2d/target.toml" = "f3960e0bc29632e81118395eca806d7887639abfebb83aaf516ace8cbfa0dc36"
+"configs/mdp_enzyme_1d.mdp" = "555d39784728af5ec1974d2882d4b7c81be72ec0d55ed594ad9dafbd7b19d2b4"
+"configs/mdp_enzyme_2d.mdp" = "56fdaafedf7548d536b67c834e9e872743879d333dbdb48ef51c47c254afb4bc"
+"configs/mdp_xylose_1d.mdp" = "835d0ee20c34a69d709beda3e2fb70f649abe2410fa35e435e86f2ab7fd8a1f8"
+"configs/mdp_xylose_2d.mdp" = "015bd735d3bba39c30da9b1355840442912e4e50dda23621e790843edc2d638b"
+"configs/plumed_alanine.dat" = "2c9c9a3714136eac74edea46e587c2cdcb08cfb5c0899fb0d841fcef2a34fe64"
+"configs/plumed_chignolin.dat" = "cf2e289da19d92b80ca26e04f96b27ce3c7ae222ceaf89e202e61c07c32d419d"
+"configs/plumed_enzyme_1d.dat" = "34d522bd75025beb1992400df466fbbaa0bd55bf7c0c274f508d3f5f3919791b"
+"configs/plumed_enzyme_2d.dat" = "d82317a3daf530af39dbbb2f8cfc0fa45bad15f076b1b4aaa2b67f166ccccb6c"
+"configs/plumed_xylose_1d.dat" = "9cc32f46b50a5ee7e1a3adbdc3d13aa76cc1ea6ca01e031ac6fe156f0164084c"
+"configs/plumed_xylose_2d.dat" = "b1cb9223feb0f29a1c1e35e53a7d0ee9ac148efcc699f11940832e92c399e6e2"
+
+[summary]
+total_files = 40

@@ -1,0 +1,107 @@
+# Domain Profile: Carbohydrate Puckering (Cremer-Pople FEL)
+# Applies to: N-glycans, monosaccharides, enzyme-bound sugars
+# Methods: REST-RECT, well-tempered metadynamics with RECT scaling
+# Evolved from: plumID:22.028 (Grothaus et al., JCIM 2022)
+#               plumID:25.007 (Grothaus et al., 2025, CAZymes)
+
+[profile]
+id = "carbohydrate-pucker-rect"
+version = "1.0"
+tools = ["gromacs", "plumed"]
+
+[translation]
+enabled = true
+domain_frame = "carbohydrate-structure"
+computation_frame = "enhanced-sampling-rect"
+topology_format = "gromacs-top"
+
+[[translation.entity_group]]
+name = "glycan_ring"
+atoms = ["O5", "C1", "C2", "C3", "C4", "C5"]
+residue_filter = ["MAN", "GLC", "GAL", "FUC", "NAG", "SIA", "BMA"]
+
+[[translation.entity_group]]
+name = "glycosidic_linkage"
+atoms = ["O1", "O2", "O3", "O4", "O6"]
+residue_filter = ["MAN", "GLC", "GAL", "FUC", "NAG", "SIA", "BMA"]
+
+[derivation]
+tool = "plumed"
+find_paths = ["plumed/*.dat"]
+
+[[derivation.contract]]
+inputs = "COLVAR_theta"
+outputs = "analysis/theta_histogram_*.dat"
+command = "plumed driver --plumed plumed/plumed_pucker.dat --noatoms"
+
+[[derivation.contract]]
+inputs = "HILLS_phi*,HILLS_psi*"
+outputs = "analysis/fes_phi_psi_*.dat"
+command = "plumed sum_hills --hills output/HILLS_phi1_2 --mintozero"
+
+[figures]
+enabled = true
+generator = "python3"
+
+[[figures.plot]]
+type = "2d_fes"
+pattern = "analysis/ffpucker*.dat"
+x_label = "theta (rad)"
+y_label = "phi (rad)"
+
+[[figures.plot]]
+type = "1d_histogram"
+pattern = "analysis/hhtheta*.dat"
+x_label = "theta (rad)"
+y_label = "Population"
+
+[[figures.plot]]
+type = "2d_ramachandran"
+pattern = "output/COLVAR"
+x_label = "phi (rad)"
+y_label = "psi (rad)"
+
+[audit]
+config_fidelity = true
+scientific_claims = true
+simulation_time = true
+topology_crossref = true
+mdp_headers = true
+
+[audit.claims]
+[[audit.claims.validator]]
+key_pattern = "pucker_theta"
+output_file = "analysis/hhtheta*.dat"
+type = "population_peak"
+[[audit.claims.validator.zones]]
+name = "4C1_chair"
+min = 0.0
+max = 0.35
+[[audit.claims.validator.zones]]
+name = "1C4_chair"
+min = 2.79
+max = 3.14
+[[audit.claims.validator.zones]]
+name = "boat_twist"
+min = 1.2
+max = 1.9
+
+[[audit.claims.validator]]
+key_pattern = "glycosidic_phi_psi"
+output_file = "analysis/fes_phi_psi*.dat"
+type = "dihedral_range"
+expected_range = [-3.14159, 3.14159]
+
+[simulation_time]
+config_format = "mdp"
+time_unit = "ps"
+[simulation_time.time_fields]
+nsteps = "nsteps"
+dt = "dt"
+
+[tolerances]
+pucker_theta_peak_rad = 0.2
+dihedral_barrier_kj = 5.0
+population_4c1_min_fraction = 0.85
+convergence_block_kj = 3.0
+replica_exchange_rate_min = 0.1

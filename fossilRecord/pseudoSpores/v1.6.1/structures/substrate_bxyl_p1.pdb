@@ -1,0 +1,12 @@
+REMARK   +1 subsite xylose from 2D24, XYS C 5 -> BXYL
+ATOM      1 C1   BXYLC   1      37.648  28.750  52.716  1.00  0.00           C
+ATOM      2 C2   BXYLC   1      37.120  27.581  53.556  1.00  0.00           C
+ATOM      3 C3   BXYLC   1      38.159  27.228  54.616  1.00  0.00           C
+ATOM      4 C4   BXYLC   1      39.466  26.862  53.918  1.00  0.00           C
+ATOM      5 C5   BXYLC   1      39.918  28.051  53.058  1.00  0.00           C
+ATOM      6 O2   BXYLC   1      35.917  27.983  54.201  1.00  0.00           O
+ATOM      7 O3   BXYLC   1      37.694  26.114  55.368  1.00  0.00           O
+ATOM      8 O4   BXYLC   1      40.454  26.592  54.905  1.00  0.00           O
+ATOM      9 O5   BXYLC   1      38.892  28.383  52.086  1.00  0.00           O
+TER
+END

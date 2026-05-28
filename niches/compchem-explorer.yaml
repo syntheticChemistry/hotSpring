@@ -1,0 +1,167 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# CompChem Explorer BYOB niche — interactive molecular FEL research platform
+#
+# A sporeGarden-tier product that composes NUCLEUS primals for GPU-accelerated
+# free energy landscape computation, 3D molecular visualization (petalTongue),
+# and reproducible science (pseudoSpore + Derivation Anchoring). Validates all
+# atomic tiers with graceful degradation from static viewer to full interactive MD.
+
+name: compchem-explorer
+description: "Interactive CompChem FEL explorer — 3D molecular visualization + GPU compute"
+version: "0.1.0"
+
+spring: hotSpring
+domain: computational-chemistry
+particle_profile: proton_heavy
+science_artifact: pseudoSpore_hotSpring-CompChem-GuideStone
+validation_standard: derivation-anchoring-v1.0
+
+deploy_graphs:
+  tower: "graphs/compchem_tower.toml"
+  node: "graphs/compchem_node.toml"
+  viz: "graphs/compchem_viz.toml"
+  nest: "graphs/compchem_nest.toml"
+  provenance: "graphs/compchem_provenance.toml"
+  full: "graphs/compchem_full.toml"
+
+organisms:
+  - name: beardog
+    role: "Cryptographic identity — pseudoSpore signing, secure IPC"
+    required: true
+
+  - name: songbird
+    role: "Capability discovery — primal mesh, method routing"
+    required: true
+
+  - name: skunkbat
+    role: "Defense/audit — IPC anomaly detection"
+    required: false
+
+  - name: coralreef
+    role: "WGSL shader compilation — FES Gaussian summation kernel"
+    required: false
+
+  - name: toadstool
+    role: "GPU compute dispatch — FES reconstruction, parameter sweeps"
+    required: false
+
+  - name: barracuda
+    role: "Math acceleration — isosurface tessellation, 3D projection"
+    required: false
+
+  - name: petaltongue
+    role: "3D molecular visualization — atom/bond rendering, FEL surfaces, orbit camera"
+    required: false
+
+  - name: nestgate
+    role: "Persistent storage — pseudoSpore archive, session state"
+    required: false
+
+  - name: rhizocrypt
+    role: "DAG storage — experiment session lineage"
+    required: false
+
+  - name: loamspine
+    role: "Ledger — permanent record of sealed experiments"
+    required: false
+
+  - name: sweetgrass
+    role: "Attribution — authorship braid for collaborative results"
+    required: false
+
+  - name: squirrel
+    role: "AI analysis — FEL feature summarization, simulation suggestions"
+    required: false
+
+  - name: compchem_explorer
+    role: "Product orchestrator — GUI, nest-validate backend, session management"
+    required: true
+
+interactions:
+  - type: "compchem.fel.view"
+    description: "Display pre-computed FEL landscape from pseudoSpore"
+
+  - type: "compchem.fel.reconstruct"
+    description: "GPU-accelerated FES reconstruction from HILLS file"
+
+  - type: "compchem.fel.compare"
+    description: "Cross-landscape comparison (free vs enzyme-bound)"
+
+  - type: "compchem.structure.display"
+    description: "3D molecular structure rendering from PDB/GRO"
+
+  - type: "compchem.simulation.launch"
+    description: "Orchestrate GROMACS+PLUMED simulation via nest-validate"
+
+  - type: "compchem.simulation.monitor"
+    description: "Stream live COLVAR data during production MD"
+
+  - type: "compchem.pseudospore.emit"
+    description: "Package and sign validated results as pseudoSpore"
+
+  - type: "compchem.pseudospore.ingest"
+    description: "Ingest colleague's pseudoSpore for comparison"
+
+  - type: "compchem.session.seal"
+    description: "Provenance-seal an experiment session (DAG + ledger + braid)"
+
+cost_estimates:
+  compchem.fel.view: { cpu: "low", memory: "medium", latency_ms: 100 }
+  compchem.fel.reconstruct: { cpu: "high", memory: "high", latency_ms: 5000, gpu: true }
+  compchem.fel.compare: { cpu: "medium", memory: "medium", latency_ms: 2000 }
+  compchem.structure.display: { cpu: "low", memory: "medium", latency_ms: 200 }
+  compchem.simulation.launch: { cpu: "high", memory: "high", latency_ms: 60000, gpu: false, external: "gromacs" }
+  compchem.simulation.monitor: { cpu: "low", memory: "low", latency_ms: 100, streaming: true }
+  compchem.pseudospore.emit: { cpu: "medium", memory: "medium", latency_ms: 3000 }
+  compchem.pseudospore.ingest: { cpu: "medium", memory: "medium", latency_ms: 5000 }
+  compchem.session.seal: { cpu: "low", memory: "low", latency_ms: 500 }
+
+operation_dependencies:
+  compchem.fel.reconstruct: ["compchem.fel.view"]
+  compchem.fel.compare: ["compchem.fel.view"]
+  compchem.simulation.monitor: ["compchem.simulation.launch"]
+  compchem.pseudospore.emit: ["compchem.simulation.launch"]
+  compchem.session.seal: ["compchem.pseudospore.emit"]
+
+degradation:
+  tier1:
+    requires: []
+    capabilities: ["compchem.fel.view", "compchem.structure.display"]
+    description: "Static figure viewer + pseudoSpore browser (no primals needed)"
+  tier2:
+    requires: ["toadstool", "barracuda"]
+    capabilities: ["compchem.fel.reconstruct", "compchem.fel.compare"]
+    description: "GPU compute — live FES, parameter sweeps, cross-landscape"
+  tier3:
+    requires: ["toadstool", "barracuda", "petaltongue"]
+    capabilities: ["compchem.structure.display"]
+    description: "Interactive 3D molecular visualization + orbit navigation"
+  tier4:
+    requires: ["toadstool", "barracuda", "petaltongue", "nestgate"]
+    capabilities: ["compchem.simulation.launch", "compchem.simulation.monitor", "compchem.pseudospore.emit", "compchem.pseudospore.ingest"]
+    description: "Full NUCLEUS — live simulations, provenance, collaboration"
+  tier5:
+    requires: ["toadstool", "barracuda", "petaltongue", "nestgate", "rhizocrypt", "loamspine", "sweetgrass"]
+    capabilities: ["compchem.session.seal"]
+    description: "Sealed experiments — cryptographic provenance per session"
+
+petaltongue:
+  mode: live
+  tick_hz: 60
+  data_channels:
+    - name: Scatter3D
+      description: "Atom positions (x, y, z, element, radius)"
+      rate_hz: 1
+    - name: FieldMap
+      description: "FEL surface grid (theta × phi × energy)"
+      rate_hz: 1
+    - name: GameScene
+      description: "Full molecular scene graph (60 Hz interactive)"
+      rate_hz: 60
+  phase_requirements:
+    minimum: 4
+    ideal: 5
+  geom_types: ["GeomSphere", "GeomCylinder", "GeomMesh3D"]
+  coord_system: "Perspective3DCoord"
+  interaction: "Navigate3D"

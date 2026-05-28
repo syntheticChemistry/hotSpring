@@ -1,0 +1,46 @@
+[target]
+id = "02_chignolin_opes"
+plum_id = "24.029"
+method = "OPES_METAD+OPES_METAD_EXPLORE"
+description = "Chignolin protein folding via OPES"
+temperature_k = 340.0
+cv_names = [
+    "hlda",
+    "rmsd_ca",
+]
+
+[files]
+hills = "Kernels.data"
+colvar = "COLVARb"
+plumed_dat = "plumed.dat"
+
+[external_sources]
+# These values come from PLUMED-NEST plum_id 24.029 — not verifiable from shipped data
+total_atoms = 14637
+force_field = "a99SB-disp"
+source = "PLUMED-NEST 24.029"
+
+[reference]
+basins = []
+# At 340K (above Tm~315K), unfolded state is favored: ΔG_fold is positive.
+# Observed: +19.5 kJ/mol with convergence within 4 kJ/mol.
+folding_fe_range_kjmol = [
+    15.0,
+    24.0,
+]
+
+[tolerances]
+# Authority: root tolerances.toml; module overrides documented below
+_authority = "tolerances.toml"
+barrier_kjmol = 5.0
+basin_position_rad = 0.5
+convergence_std_kjmol = 4.0    # override: root opes_folding_fe=4.0; OPES has wider FE variance
+block_stderr_kjmol = 5.0
+folding_fe_kjmol = 4.0
+
+[simulation]
+# Derived from COLVARb: last_time=61782 ps, dt=0.002 ps → 30891000 steps
+nsteps = 30891000
+dt_ps = 0.002
+ntmpi = 1
+ntomp = 8

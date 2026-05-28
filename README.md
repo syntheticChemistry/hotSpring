@@ -24,7 +24,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase G (Universal Substrate Deployment)**: guideStone-certified artifact deployable on any OS, any architecture, any filesystem. **✅ 59/59 checks x 5 substrates. Cross-architecture parity (x86_64 + aarch64, bit-identical). OCI container image. Windows WSL2/Docker + macOS Docker launchers. exFAT tmpdir fallback. `./hotspring` unified ecoBin entry point. benchScale 5-substrate validation (40/40 cross-substrate parity).**
 
-- **CAZyme FEL (Exp 220 — Biomolecular MD)**: Three-tier sovereign FEL reconstruction validated against GROMACS+PLUMED industry control. Target: Iglesias-Fernández 2015 (PDB 2D24, GH10 xylanase). **✅ 8 modules COMPLETE (pseudoSpore v1.7.0 — GuideStone-grade). Modules 01–06: Free vs enzyme-bound 1D+2D Cremer-Pople landscapes with automated artifact detection (cross-landscape, binding distance, KS test). Module 07: PLUMED-NEST validation aggregate. Module 08: Exploration roadmap. 190/190 checks PASS. Derivation Anchoring Standard v1.0 — 23/23 constants formally derived via 5-layer empirical chain, Phase 0 runtime enforcement, zero magic numbers. BLAKE3 integrity verified. Full automation pipeline: `nest-validate guidestone {finalize,validate,run}`. Ownership boundaries separated: domain science (nest-validate) / envelope (litho CLI) / gateway (biomeos CLI). Handoff-ready for Alistaire.**
+- **CAZyme FEL (Exp 220 — Biomolecular MD)**: Three-tier sovereign FEL reconstruction validated against GROMACS+PLUMED industry control. Target: Iglesias-Fernández 2015 (PDB 2D24, GH10 xylanase) + epimer survey + GH11 mechanistic comparison. **✅ 22 modules COMPLETE (pseudoSpore v1.7.0 — GuideStone-grade). Modules 01–08: Baseline (free/enzyme-bound xylose, PLUMED-NEST, roadmap). Modules 09–12: Free sugar epimer FELs (lyxose/glucose/mannose/galactose, 1D+2D each). Modules 13–14: GH10 2D24 -2/+1 subsite analysis. Modules 15–16: GH11 1XYN inverting xylanase -1 subsite (mechanistic comparison). 185/187 checks PASS. ~420 ns total simulation time. BLAKE3 integrity verified (162 files). Full automation pipeline: `nest-validate guidestone {finalize,validate,run}`. Ownership boundaries separated: domain science (nest-validate) / envelope (litho CLI) / gateway (biomeos CLI). Shipped to Discord.**
 
 hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
@@ -116,7 +116,7 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern.
 | 12 | Plasma Dielectric | Chuna & Murillo (2024) | Live |
 | 13 | LTEE Anderson Fitness | Anderson & Wiser (2024) | Live statistics |
 
-## Deploy Graphs (7)
+## Deploy Graphs (13)
 
 Domain-specific NUCLEUS deployment profiles in `graphs/`:
 
@@ -129,10 +129,16 @@ Domain-specific NUCLEUS deployment profiles in `graphs/`:
 | 5 | `hotspring_nuclear_eos_deploy` | Tower + Node + Nest + skunkBat | SEMF/HFB binding energies |
 | 6 | `hotspring_spectral_deploy` | Tower + barraCuda + skunkBat | Anderson, Hofstadter, Lanczos |
 | 7 | `hotspring_sovereign_gpu_deploy` | Full NUCLEUS + skunkBat | Sovereign GPU WGSL-to-SASS |
+| 8 | `compchem_tower` | bearDog + songbird | CompChem — secure transport foundation |
+| 9 | `compchem_node` | Tower + toadStool + barraCuda | CompChem — GPU FES compute |
+| 10 | `compchem_viz` | Tower + Node + petalTongue | CompChem — 3D molecular visualization |
+| 11 | `compchem_nest` | Tower + Node + Viz + NestGate | CompChem — persistent storage |
+| 12 | `compchem_provenance` | Full Nest + provenance trio | CompChem — sealed experiments |
+| 13 | `compchem_full` | All primals + Squirrel | CompChem Explorer — full NUCLEUS product |
 
 Deploy: `biomeos deploy --graph graphs/<name>.toml`
 
-## Current Status (2026-05-26)
+## Current Status (2026-05-28)
 
 > **229 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **705 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 65 validation suites (3 tiers: smoke/nucleus/silicon), 129 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **24 RPC methods** (`sovereign.catalyst_diff`, `sovereign.catalyst_boot` added) | **zero `dyn` dispatch, `#[deny(unsafe_code)]` on lib with `#[allow(unsafe_code)]` on `low_level` module (unsafe confined to BAR0 MMIO + falcon PIO), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** — RTX 5060 dispatch PROVEN (8/8), **Titan V VFIO Tier 1 sovereign** (Exp 209-217: anchor-fd adoption, CE runlist discovery, PBDMA pipeline validated, PMU path closed, binary-patch warm handoff proven, sovereign driver rotation codified, pipeline consolidated, TPC wall confirmed firmware-dependent Exp 217) | **Sovereignty Tier Model** — Tier 0 (cold/vendor wall), Tier 1 (warm infrastructure — **HW validated**, `classify_tier` confirmed on both Titan Vs: `tpc_alive=false`, `tpc_status=0xBADF5040`), Tier 1+ (PRI recovery — **validated** Exp 221), Tier 2 (warm compute — **NOT achieved**: TPC PRI stations require GPCCS firmware execution, HS fuse-locked on GV100; `compute_ready` is init health check, not dispatch readiness; Exp 225 identified `vfio-pci` reset-on-release as catalyst pipeline blocker — **diesel engine FLR-first fix applied**), Tier 3 (full sovereign — research target) | **Vendor-atheistic target**: sovereign compute across generations (Volta GV100 → Blackwell SM120) — not just agnostic to vendor, but independent of vendor entirely | **Warm-catch pipeline in pure Rust** (`toadstool device warm-catch <BDF>` — ELF patcher + ember orchestrator) | **Vendor-agnostic `BootPipeline` trait** (KeplerInit + VoltaInit + VegaInit) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: toadStool boot-time GPU management via plasmidBin ecoBin** | **Compile-then-dispatch pipeline (coralReef→toadStool) wired** | **Circuit-breaker discovery + TOML-driven capability aliases** | **PLX D3cold keepalive VALIDATED** (PlxKeepalive + PlxGuardian) | **VBIOS interpreter live HW validated** (Exp 204) | **PowerSafetyProfile** (K80 fire post-mortem → generation-aware PMC_ENABLE staging) | **Sovereign Boot Abstraction** — `SovereignBootState` enum (unified warm/cold model), `WarmKeepalive` facade, `sovereign.profile` RPC with µs-precision timing + register snapshots, twin-card profiling experiments on dual Titan V (Exp 207) | **Hardware Line Codified** — cold boot = power-on reset = boot ROM trains HBM2 = same wall vendor faces; warm keepalive systemd fd store prevents transitions back to cold | **Warm Keepalive PROVEN** (Exp 208) — **183ms warm pipeline** (76× faster than cold), falcon warm preservation eliminates 3.7s ACR re-boot, fd store end-to-end validated, GPUs stay warm across `systemctl restart`, cold early-exit 200ms | **GPC Boundary Analysis** (Exp 210) — PTOP_DEVICE_INFO_V2 parser fixed, CE runlist discovered, sovereignty tier model codified, all engine domains power-gated after nouveau unbind
 >
@@ -193,7 +199,7 @@ Deploy: `biomeos deploy --graph graphs/<name>.toml`
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
-| **CompChem FEL (ABG 50-58)** | ✅ **Paper 50 GPU PROVEN** | FES Gaussian sum shader (11-14×, RMSD 1e-14), sovereign MD kernel decomposition in progress. pseudoSpore v1.7.0: 190/190 checks, Derivation Anchoring, automated artifact detection, Phase 0 self-consistency. |
+| **CompChem FEL (ABG 50-58)** | ✅ **pseudoSpore v1.7.0** | 22 modules, 185/187 checks. Epimer survey (lyxose/glucose/mannose/galactose), GH10 subsites (-2/+1), GH11 inverting xylanase mechanistic comparison. ~420 ns simulation. FES Gaussian sum shader (11-14×). |
 
 Full validation table (225 rows) with per-experiment details: [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md)
 
@@ -404,7 +410,7 @@ All large data (21+ GB) is gitignored but fully reproducible:
 
 | Data | Size | Tool | Time |
 |------|------|------|------|
-| CompChem FEL (4 systems × metadynamics) | ~8 GB | `nest-validate guidestone run` | ~3 hr |
+| CompChem FEL (18 systems × metadynamics) | ~30 GB | `nest-validate guidestone run` | ~12 hr |
 | BarraCuda GPU validation (65 suites) | ~100 MB | `cargo run --bin validate_all` | ~20 min |
 | Upstream repos (Sarkas, TTM, Plasma DB) | ~500 MB | manual clone (see `scripts/fossils/`) | 2 min |
 | Zenodo archive (surrogate learning) | ~6 GB | manual download | 5 min |
@@ -422,7 +428,6 @@ hotSpring/
 ├── README.md                           # This file
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── EXPERIMENT_INDEX.md                 # Full validation table, benchmark data
-├── CHUNA_PARITY_STATUS.md             # Chuna paper parity tracking
 ├── CHUNA_REVIEW.md                    # Chuna paper review notes
 ├── LICENSE                             # AGPL-3.0
 ├── Dockerfile                          # OCI container image (Ubuntu 22.04 + Vulkan)
@@ -466,7 +471,11 @@ hotSpring/
 │
 ├── graphs/                             # biomeOS deploy graphs (NUCLEUS composition deployment)
 │   ├── hotspring_qcd_deploy.toml      # Primary deploy graph (10 primals, bonding policy)
+│   ├── compchem_*.toml                # CompChem Explorer tiered deploy graphs (6 tiers)
 │   └── README.md                      # Deploy graph documentation
+│
+├── niches/                             # biomeOS niche definitions (BYOB product descriptions)
+│   └── compchem-explorer.yaml         # CompChem Explorer niche (organisms, interactions, degradation)
 │
 ├── docs/                               # Active documentation (8 files)
 │   ├── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
@@ -521,6 +530,7 @@ hotSpring/
 ├── tools/                              # Composition scripts, helpers
 ├── notebooks/                          # Jupyter notebooks (Phase A baselines)
 ├── specs/                              # Specifications, requirements, gap trackers
+│   ├── COMPCHEM_SPOREGARDEN_PRODUCT.md # sporeGarden CompChem Explorer product spec
 ├── control/                            # Python control scripts (by domain)
 ├── metalForge/                         # Hardware characterization (GPU, NPU, nodes)
 ├── benchmarks/                         # Kokkos/LAMMPS parity, protocol
@@ -545,9 +555,11 @@ hotSpring/
 | [`docs/DOWNSTREAM_PATTERNS.md`](docs/DOWNSTREAM_PATTERNS.md) | Downstream repository adoption patterns |
 | [`docs/PRIMAL_PROOF_IPC_MAPPING.md`](docs/PRIMAL_PROOF_IPC_MAPPING.md) | Level 6 — CERTIFIED primal proof — domain science → IPC method mapping |
 | [`scripts/validate-primal-proof.sh`](scripts/validate-primal-proof.sh) | Primal proof validation — bare + NUCLEUS modes, pre-flight integration |
+| [`specs/COMPCHEM_SPOREGARDEN_PRODUCT.md`](specs/COMPCHEM_SPOREGARDEN_PRODUCT.md) | sporeGarden CompChem Explorer — product identity, composition contract, deploy graphs, evolution roadmap |
+| [`niches/compchem-explorer.yaml`](niches/compchem-explorer.yaml) | biomeOS niche definition — organisms, interactions, degradation tiers |
 | [`graphs/hotspring_qcd_deploy.toml`](graphs/hotspring_qcd_deploy.toml) | biomeOS deploy graph — 10 primals, bonding policy, spawn order |
 | [`CHANGELOG.md`](CHANGELOG.md) | Root changelog — spring-level changes |
-| [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/README.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/README.md) | pseudoSpore artifact — 8 modules, 190/190 checks, Derivation Anchoring, GuideStone-grade |
+| [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/README.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/README.md) | pseudoSpore artifact — 22 modules, 185/187 checks, epimer survey + GH11 mechanistic comparison |
 | [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/DEPLOY.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/DEPLOY.md) | 5 deployment paths: local, web, VPS, litho promotion, NUCLEUS nest |
 | [`barracuda/ABSORPTION_MANIFEST.md`](barracuda/ABSORPTION_MANIFEST.md) | Write → Absorb → Lean tracking for upstream absorption |
 | [`Dockerfile`](Dockerfile) | OCI container image for universal substrate deployment |

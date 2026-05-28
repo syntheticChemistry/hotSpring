@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# CompChem Explorer Deploy Graph — Node (GPU Compute)
+#
+# Tier 2: Tower + Node atomic. Adds GPU compute primals for live
+# FES reconstruction, Gaussian summation, and tessellation.
+# This is the minimum configuration for interactive computation.
+#
+# Usage: biomeos deploy --graph graphs/compchem_node.toml
+
+[graph]
+name = "compchem_node"
+description = "CompChem Explorer — GPU compute layer (Tower + toadStool + barraCuda)"
+version = "0.1.0"
+coordination = "sequential"
+
+[graph.metadata]
+security_model = "btsp_enforced"
+secure_by_default = true
+transport = "uds_only"
+tcp_ports = 0
+owner = "hotSpring"
+pattern = "deploy"
+proto_nucleate = "primalSpring/graphs/downstream/downstream_manifest.toml"
+particle_profile = "proton_heavy"
+science_domain = "computational_chemistry"
+composition_model = "nucleated"
+fragments = ["tower_atomic", "node_atomic"]
+product = "compchem-explorer"
+tier = 2
+
+[graph.bonding_policy]
+bond_type = "Metallic"
+trust_model = "InternalNucleus"
+tower_internal = "covalent"
+tower_to_node = "metallic"
+nucleus_internal = "weak"
+encryption_tiers.tower = "full"
+encryption_tiers.node = "delegated"
+
+# Tower Atomic
+[[graph.nodes]]
+name = "beardog"
+binary = "beardog"
+order = 1
+required = true
+spawn = false
+health_method = "health.liveness"
+by_capability = "security"
+
+[[graph.nodes]]
+name = "songbird"
+binary = "songbird"
+order = 2
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "discovery"
+
+# Node Atomic
+[[graph.nodes]]
+name = "coralreef"
+binary = "coralreef"
+order = 3
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "shader"
+
+[[graph.nodes]]
+name = "toadstool"
+binary = "toadstool"
+order = 4
+required = true
+spawn = false
+depends_on = ["beardog", "songbird"]
+health_method = "health.liveness"
+by_capability = "compute"
+
+[[graph.nodes]]
+name = "barracuda"
+binary = "barracuda"
+order = 5
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "math"

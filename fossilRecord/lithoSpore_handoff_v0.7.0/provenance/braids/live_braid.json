@@ -1,0 +1,37 @@
+{
+  "_source": "sweetGrass v0.7.27 \u2014 live IPC braid (not pseudo)",
+  "_timestamp": "2026-05-24T17:02:57Z",
+  "_session_hash": "19d24c546fc453d54e708cf452f85a6d972332e70939423f5071252cec4cdc04",
+  "_source_merkle_root": "cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea",
+  "_note": "This braid was woven by a running sweetGrass primal on strandGate. The session_hash derives from the DAG merkle_root + a timestamp salt. When this artifact returns temporally downstream, the braid_id verifies against any evolved sweetGrass instance that shares this spine.",
+  "braid": {
+    "@context": {
+      "@base": "https://ecoprimals.io/",
+      "@version": 1.1,
+      "ecop": "https://ecoprimals.io/vocab#",
+      "prov": "http://www.w3.org/ns/prov#",
+      "schema": "http://schema.org/",
+      "xsd": "http://www.w3.org/2001/XMLSchema#"
+    },
+    "@id": "urn:braid:19d24c546fc453d54e708cf452f85a6d972332e70939423f5071252cec4cdc04",
+    "@type": {
+      "type": "Entity"
+    },
+    "data_hash": "19d24c546fc453d54e708cf452f85a6d972332e70939423f5071252cec4cdc04",
+    "ecop": {
+      "source_primal": "sweetgrass"
+    },
+    "generated_at_time": 1779642177822147435,
+    "metadata": {},
+    "mime_type": "application/json",
+    "signature": {
+      "created": 1779642177822147495,
+      "proof_purpose": "pending",
+      "proof_value": "",
+      "type": "Unsigned",
+      "verification_method": ""
+    },
+    "size": 428000,
+    "was_attributed_to": "did:primal:d122b2f4-22c1-417b-a394-303280f6794a"
+  }
+}

@@ -220,3 +220,20 @@ Multi-GPU composition via `toadStool` dispatch:
 4. **Paper 53 (PME)** — B-spline charge spread + reciprocal multiply (FFT3D exists)
 5. **Paper 54 (composition)** — Wire K1-K6 into single `sovereign_mdrun` dispatch
 6. **Paper 58 (enzyme scale)** — 93K-atom enzyme system at GROMACS parity
+
+---
+
+## sporeGarden Product: CompChem Explorer
+
+The kernel evolution above (Papers 51-58) feeds into the **CompChem Explorer**
+sporeGarden product — an interactive 3D molecular research platform that
+composes petalTongue (viz), barraCuda (GPU), and the CompChem pipeline into
+a user-facing tool for CAZyme FEL exploration.
+
+See [`COMPCHEM_SPOREGARDEN_PRODUCT.md`](COMPCHEM_SPOREGARDEN_PRODUCT.md) for
+the full product specification (composition contract, deploy graphs, evolution
+roadmap, petalTongue integration, degradation tiers).
+
+The product does NOT replace this kernel roadmap — it consumes its outputs.
+As each kernel (K1–K7) achieves parity, it becomes available to the product
+for interactive dispatch via toadStool/barraCuda.

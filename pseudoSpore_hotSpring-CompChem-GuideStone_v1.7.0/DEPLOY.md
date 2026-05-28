@@ -1,11 +1,13 @@
-# Deployment Guide — pseudoSpore v1.6.1
+# Deployment Guide — pseudoSpore v1.7.0
 
 ## Overview
 
 This pseudoSpore is a self-verifying computational chemistry artifact containing:
-- 6 validated CAZyme FEL modules (46/46 checks PASS)
-- 1 PLUMED-NEST validation aggregate (8 targets, 2 validated, 6 profiled)
-- 1 exploration roadmap (13 proposed targets across 3 priority tiers)
+- 8 baseline modules from v1.6.1 (free/enzyme-bound xylose, PLUMED-NEST, roadmap)
+- 8 free sugar epimer FEL modules (lyxose/glucose/mannose/galactose, 1D+2D each)
+- 4 GH10 subsite analysis modules (-2 and +1 subsites, 1D+2D each)
+- 2 GH11 inverting xylanase modules (1XYN -1 subsite, 1D+2D)
+- 185/187 validation checks PASS, ~420 ns total simulation time
 
 ## Deployment Paths
 
@@ -14,8 +16,8 @@ This pseudoSpore is a self-verifying computational chemistry artifact containing
 Untar and self-check:
 
 ```bash
-tar -xzf pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1.tar.gz
-cd pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1/
+tar -xzf pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0.tar.gz
+cd pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/
 
 # Self-verify integrity (BLAKE3 check against data.toml)
 ./validate

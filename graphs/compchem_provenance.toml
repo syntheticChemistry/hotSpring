@@ -1,0 +1,163 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# CompChem Explorer Deploy Graph — Provenance (Full Nest + Sealed Experiments)
+#
+# Tier 5: Full Nest with provenance trio (rhizoCrypt + loamSpine + sweetGrass).
+# Each experiment session gets a DAG, ledger entry, and attribution braid.
+# Enables cryptographic sealing of scientific results.
+#
+# Usage: biomeos deploy --graph graphs/compchem_provenance.toml
+
+[graph]
+name = "compchem_provenance"
+description = "CompChem Explorer — sealed experiment provenance (Full Nest + trio)"
+version = "0.1.0"
+coordination = "sequential"
+
+[graph.metadata]
+security_model = "btsp_enforced"
+secure_by_default = true
+transport = "uds_only"
+tcp_ports = 0
+owner = "hotSpring"
+pattern = "deploy"
+proto_nucleate = "primalSpring/graphs/downstream/downstream_manifest.toml"
+particle_profile = "proton_heavy"
+science_domain = "computational_chemistry"
+composition_model = "nucleated"
+fragments = ["tower_atomic", "node_atomic", "nest_atomic", "provenance_atomic"]
+product = "compchem-explorer"
+tier = 5
+
+[graph.bonding_policy]
+bond_type = "Metallic"
+trust_model = "InternalNucleus"
+tower_internal = "covalent"
+tower_to_node = "metallic"
+tower_to_nest = "metallic"
+node_to_nest = "metallic"
+nucleus_internal = "weak"
+encryption_tiers.tower = "full"
+encryption_tiers.node = "delegated"
+encryption_tiers.nest = "delegated"
+
+[graph.petaltongue]
+mode = "live"
+tick_hz = 60
+data_channels = ["Scatter3D", "FieldMap", "GameScene"]
+molecular_viz = true
+phase_requirement = 4
+
+# Tower Atomic
+[[graph.nodes]]
+name = "beardog"
+binary = "beardog"
+order = 1
+required = true
+spawn = false
+health_method = "health.liveness"
+by_capability = "security"
+
+[[graph.nodes]]
+name = "songbird"
+binary = "songbird"
+order = 2
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "discovery"
+
+[[graph.nodes]]
+name = "skunkbat"
+binary = "skunkbat"
+order = 3
+required = false
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "defense"
+
+# Node Atomic
+[[graph.nodes]]
+name = "coralreef"
+binary = "coralreef"
+order = 4
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "shader"
+
+[[graph.nodes]]
+name = "toadstool"
+binary = "toadstool"
+order = 5
+required = true
+spawn = false
+depends_on = ["beardog", "songbird"]
+health_method = "health.liveness"
+by_capability = "compute"
+
+[[graph.nodes]]
+name = "barracuda"
+binary = "barracuda"
+order = 6
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "math"
+
+# Visualization
+[[graph.nodes]]
+name = "petaltongue"
+binary = "petaltongue"
+order = 7
+required = true
+spawn = false
+depends_on = ["songbird", "barracuda"]
+health_method = "health.liveness"
+by_capability = "visualization"
+
+# Nest Atomic
+[[graph.nodes]]
+name = "nestgate"
+binary = "nestgate"
+order = 8
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "storage"
+
+# Provenance Trio
+[[graph.nodes]]
+name = "rhizocrypt"
+binary = "rhizocrypt"
+order = 9
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "dag"
+
+[[graph.nodes]]
+name = "loamspine"
+binary = "loamspine"
+order = 10
+required = true
+spawn = false
+depends_on = ["beardog", "rhizocrypt"]
+health_method = "health.liveness"
+by_capability = "ledger"
+
+[[graph.nodes]]
+name = "sweetgrass"
+binary = "sweetgrass"
+order = 11
+required = true
+spawn = false
+depends_on = ["beardog", "loamspine"]
+health_method = "health.liveness"
+by_capability = "attribution"
