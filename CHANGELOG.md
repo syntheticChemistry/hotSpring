@@ -7,6 +7,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Diesel Engine Silicon Deistic Abstraction — Exp 230/231 (May 28, 2026)
+
+### Added
+- **`InterruptProfile` struct** in `pmc.rs` — per-generation interrupt register
+  semantics (direct-write for Kepler/Maxwell/Pascal, SET/CLEAR pair for Volta+).
+  `for_sm()` factory, `disable_offset()` / `disable_value()` helpers.
+- **`HandoffCapabilityProfile` struct** — generation-aware hardware profile with
+  GPC count, TPC base/stride, PCCSR base, FECS/GPCCS/PMU bases, BAR0 domain map,
+  PMC warm threshold. Built from SM version via `GenerationProfile`.
+- **`PatchSet::from_recipe_toml()`** — loads patch sets from catalyst recipe TOML
+  files (e.g. `gv100_nvidia470.toml`). Enables new GPU+driver combos without
+  recompiling cylinder.
+- **`PatchSet::by_profile()`** — dispatches patch sets from `(ChipFamily, driver, strategy)`
+  instead of magic string names. Keeps compiled-in defaults with TOML override.
+- **`PatchStrategy::from_str()`** — parser for TOML string format
+  (`"RetAtEntry"`, `"NopCallAt(0x7f)"`, etc.).
+- **`execute_handoff_with_heartbeat()`** — accepts heartbeat callback for external
+  watchdog integration. 13 heartbeat calls wired at pipeline step boundaries.
+- **Experiment 230**: Diesel Abstraction Revalidation — validation plan for Titan V.
+- **Experiment 231**: K80 Cross-Gen Quench Probe — Kepler interrupt quench test plan.
+
+### Changed
+- **`GenerationProfile`** — added `interrupt_profile: InterruptProfile` field to
+  all 11 generation consts (Kepler through Blackwell B).
+- **`HandoffConfig`** — added `sm_version: Option<u32>` field. All 7 config
+  presets now specify SM version (70 for Titan V, 35 for K80).
+- **Pipeline** — replaced ~15 hardcoded Volta register offsets with
+  `HandoffCapabilityProfile` lookups (GPC topology, PCCSR scan, FECS capture,
+  PMC warm threshold, firmware artifact naming, BAR0 domain map).
+- **`post_exit_quench`** / **`emergency_quench`** / **`quench_gpu_interrupts`** —
+  refactored to use shared `pmc::quench_interrupts()` driven by `InterruptProfile`.
+- **`rm_trigger` binary** — accepts `--bdf` CLI arg. All 6 hardcoded
+  `"0000:49:00.0"` references replaced with parameterized BDF.
+- **`catalyst_watchdog::activate()`** — accepts `InterruptProfile` + configurable
+  timeout (was hardcoded 120s, now 450s for catalyst).
+- **`pri_recovery::recover_pri_ring()`** — accepts `chip_name` parameter for
+  generation-aware firmware artifact naming.
+
 ## Catalyst Channel + Lockup Forensics — Exp 229 (May 28, 2026)
 
 ### Added

@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 28, 2026 (229 experiments. Exp 229 catalyst channel + lockup forensics COMPLETE — Tier 2 WarmCompute handoff achieved. CAZyme FEL pseudoSpore v1.6.1 / lithoSpore v2.3.0 — 8-module GuideStone-grade chassis, 12/12 audit PASS, unified liveSpore.json schema. NUCLEUS launched on biomeGate via plasmidBin. Diesel engine FLR-first fix applied (Exp 225), catalyst lockup defense proven (Exp 229: 5 vectors cataloged). pseudoSpore ecosystem evolution complete — ownership matrix, pseudospore-core crate, domain-agnostic emission. 2 active gaps HS-111/112 — biomolecular FF + petalTongue visualization)
+**Last audited:** May 28, 2026 (231 experiments. Exps 230–231: Diesel Engine Silicon Deistic Abstraction — generation-aware interrupt defense (InterruptProfile), HandoffCapabilityProfile, TOML recipe loading, pipeline heartbeats, rm_trigger BDF parameterization. 15 files refactored across cylinder+server. Exp 229 catalyst channel + lockup forensics COMPLETE — Tier 2 WarmCompute handoff achieved. Diesel engine FLR-first fix (Exp 225), catalyst lockup defense proven (Exp 229: 5 vectors cataloged+fixed). 2 active gaps HS-111/112 — biomolecular FF + petalTongue visualization)
 **License:** AGPL-3.0-or-later
 
 ---

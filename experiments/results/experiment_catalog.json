@@ -1,7 +1,7 @@
 {
-  "generated": "2026-05-28T15:00:00Z",
+  "generated": "2026-05-28T16:00:00Z",
   "spring": "hotSpring",
-  "total_experiments": 229,
+  "total_experiments": 231,
   "total_science_cost": "$0.30",
   "quantitative_checks": "500+",
   "categories": {
@@ -76,9 +76,9 @@
       "focus": "CAZyme FEL — GROMACS+PLUMED WTMetaD, Tier 0/1/2 sovereign parity, lithoSpore promotion"
     },
     "sovereign_warm_handoff": {
-      "experiments": ["exp221-exp229"],
-      "count": 9,
-      "focus": "UEFI model, reagent capture, ACR boot, sovereignty audit, catalyst TPC persistence, SBR suppression, Tier 2 breakthrough, dispatch sprint, catalyst RM channel + lockup forensics"
+      "experiments": ["exp221-exp231"],
+      "count": 11,
+      "focus": "UEFI model, reagent capture, ACR boot, sovereignty audit, catalyst TPC persistence, SBR suppression, Tier 2 breakthrough, dispatch sprint, catalyst RM channel + lockup forensics, diesel engine silicon deistic abstraction, cross-gen quench probe"
     }
   },
   "science_ladder": [
@@ -106,7 +106,8 @@
     "Ember Gate",
     "CAZyme FEL Biomolecular MD",
     "Sovereign Warm Handoff",
-    "Catalyst RM Channel + Lockup Forensics"
+    "Catalyst RM Channel + Lockup Forensics",
+    "Silicon Deistic Abstraction"
   ],
   "papers_reproduced": 26,
   "timeline": {
@@ -115,6 +116,6 @@
     "phase_I_J": {"experiments_added": 35, "period": "Mar-Apr 2026", "focus": "Sovereign GPU, composition, guidestone"},
     "phase_K": {"experiments_added": 41, "period": "Apr-May 2026", "focus": "Multi-GPU, K80, Blackwell, deep debt"},
     "phase_L": {"experiments_added": 39, "period": "May 2026", "focus": "Sovereign evolution, catalyst driver, biomolecular MD"},
-    "phase_M": {"experiments_added": 5, "period": "May 26-28 2026", "focus": "Sovereign warm handoff, catalyst channel, lockup forensics, Tier 2 HW validated"}
+    "phase_M": {"experiments_added": 7, "period": "May 26-28 2026", "focus": "Sovereign warm handoff, catalyst channel, lockup forensics, Tier 2 HW validated, silicon deistic abstraction, cross-gen quench probe"}
   }
 }
