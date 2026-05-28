@@ -1,0 +1,20 @@
+# 2D Cremer-Pople puckering CVs: GH11 1XYN -1 subsite xylose
+# Ring atom GROMACS indices: C1,C2,C3,C4,C5,O5 = 2580,2588,2592,2596,2584,2587
+
+puck: PUCKERING ATOMS=2580,2588,2592,2596,2584,2587
+
+METAD ...
+LABEL=metad
+ARG=puck.qx,puck.qy
+PACE=500
+HEIGHT=1.2
+SIGMA=0.02,0.02
+FILE=HILLS_2d
+BIASFACTOR=15.0
+TEMP=300.0
+GRID_MIN=-0.12,-0.12
+GRID_MAX=0.12,0.12
+GRID_BIN=100,100
+... METAD
+
+PRINT STRIDE=10 ARG=puck.theta,puck.phi,puck.amplitude,puck.qx,puck.qy,puck.qz,metad.bias FILE=COLVAR_2d

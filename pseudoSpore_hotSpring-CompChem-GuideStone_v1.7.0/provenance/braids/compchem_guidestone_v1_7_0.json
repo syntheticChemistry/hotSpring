@@ -1,0 +1,62 @@
+{
+  "braid_id": "urn:braid:hotspring-compchem-guidestone-v1.7.0",
+  "parent_braid": "urn:braid:hotspring-compchem-guidestone-v1.6.1",
+  "artifact": "hotSpring-CompChem-GuideStone",
+  "version": "1.7.0",
+  "timestamp": "2026-05-28T10:00:00Z",
+  "agent": "nest-validate guidestone emit",
+  "agent_version": "0.2.0",
+  "receipt": {
+    "modules_pass": 21,
+    "modules_skip": 1,
+    "modules_total": 22,
+    "blake3_files_total": 0,
+    "trajectory_files_included": 0,
+    "integrity": "BLAKE3 (data.toml [present]/[external])"
+  },
+  "changes": [
+    "Added 14 new modules (09-16): free sugar epimers (lyxose/glucose/mannose/galactose) + GH10 subsites (-2/+1) + GH11 inverting xylanase",
+    "Free epimer baselines: 4 sugars × 1D theta + 2D qx,qy = 8 new FEL modules",
+    "GH10 2D24 subsite analysis: -2 and +1 subsite xylose puckering (4 modules)",
+    "GH11 mechanistic comparison: 1XYN inverting xylanase -1 subsite (2 modules)",
+    "All simulations: CHARMM36-jul2022 + PLUMED 2.10 + GROMACS 2026.0",
+    "Epimer topologies generated via RDKit conformers with CHARMM36 RTP atom naming",
+    "GH11 1XYN: apo structure with xylose placed at -1 subsite between catalytic Glu75/Glu164",
+    "Lineage: v1.5.0 → v1.6.0 → v1.6.1 → v1.7.0 (immutable evolution chain)"
+  ],
+  "lineage": {
+    "v1.5.0": "corrected atom indices, proper water box solvation",
+    "v1.6.0": "PLUMED-NEST validation aggregate + exploration roadmap",
+    "v1.6.1": "full-data self-contained pseudoSpore; pipeline-derived metadata",
+    "v1.7.0": "epimer survey + mechanistic comparison (22 modules)"
+  },
+  "new_modules": [
+    "09_free_lyxose_1d", "09_free_lyxose_2d",
+    "10_free_glucose_1d", "10_free_glucose_2d",
+    "11_free_mannose_1d", "11_free_mannose_2d",
+    "12_free_galactose_1d", "12_free_galactose_2d",
+    "13_enzyme_bound_m2_1d", "13_enzyme_bound_m2_2d",
+    "14_enzyme_bound_p1_1d", "14_enzyme_bound_p1_2d",
+    "15_gh11_bound_1d", "16_gh11_bound_2d"
+  ],
+  "science_summary": {
+    "total_simulation_time_ns": 420,
+    "systems": {
+      "free_sugars": "lyxose, glucose, mannose, galactose (each 10ns 1D + 20ns 2D)",
+      "enzyme_subsites": "GH10 2D24 -2 and +1 subsites (each 10ns 1D + 20ns 2D)",
+      "mechanistic_comparison": "GH11 1XYN inverting xylanase -1 subsite (10ns 1D + 20ns 2D)"
+    }
+  },
+  "provenance_trio": {
+    "status": "pending",
+    "target_composition": "nest_atomic",
+    "rhizocrypt": { "status": "pending", "description": "DAG integrity verification via rhizoCrypt" },
+    "loamspine": { "status": "pending", "description": "Ledger registration via loamSpine" },
+    "sweetgrass": { "status": "pending", "description": "Attribution braids via sweetGrass" }
+  },
+  "deployment_eras": [
+    { "era": 1, "name": "ad-hoc", "range": "v1.0.0 — v1.6.0" },
+    { "era": 2, "name": "pipeline-derived", "range": "v1.6.1 — v1.7.0", "date": "2026-05-28" },
+    { "era": 3, "name": "nucleus-nest-deploy", "range": "v2.0+ (target)" }
+  ]
+}

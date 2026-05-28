@@ -1,0 +1,26 @@
+# Cremer-Pople puckering CVs for free beta-D-lyxosepyranose ring
+#
+# Ring atom GROMACS indices (from npt.gro):
+#   C1,C2,C3,C4,C5,O5 = 1,9,13,17,5,8
+#   Residue: BXYL (pentose)
+
+puck: PUCKERING ATOMS=1,9,13,17,5,8
+
+# 1D well-tempered metadynamics on theta only
+# theta: 0 = 4C1 chair, pi/2 = boat/skew-boat, pi = 1C4 chair
+
+METAD ...
+LABEL=metad
+ARG=puck.theta
+PACE=500
+HEIGHT=1.5
+SIGMA=0.1
+FILE=HILLS
+BIASFACTOR=15.0
+TEMP=300.0
+GRID_MIN=0
+GRID_MAX=pi
+GRID_BIN=100
+... METAD
+
+PRINT STRIDE=10 ARG=puck.theta,puck.phi,puck.amplitude,puck.qx,puck.qy,puck.qz,metad.bias FILE=COLVAR

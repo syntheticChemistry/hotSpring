@@ -1,0 +1,14 @@
+REMARK   -1 subsite xylose for GH11 1XYN
+REMARK   Placed at catalytic center (Glu75/Glu164), 4C1 chair
+ATOM      1 C1   BXYLC   1       6.143   9.745   6.890  1.00  0.00           C
+ATOM      2 C2   BXYLC   1       4.613   9.745   6.890  1.00  0.00           C
+ATOM      3 C3   BXYLC   1       4.063   8.545   7.690  1.00  0.00           C
+ATOM      4 C4   BXYLC   1       4.843   7.345   7.290  1.00  0.00           C
+ATOM      5 C5   BXYLC   1       6.343   7.645   7.440  1.00  0.00           C
+ATOM      6 O5   BXYLC   1       6.843   8.945   6.890  1.00  0.00           O
+ATOM      7 O1   BXYLC   1       6.643  11.045   6.890  1.00  0.00           O
+ATOM      8 O2   BXYLC   1       4.143   9.945   5.540  1.00  0.00           O
+ATOM      9 O3   BXYLC   1       2.673   8.395   7.440  1.00  0.00           O
+ATOM     10 O4   BXYLC   1       4.443   6.145   7.940  1.00  0.00           O
+TER
+END

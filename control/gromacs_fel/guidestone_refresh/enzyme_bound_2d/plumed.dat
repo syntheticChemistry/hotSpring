@@ -9,11 +9,21 @@
 #   C4: 6602 → 6294
 #   C5: 6603 → 6282
 #   O5: 6607 → 6285
+#
+# BINDING RESTRAINT:
+#   Substrate COM (BXYL heavy atoms) ↔ catalytic site COM (Glu175 + Glu236 carboxylates)
+#   UPPER_WALLS at 1.2 nm prevents substrate dissociation while allowing local mobility
+#   Glu175 OE1/OE2: 2610,2611  |  Glu236 OE1/OE2: 3552,3553
 
 puck: PUCKERING ATOMS=6278,6286,6290,6294,6282,6285
 
+# Binding distance monitor + flat-bottom restraint
+com_sub: COM ATOMS=6278,6280,6282,6285,6286,6288,6290,6292,6294,6296
+com_site: COM ATOMS=2610,2611,3552,3553
+d_bind: DISTANCE ATOMS=com_sub,com_site
+wall_bind: UPPER_WALLS ARG=d_bind AT=1.2 KAPPA=500.0 EXP=2 EPS=1 OFFSET=0.0
+
 # 2D well-tempered metadynamics on (qx, qy)
-# Same parameters as free xylose for direct comparison
 
 METAD ...
 LABEL=metad
@@ -29,4 +39,4 @@ GRID_MAX=0.12,0.12
 GRID_BIN=100,100
 ... METAD
 
-PRINT STRIDE=10 ARG=puck.theta,puck.phi,puck.amplitude,puck.qx,puck.qy,puck.qz,metad.bias FILE=COLVAR_2d
+PRINT STRIDE=10 ARG=puck.theta,puck.phi,puck.amplitude,puck.qx,puck.qy,puck.qz,metad.bias,d_bind,wall_bind.bias FILE=COLVAR_2d

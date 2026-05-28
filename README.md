@@ -24,7 +24,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase G (Universal Substrate Deployment)**: guideStone-certified artifact deployable on any OS, any architecture, any filesystem. **✅ 59/59 checks x 5 substrates. Cross-architecture parity (x86_64 + aarch64, bit-identical). OCI container image. Windows WSL2/Docker + macOS Docker launchers. exFAT tmpdir fallback. `./hotspring` unified ecoBin entry point. benchScale 5-substrate validation (40/40 cross-substrate parity).**
 
-- **CAZyme FEL (Exp 220 — Biomolecular MD)**: Three-tier sovereign FEL reconstruction validated against GROMACS+PLUMED industry control. Target: Iglesias-Fernández 2015 (PDB 2D24, GH10 xylanase). **✅ 8 modules COMPLETE (pseudoSpore v1.6.1, lithoSpore v2.3.0). Modules 01–06: Free vs enzyme-bound 1D+2D Cremer-Pople landscapes. Module 07: PLUMED-NEST validation aggregate. Module 08: Exploration roadmap. Tier 0→1→2: MATCH (<1 kJ/mol). `litho audit` 12/12 PASS. BLAKE3 integrity verified. Visual evidence layer (auto-generated figures). Full automation pipeline: `litho emit` → `litho audit` → `litho promote`. Domain Profiles for agnostic deployment. GuideStone-grade data chassis (`data.toml`, `liveSpore.json`, `tolerances.toml`, `validate`/`refresh` entry points). Unified liveSpore.json schema (`{envelope, validations}`). Three-era provenance: ad-hoc → pipeline-derived (all metadata cross-checked from GRO/MDP/COLVAR/PDB) → NUCLEUS nest deploy (provenance trio slots wired, `--nucleus` deploy flag, biomeos gateway fallback). Ownership boundaries separated: domain science (nest-validate) / envelope (litho CLI) / gateway (biomeos CLI). Handoff-ready for Alistaire.**
+- **CAZyme FEL (Exp 220 — Biomolecular MD)**: Three-tier sovereign FEL reconstruction validated against GROMACS+PLUMED industry control. Target: Iglesias-Fernández 2015 (PDB 2D24, GH10 xylanase). **✅ 8 modules COMPLETE (pseudoSpore v1.7.0 — GuideStone-grade). Modules 01–06: Free vs enzyme-bound 1D+2D Cremer-Pople landscapes with automated artifact detection (cross-landscape, binding distance, KS test). Module 07: PLUMED-NEST validation aggregate. Module 08: Exploration roadmap. 190/190 checks PASS. Derivation Anchoring Standard v1.0 — 23/23 constants formally derived via 5-layer empirical chain, Phase 0 runtime enforcement, zero magic numbers. BLAKE3 integrity verified. Full automation pipeline: `nest-validate guidestone {finalize,validate,run}`. Ownership boundaries separated: domain science (nest-validate) / envelope (litho CLI) / gateway (biomeos CLI). Handoff-ready for Alistaire.**
 
 hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
@@ -193,7 +193,7 @@ Deploy: `biomeos deploy --graph graphs/<name>.toml`
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
-| **CompChem FEL (ABG 50-58)** | ✅ **Paper 50 GPU PROVEN** | FES Gaussian sum shader (11-14×, RMSD 1e-14), sovereign MD kernel decomposition in progress. pseudoSpore v1.6.1: pipeline-derived metadata, NUCLEUS braid evolution (provenance trio pending), 71/71 checks PASS. |
+| **CompChem FEL (ABG 50-58)** | ✅ **Paper 50 GPU PROVEN** | FES Gaussian sum shader (11-14×, RMSD 1e-14), sovereign MD kernel decomposition in progress. pseudoSpore v1.7.0: 190/190 checks, Derivation Anchoring, automated artifact detection, Phase 0 self-consistency. |
 
 Full validation table (225 rows) with per-experiment details: [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md)
 
@@ -366,10 +366,10 @@ See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
 cd barracuda && cargo run --release --bin validate_all
 
 # CompChem GuideStone pipeline (Rust-orchestrated, requires GROMACS+PLUMED env)
-./pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1/run
+./pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/run
 
-# CompChem validation only (existing data)
-cd control/plumed_nest && ./nest-validate/target/release/nest-validate validate
+# CompChem validation only (existing data, 190/190 checks)
+cd control/plumed_nest && ./nest-validate/target/release/nest-validate guidestone validate ../../../pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0
 ```
 
 > **Note**: Legacy regeneration scripts (`regenerate-all.sh`, `clone-repos.sh`,
@@ -547,8 +547,8 @@ hotSpring/
 | [`scripts/validate-primal-proof.sh`](scripts/validate-primal-proof.sh) | Primal proof validation — bare + NUCLEUS modes, pre-flight integration |
 | [`graphs/hotspring_qcd_deploy.toml`](graphs/hotspring_qcd_deploy.toml) | biomeOS deploy graph — 10 primals, bonding policy, spawn order |
 | [`CHANGELOG.md`](CHANGELOG.md) | Root changelog — spring-level changes |
-| [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1/README.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1/README.md) | pseudoSpore artifact — 8 modules, 71/71 checks, NUCLEUS-ready |
-| [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1/DEPLOY.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.1/DEPLOY.md) | 5 deployment paths: local, web, VPS, litho promotion, NUCLEUS nest |
+| [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/README.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/README.md) | pseudoSpore artifact — 8 modules, 190/190 checks, Derivation Anchoring, GuideStone-grade |
+| [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/DEPLOY.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/DEPLOY.md) | 5 deployment paths: local, web, VPS, litho promotion, NUCLEUS nest |
 | [`barracuda/ABSORPTION_MANIFEST.md`](barracuda/ABSORPTION_MANIFEST.md) | Write → Absorb → Lean tracking for upstream absorption |
 | [`Dockerfile`](Dockerfile) | OCI container image for universal substrate deployment |
 

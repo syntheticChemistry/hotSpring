@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# pseudoSpore GuideStone self-validation
+# Tier 1: nest-validate (full science + integrity)
+# Tier 2: b3sum (integrity only, no science checks)
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+resolve_binary() {
+    if [[ -x "$SCRIPT_DIR/bin/nest-validate" ]]; then
+        echo "$SCRIPT_DIR/bin/nest-validate"
+    elif command -v nest-validate &>/dev/null; then
+        command -v nest-validate
+    elif [[ -x "$SCRIPT_DIR/../control/plumed_nest/nest-validate/target/release/nest-validate" ]]; then
+        echo "$SCRIPT_DIR/../control/plumed_nest/nest-validate/target/release/nest-validate"
+    else
+        return 1
+    fi
+}
+
+# Try nest-validate first (full validation)
+if BINARY="$(resolve_binary)" 2>/dev/null; then
+    exec "$BINARY" guidestone validate "$SCRIPT_DIR"
+fi
+
+# Fallback: BLAKE3 integrity via b3sum (no science checks)
+echo "=== GuideStone Integrity Check (b3sum fallback) ==="
+echo "INFO: nest-validate not found — verifying BLAKE3 integrity only."
+echo "      For full science validation, install nest-validate."
+echo ""
+
+if ! command -v b3sum &>/dev/null; then
+    echo "ERROR: Neither nest-validate nor b3sum found."
+    echo "  Install b3sum: cargo install b3sum"
+    echo "  Or build nest-validate: cd control/plumed_nest/nest-validate && cargo build --release"
+    exit 1
+fi
+
+if [[ ! -f data.toml ]]; then
+    echo "ERROR: data.toml not found"
+    exit 1
+fi
+
+PASS=0
+FAIL=0
+EXTERNAL=0
+IN_PRESENT=0
+IN_SECTION=""
+
+while IFS= read -r line; do
+    trimmed="${line#"${line%%[![:space:]]*}"}"
+    case "$trimmed" in
+        "[present]") IN_SECTION="present"; IN_PRESENT=1 ;;
+        "[external]") IN_SECTION="external" ;;
+        "[hashes]") if [[ $IN_PRESENT -eq 0 ]]; then IN_SECTION="hashes"; fi ;;
+        "["*) IN_SECTION="" ;;
+        \"*)
+            if [[ "$IN_SECTION" == "external" ]]; then
+                EXTERNAL=$((EXTERNAL + 1))
+                continue
+            fi
+            if [[ "$IN_SECTION" != "present" && "$IN_SECTION" != "hashes" ]]; then
+                continue
+            fi
+            FILE=$(echo "$trimmed" | sed 's/^"\([^"]*\)".*/\1/')
+            EXPECTED=$(echo "$trimmed" | sed 's/.*= *"\([^"]*\)".*/\1/')
+            if [[ -f "$FILE" ]]; then
+                ACTUAL=$(b3sum "$FILE" | awk '{print $1}')
+                if [[ "$ACTUAL" == "$EXPECTED" ]]; then
+                    PASS=$((PASS + 1))
+                else
+                    echo "  FAIL: $FILE (hash mismatch)"
+                    FAIL=$((FAIL + 1))
+                fi
+            else
+                echo "  FAIL: $FILE (not found)"
+                FAIL=$((FAIL + 1))
+            fi
+            ;;
+    esac
+done < data.toml
+
+echo ""
+echo "BLAKE3 Integrity: $PASS pass, $FAIL fail ($((PASS + FAIL)) verified)"
+if [[ $EXTERNAL -gt 0 ]]; then
+    echo "  External files (in lithoSpore braids): $EXTERNAL"
+fi
+
+if [[ $FAIL -gt 0 ]]; then
+    echo ""
+    echo "RESULT: FAIL"
+    exit 1
+fi
+
+echo ""
+echo "RESULT: PASS (integrity only — run nest-validate for full science checks)"
+exit 2

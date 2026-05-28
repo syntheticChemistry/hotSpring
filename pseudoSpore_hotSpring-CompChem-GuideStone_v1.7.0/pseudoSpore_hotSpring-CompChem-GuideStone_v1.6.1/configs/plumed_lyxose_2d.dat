@@ -1,0 +1,26 @@
+# Cremer-Pople 2D puckering CVs for free beta-D-lyxosepyranose ring
+# Using Cartesian (qx, qy) to avoid polar singularity and periodicity issues
+#
+# Ring atom GROMACS indices (from npt.gro):
+#   C1,C2,C3,C4,C5,O5 = 1,9,13,17,5,8
+#   Residue: BXYL (pentose)
+
+puck: PUCKERING ATOMS=1,9,13,17,5,8
+
+# 2D well-tempered metadynamics on (qx, qy)
+
+METAD ...
+LABEL=metad
+ARG=puck.qx,puck.qy
+PACE=500
+HEIGHT=1.2
+SIGMA=0.02,0.02
+FILE=HILLS_2d
+BIASFACTOR=15.0
+TEMP=300.0
+GRID_MIN=-0.12,-0.12
+GRID_MAX=0.12,0.12
+GRID_BIN=100,100
+... METAD
+
+PRINT STRIDE=10 ARG=puck.theta,puck.phi,puck.amplitude,puck.qx,puck.qy,puck.qz,metad.bias FILE=COLVAR_2d

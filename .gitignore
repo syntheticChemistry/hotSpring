@@ -217,18 +217,23 @@ pseudoSpore_*/modules/*/Kernels*
 pseudoSpore_*/modules/*/*.xtc
 pseudoSpore_*/modules/*/*.trr
 
-# ----- GuideStone refresh (simulation working data — multi-GB) -----
+# ----- GuideStone refresh (simulation working data — multi-GB, regenerable via `nest-validate guidestone run`) -----
+control/gromacs_fel/guidestone_refresh/**/*.gro
 control/gromacs_fel/guidestone_refresh/**/*.xtc
 control/gromacs_fel/guidestone_refresh/**/*.trr
 control/gromacs_fel/guidestone_refresh/**/*.tpr
 control/gromacs_fel/guidestone_refresh/**/*.cpt
 control/gromacs_fel/guidestone_refresh/**/*.edr
 control/gromacs_fel/guidestone_refresh/**/*.log
+control/gromacs_fel/guidestone_refresh/**/*.npz
+control/gromacs_fel/guidestone_refresh/**/grompp_out.txt
 control/gromacs_fel/guidestone_refresh/**/COLVAR*
 control/gromacs_fel/guidestone_refresh/**/HILLS*
 control/gromacs_fel/guidestone_refresh/**/PLUMED.OUT
-control/gromacs_fel/guidestone_refresh/**/bck.*
 control/gromacs_fel/guidestone_refresh/**/fes_*.dat
+control/gromacs_fel/guidestone_refresh/**/bck.*
+control/gromacs_fel/guidestone_refresh/**/charmm36-jul2022.ff/
+control/gromacs_fel/guidestone_refresh/**/#*#
 
 # ----- PLUMED-NEST targets (ingested simulation data — large) -----
 control/plumed_nest/target_*/output/
@@ -249,9 +254,6 @@ control/plumed_nest/build/
 # ----- Rust build artifacts -----
 control/plumed_nest/nest-validate/target/
 staging/cazyme-fel/target/
-
-# ----- Simulation output .gro (large solvated systems) -----
-control/gromacs_fel/guidestone_refresh/**/*.gro
 
 # ----- Python cache -----
 **/__pycache__/

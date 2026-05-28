@@ -1,0 +1,94 @@
+{
+  "envelope": {
+    "artifact": "hotSpring-CompChem-GuideStone",
+    "deployment_era": "pipeline_derived",
+    "emit_host": "pop-os",
+    "emit_timestamp": "2026-05-27T14:55:34Z",
+    "git_sha": "a30f881",
+    "integrity": "BLAKE3 (data.toml)",
+    "provenance_chain": {
+      "evolution": "v1.5.0 → v1.6.0 → v1.6.1",
+      "parent": "pseudoSpore_hotSpring-CompChem-GuideStone_v1.6.0",
+      "parent_merkle": "cbf908fb4c36d036ab9da1ffdac775a97dff6a0f640fb5706f6f7505a3b9bbea"
+    },
+    "provenance_trio_status": "pending",
+    "software": {
+      "cazyme_fel": "0.1.0",
+      "gromacs": "2026.0-conda_forge",
+      "nest_validate": "0.2.0",
+      "plumed": "2.10"
+    },
+    "tool": "nest-validate guidestone emit",
+    "tool_version": "0.2.0",
+    "validation": "nest-validate validate + cazyme-fel parity",
+    "version": "1.6.1"
+  },
+  "validations": [
+    {
+      "checks": [
+        {
+          "external": 0,
+          "fail": 0,
+          "pass": 65,
+          "phase": "blake3_integrity",
+          "status": "PASS"
+        },
+        {
+          "basins_found": 2,
+          "check": "fes_parity_1d",
+          "module": "03_free_xylose_1d",
+          "rmsd_kjmol": 0.3,
+          "status": "PASS",
+          "tolerance_kjmol": 1.0
+        },
+        {
+          "check": "fes_parity_2d",
+          "module": "04_free_xylose_2d",
+          "rmsd_kjmol": 0.0,
+          "status": "PASS",
+          "tolerance_kjmol": 2.0
+        },
+        {
+          "basins_found": 2,
+          "check": "fes_parity_1d",
+          "module": "05_enzyme_bound_1d",
+          "rmsd_kjmol": 0.0,
+          "status": "PASS",
+          "tolerance_kjmol": 1.0
+        },
+        {
+          "check": "fes_parity_2d",
+          "module": "06_enzyme_bound_2d",
+          "rmsd_kjmol": 0.0,
+          "status": "PASS",
+          "tolerance_kjmol": 2.0
+        },
+        {
+          "check": "fes_2d_minima",
+          "gaussians": 10000,
+          "minima_found": 2,
+          "minimum_required": 2,
+          "module": "01_alanine_dipeptide",
+          "status": "PASS"
+        },
+        {
+          "check": "opes_transitions",
+          "fold": 5,
+          "minimum_transitions": 6,
+          "module": "02_chignolin_opes",
+          "n_frames": 309569,
+          "simulation_ns": 61.8,
+          "status": "PASS",
+          "transitions": 10,
+          "unfold": 5
+        }
+      ],
+      "overall": "PASS",
+      "timestamp": "2026-05-27T14:55:34Z",
+      "tool": "nest-validate",
+      "tool_version": "0.2.0",
+      "total_fail": 0,
+      "total_pass": 71
+    }
+  ]
+}

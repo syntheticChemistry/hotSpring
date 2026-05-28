@@ -1,0 +1,29 @@
+[target]
+id = "04_free_xylose_2d"
+plum_id = "internal"
+method = "well-tempered metadynamics"
+description = "Free β-D-xylopyranose 2D Cremer-Pople (qx, qy) — full Stoddart landscape"
+temperature_k = 300.0
+cv_names = ["puck.qx", "puck.qy"]
+
+[files]
+hills = "HILLS_2d"
+colvar = "COLVAR_2d"
+plumed_dat = "plumed.dat"
+fes = "fes_2d.dat"
+
+[reference]
+basins = []
+tier_parity_rmsd_kjmol = 2.0
+
+[tolerances]
+# Authority: root tolerances.toml
+_authority = "tolerances.toml"
+barrier_kjmol = 5.0
+tier_parity_rmsd_kjmol = 2.0
+
+[simulation]
+nsteps = 10000000
+dt_ps = 0.002
+ntmpi = 1
+ntomp = 8

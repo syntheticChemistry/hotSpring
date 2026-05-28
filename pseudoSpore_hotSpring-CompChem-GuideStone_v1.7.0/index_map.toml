@@ -1,0 +1,47 @@
+# Machine-readable domain ↔ computation index mapping
+# Domain = PDB 2D24 serial numbering (biochemistry standard)
+# Computation = GROMACS topology numbering (runtime requirement)
+# resolution_angstrom is pipeline-derived from structures/*.pdb REMARK 2 at emit time.
+# Do NOT hand-edit — nest-validate guidestone emit will overwrite from the PDB header.
+
+[meta]
+pdb = "2D24"
+resolution_angstrom = 1.85  # pipeline-derived from 2D24.pdb REMARK 2
+ring_order = ["C1", "C2", "C3", "C4", "C5", "O5"]
+cremer_pople_convention = "C1-C2-C3-C4-C5-O5"
+
+[systems.free-xylose]
+description = "Single beta-D-xylopyranose in TIP3P water box"
+structure_source = "PDB 2D24, ligand XYS chain C residue 1 (subsite -1)"
+total_atoms = 2657
+rosetta_stone = "braid:lithoSpore/control/gromacs_fel/guidestone_refresh/free_xylose_1d/npt.gro"
+rosetta_stone_source = "PDB:2D24"
+
+[systems.free-xylose.ring]
+C1 = { domain = 6469, computation = 1 }
+C2 = { domain = 6470, computation = 9 }
+C3 = { domain = 6471, computation = 13 }
+C4 = { domain = 6472, computation = 17 }
+C5 = { domain = 6473, computation = 5 }
+O5 = { domain = 6478, computation = 8 }
+
+[systems.free-xylose.ring._note]
+value = "Domain = PDB 2D24 HETATM serial for XYS chain C res 1. Computation = GROMACS index after pdb2gmx (heavy-atom-first reorder within residue)."
+
+[systems.enzyme-bound]
+description = "GH10 xylanase + beta-D-xylose at -1 subsite"
+structure_source = "PDB 2D24, chain A + ligand BXYL residue 437"
+total_atoms = 92745
+rosetta_stone = "braid:lithoSpore/control/gromacs_fel/guidestone_refresh/enzyme_bound_1d/npt.gro"
+rosetta_stone_source = "PDB:2D24"
+
+[systems.enzyme-bound.ring]
+C1 = { domain = 6599, computation = 6278 }
+C2 = { domain = 6600, computation = 6286 }
+C3 = { domain = 6601, computation = 6290 }
+C4 = { domain = 6602, computation = 6294 }
+C5 = { domain = 6603, computation = 6282 }
+O5 = { domain = 6607, computation = 6285 }
+
+[systems.enzyme-bound.ring._note]
+value = "Domain = PDB 2D24 ATOM serial for BXYL res 437. Computation = GROMACS index after pdb2gmx+solvation+ions. Offset from H-atom insertion, water reordering, ion addition."

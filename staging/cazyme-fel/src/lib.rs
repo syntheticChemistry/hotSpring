@@ -9,9 +9,26 @@
 //! This is the Tier 2 (Rust) implementation paired with the Tier 1 Python
 //! notebook at `notebooks/cazyme_fel/puckering_fel.py`. Both must produce
 //! identical results (MATCH in ParityReport).
+//!
+//! Numeric constants are anchored in:
+//!   pseudoSpore/derivations/threshold_calibration.toml
 
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+
+// Anchored constants — Cremer & Pople JACS 97, 1354 (1975)
+const BASIN_4C1_MAX_DEG: f64 = 40.0;
+const BASIN_1C4_MIN_DEG: f64 = 140.0;
+// Gaussian truncation — captures 99.7% of kernel (exp(-4.5) residual)
+const GRID_MARGIN_SIGMA: f64 = 3.0;
+// Parity RMSD tolerance — √(tier_1d² + tier_1d²) rounded; see threshold_calibration.toml
+const PARITY_TOLERANCE_KJMOL: f64 = 2.0;
+// KS test coefficient — Marsaglia et al. J. Stat. Software 8(18), 2003
+const KS_CRITICAL_COEFF: f64 = 1.36;
+// Wall bias detection threshold — corresponds to 0.002 nm beyond AT with KAPPA=500
+const WALL_ACTIVE_THRESHOLD: f64 = 0.001;
+// Cross-landscape verdict midpoint factor (equal-width SUSPICIOUS band)
+const VERDICT_MIDPOINT: f64 = 0.5;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Hills {
@@ -172,9 +189,9 @@ pub fn find_basins(fes: &FesResult) -> Vec<Basin> {
         {
             let theta_rad = fes.grid[i];
             let theta_deg = theta_rad.to_degrees();
-            let label = if theta_deg < 40.0 {
+            let label = if theta_deg < BASIN_4C1_MAX_DEG {
                 "4C1 chair"
-            } else if theta_deg > 140.0 {
+            } else if theta_deg > BASIN_1C4_MIN_DEG {
                 "1C4 chair"
             } else {
                 "boat/skew-boat"
@@ -191,7 +208,7 @@ pub fn find_basins(fes: &FesResult) -> Vec<Basin> {
     // Check endpoints
     if n > 1 && fes.free_energy[0] < fes.free_energy[1] {
         let theta_deg = fes.grid[0].to_degrees();
-        let label = if theta_deg < 40.0 { "4C1 chair" } else { "1C4 chair" };
+        let label = if theta_deg < BASIN_4C1_MAX_DEG { "4C1 chair" } else { "1C4 chair" };
         basins.insert(0, Basin {
             theta_rad: fes.grid[0],
             theta_deg,
@@ -201,7 +218,7 @@ pub fn find_basins(fes: &FesResult) -> Vec<Basin> {
     }
     if n > 1 && fes.free_energy[n - 1] < fes.free_energy[n - 2] {
         let theta_deg = fes.grid[n - 1].to_degrees();
-        let label = if theta_deg > 140.0 { "1C4 chair" } else { "4C1 chair" };
+        let label = if theta_deg > BASIN_1C4_MIN_DEG { "1C4 chair" } else { "4C1 chair" };
         basins.push(Basin {
             theta_rad: fes.grid[n - 1],
             theta_deg,
@@ -318,9 +335,9 @@ pub fn run_validation(
     let hills = parse_hills(hills_path)?;
 
     let grid_min = hills.centers.iter().cloned().fold(f64::INFINITY, f64::min)
-        - 3.0 * hills.sigmas.iter().cloned().fold(0.0_f64, f64::max);
+        - GRID_MARGIN_SIGMA * hills.sigmas.iter().cloned().fold(0.0_f64, f64::max);
     let grid_max = hills.centers.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
-        + 3.0 * hills.sigmas.iter().cloned().fold(0.0_f64, f64::max);
+        + GRID_MARGIN_SIGMA * hills.sigmas.iter().cloned().fold(0.0_f64, f64::max);
 
     let fes = reconstruct_fes(&hills, grid_min, grid_max, nbins);
     let basins = find_basins(&fes);
@@ -655,7 +672,7 @@ pub fn run_validation_2d_with_bounds(
 
     let parity = reference_path.map(|rp| {
         let ref_fes = parse_fes_2d(rp).expect("Failed to parse reference 2D FES");
-        check_parity_2d(&fes, &ref_fes, 2.0)
+        check_parity_2d(&fes, &ref_fes, PARITY_TOLERANCE_KJMOL)
     });
 
     Ok((fes, parity))
@@ -674,8 +691,8 @@ pub fn run_validation_2d(
 ) -> Result<(FesResult2D, Option<ParityCheck>), String> {
     let hills = parse_hills_2d(hills_path)?;
 
-    let margin_x = 3.0 * hills.sigmas_x.iter().cloned().fold(0.0_f64, f64::max);
-    let margin_y = 3.0 * hills.sigmas_y.iter().cloned().fold(0.0_f64, f64::max);
+    let margin_x = GRID_MARGIN_SIGMA * hills.sigmas_x.iter().cloned().fold(0.0_f64, f64::max);
+    let margin_y = GRID_MARGIN_SIGMA * hills.sigmas_y.iter().cloned().fold(0.0_f64, f64::max);
 
     let (grid_min_x, grid_max_x) = {
         let min_x = hills.centers_x.iter().cloned().fold(f64::INFINITY, f64::min) - margin_x;
@@ -695,10 +712,389 @@ pub fn run_validation_2d(
 
     let parity = reference_path.map(|rp| {
         let ref_fes = parse_fes_2d(rp).expect("Failed to parse reference 2D FES");
-        check_parity_2d(&fes, &ref_fes, 2.0)
+        check_parity_2d(&fes, &ref_fes, PARITY_TOLERANCE_KJMOL)
     });
 
     Ok((fes, parity))
+}
+
+// ─── Cross-landscape artifact detection ─────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossLandscapeReport {
+    pub rmsd_kjmol: f64,
+    pub max_diff_kjmol: f64,
+    pub mean_diff_kjmol: f64,
+    pub basin_diffs: Vec<BasinDiff>,
+    pub verdict: CrossLandscapeVerdict,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CrossLandscapeVerdict {
+    Distinct,
+    SuspiciouslySimilar,
+    IdenticalWithinNoise,
+}
+
+impl std::fmt::Display for CrossLandscapeVerdict {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Distinct => write!(f, "DISTINCT"),
+            Self::SuspiciouslySimilar => write!(f, "SUSPICIOUS"),
+            Self::IdenticalWithinNoise => write!(f, "FAIL_IDENTICAL"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BasinDiff {
+    pub label: String,
+    pub theta_range: [f64; 2],
+    pub free_energy_diff_kjmol: f64,
+}
+
+/// Compare a free-xylose FES against an enzyme-bound FES (1D).
+///
+/// If the enzyme-bound landscape is too similar to free xylose, the substrate
+/// likely dissociated and is sampling bulk solvent (not the active site).
+///
+/// `min_divergence`: minimum RMSD (kJ/mol) below which landscapes are flagged.
+/// Typical threshold: 5.0 kJ/mol (from tolerances.toml enzyme_barrier_reduction).
+pub fn compare_free_bound(
+    free: &FesResult,
+    bound: &FesResult,
+    min_divergence: f64,
+) -> CrossLandscapeReport {
+    let n = free.nbins.min(bound.nbins);
+
+    let free_min = free.free_energy.iter().cloned().fold(f64::INFINITY, f64::min);
+    let bound_min = bound.free_energy.iter().cloned().fold(f64::INFINITY, f64::min);
+
+    let mut max_diff = 0.0_f64;
+    let mut sum_diff = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+
+    for i in 0..n {
+        let x = free.grid[i];
+        let free_val = free.free_energy[i] - free_min;
+        let bound_val = interp(x, &bound.grid, &bound.free_energy) - bound_min;
+        let diff = (bound_val - free_val).abs();
+        max_diff = max_diff.max(diff);
+        sum_diff += diff;
+        sum_sq += diff * diff;
+    }
+
+    let mean_diff = sum_diff / n as f64;
+    let rmsd = (sum_sq / n as f64).sqrt();
+
+    // Per-basin analysis: compare energies in the three canonical regions
+    let basin_regions: &[(&str, f64, f64)] = &[
+        ("4C1_chair", 0.0, 0.7),           // 0-40 deg
+        ("boat_skewboat", 0.7, 2.44),      // 40-140 deg
+        ("1C4_chair", 2.44, std::f64::consts::PI),  // 140-180 deg
+    ];
+
+    let mut basin_diffs = Vec::new();
+    for &(label, theta_lo, theta_hi) in basin_regions {
+        let mut free_sum = 0.0;
+        let mut bound_sum = 0.0;
+        let mut count = 0;
+
+        for i in 0..n {
+            let x = free.grid[i];
+            if x >= theta_lo && x <= theta_hi {
+                free_sum += free.free_energy[i] - free_min;
+                bound_sum += interp(x, &bound.grid, &bound.free_energy) - bound_min;
+                count += 1;
+            }
+        }
+
+        let diff = if count > 0 {
+            (bound_sum - free_sum) / count as f64
+        } else {
+            0.0
+        };
+
+        basin_diffs.push(BasinDiff {
+            label: label.to_string(),
+            theta_range: [theta_lo.to_degrees(), theta_hi.to_degrees()],
+            free_energy_diff_kjmol: diff,
+        });
+    }
+
+    let verdict = if rmsd < min_divergence * VERDICT_MIDPOINT {
+        CrossLandscapeVerdict::IdenticalWithinNoise
+    } else if rmsd < min_divergence {
+        CrossLandscapeVerdict::SuspiciouslySimilar
+    } else {
+        CrossLandscapeVerdict::Distinct
+    };
+
+    CrossLandscapeReport {
+        rmsd_kjmol: rmsd,
+        max_diff_kjmol: max_diff,
+        mean_diff_kjmol: mean_diff,
+        basin_diffs,
+        verdict,
+    }
+}
+
+/// Compare free-xylose vs enzyme-bound 2D FES.
+///
+/// Same logic as 1D but operates on the full (qx, qy) or (theta, phi) surface.
+pub fn compare_free_bound_2d(
+    free: &FesResult2D,
+    bound: &FesResult2D,
+    min_divergence: f64,
+) -> CrossLandscapeReport {
+    let free_min = free.free_energy.iter()
+        .flat_map(|r| r.iter()).cloned()
+        .fold(f64::INFINITY, f64::min);
+    let bound_min = bound.free_energy.iter()
+        .flat_map(|r| r.iter()).cloned()
+        .fold(f64::INFINITY, f64::min);
+
+    let mut max_diff = 0.0_f64;
+    let mut sum_diff = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    let mut count = 0usize;
+
+    for i in 0..free.nbins_x {
+        for j in 0..free.nbins_y {
+            let x = free.grid_x[i];
+            let y = free.grid_y[j];
+            let free_val = free.free_energy[i][j] - free_min;
+            let bound_val = interp_2d(x, y, &bound.grid_x, &bound.grid_y, &bound.free_energy) - bound_min;
+            let diff = (bound_val - free_val).abs();
+            max_diff = max_diff.max(diff);
+            sum_diff += diff;
+            sum_sq += diff * diff;
+            count += 1;
+        }
+    }
+
+    let mean_diff = sum_diff / count as f64;
+    let rmsd = (sum_sq / count as f64).sqrt();
+
+    let verdict = if rmsd < min_divergence * VERDICT_MIDPOINT {
+        CrossLandscapeVerdict::IdenticalWithinNoise
+    } else if rmsd < min_divergence {
+        CrossLandscapeVerdict::SuspiciouslySimilar
+    } else {
+        CrossLandscapeVerdict::Distinct
+    };
+
+    CrossLandscapeReport {
+        rmsd_kjmol: rmsd,
+        max_diff_kjmol: max_diff,
+        mean_diff_kjmol: mean_diff,
+        basin_diffs: Vec::new(),
+        verdict,
+    }
+}
+
+// ─── Binding distance post-check ────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BindingCheck {
+    pub max_distance_nm: f64,
+    pub mean_distance_nm: f64,
+    pub final_distance_nm: f64,
+    pub n_frames: usize,
+    pub dissociated: bool,
+    pub wall_active_fraction: f64,
+}
+
+/// Parse a COLVAR file and extract the binding distance column.
+///
+/// Returns (distances, wall_biases) — both as Vec<f64>.
+/// The column index for d_bind and wall_bind.bias depends on the COLVAR header.
+pub fn parse_binding_colvar(path: &Path) -> Result<(Vec<f64>, Vec<f64>), String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read COLVAR: {e}"))?;
+
+    let mut d_bind_col: Option<usize> = None;
+    let mut wall_col: Option<usize> = None;
+    let mut distances = Vec::new();
+    let mut wall_biases = Vec::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("#! FIELDS") {
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            for (i, f) in fields.iter().enumerate() {
+                if *f == "d_bind" {
+                    d_bind_col = Some(i - 2); // offset for "#! FIELDS"
+                }
+                if *f == "wall_bind.bias" {
+                    wall_col = Some(i - 2);
+                }
+            }
+            continue;
+        }
+        if line.starts_with('#') || line.is_empty() {
+            continue;
+        }
+
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if let Some(col) = d_bind_col {
+            if col < parts.len() {
+                if let Ok(d) = parts[col].parse::<f64>() {
+                    distances.push(d);
+                }
+            }
+        }
+        if let Some(col) = wall_col {
+            if col < parts.len() {
+                if let Ok(w) = parts[col].parse::<f64>() {
+                    wall_biases.push(w);
+                }
+            }
+        }
+    }
+
+    if distances.is_empty() {
+        return Err("No d_bind column found in COLVAR".to_string());
+    }
+    if wall_biases.is_empty() {
+        wall_biases = vec![0.0; distances.len()];
+    }
+
+    Ok((distances, wall_biases))
+}
+
+/// Check binding distance from a COLVAR file.
+///
+/// `max_threshold_nm`: if max distance exceeds this, substrate dissociated.
+/// Typical: 2.0 nm.
+pub fn check_binding_distance(
+    path: &Path,
+    max_threshold_nm: f64,
+) -> Result<BindingCheck, String> {
+    let (distances, wall_biases) = parse_binding_colvar(path)?;
+
+    let n = distances.len();
+    let max_d = distances.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let mean_d = distances.iter().sum::<f64>() / n as f64;
+    let final_d = *distances.last().unwrap_or(&0.0);
+    let wall_active = wall_biases.iter().filter(|&&w| w > WALL_ACTIVE_THRESHOLD).count();
+    let wall_frac = wall_active as f64 / n as f64;
+
+    Ok(BindingCheck {
+        max_distance_nm: max_d,
+        mean_distance_nm: mean_d,
+        final_distance_nm: final_d,
+        n_frames: n,
+        dissociated: max_d > max_threshold_nm,
+        wall_active_fraction: wall_frac,
+    })
+}
+
+// ─── KS test for COLVAR distribution comparison ─────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KsTestResult {
+    pub statistic: f64,
+    pub n_free: usize,
+    pub n_bound: usize,
+    pub critical_value_05: f64,
+    pub distributions_same: bool,
+}
+
+/// Two-sample Kolmogorov-Smirnov test.
+///
+/// Returns the KS statistic D and whether the null hypothesis (same distribution)
+/// cannot be rejected at alpha=0.05.
+pub fn ks_two_sample(a: &[f64], b: &[f64]) -> KsTestResult {
+    let na = a.len();
+    let nb = b.len();
+
+    let mut sorted_a = a.to_vec();
+    sorted_a.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    let mut sorted_b = b.to_vec();
+    sorted_b.sort_by(|x, y| x.partial_cmp(y).unwrap());
+
+    let mut ia = 0;
+    let mut ib = 0;
+    let mut d_max = 0.0_f64;
+
+    while ia < na && ib < nb {
+        let va = sorted_a[ia];
+        let vb = sorted_b[ib];
+
+        if va <= vb {
+            ia += 1;
+        }
+        if vb <= va {
+            ib += 1;
+        }
+
+        let fa = ia as f64 / na as f64;
+        let fb = ib as f64 / nb as f64;
+        d_max = d_max.max((fa - fb).abs());
+    }
+
+    let critical = KS_CRITICAL_COEFF * ((na + nb) as f64 / (na as f64 * nb as f64)).sqrt();
+
+    KsTestResult {
+        statistic: d_max,
+        n_free: na,
+        n_bound: nb,
+        critical_value_05: critical,
+        distributions_same: d_max < critical,
+    }
+}
+
+/// Extract theta values from a COLVAR file (column 2, after time).
+pub fn parse_colvar_theta(path: &Path) -> Result<Vec<f64>, String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read COLVAR: {e}"))?;
+
+    let mut theta_col: Option<usize> = None;
+    let mut values = Vec::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("#! FIELDS") {
+            let fields: Vec<&str> = line.split_whitespace().collect();
+            for (i, f) in fields.iter().enumerate() {
+                if *f == "puck.theta" {
+                    theta_col = Some(i - 2);
+                    break;
+                }
+            }
+            continue;
+        }
+        if line.starts_with('#') || line.is_empty() {
+            continue;
+        }
+
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        let col = theta_col.unwrap_or(1);
+        if col < parts.len() {
+            if let Ok(v) = parts[col].parse::<f64>() {
+                values.push(v);
+            }
+        }
+    }
+
+    if values.is_empty() {
+        return Err("No theta values found in COLVAR".to_string());
+    }
+    Ok(values)
+}
+
+/// Compare theta distributions between free and enzyme-bound COLVAR files.
+///
+/// If distributions are indistinguishable (KS p > 0.05), the substrate may
+/// have dissociated.
+pub fn compare_colvar_distributions(
+    free_colvar: &Path,
+    bound_colvar: &Path,
+) -> Result<KsTestResult, String> {
+    let free_theta = parse_colvar_theta(free_colvar)?;
+    let bound_theta = parse_colvar_theta(bound_colvar)?;
+    Ok(ks_two_sample(&free_theta, &bound_theta))
 }
 
 #[cfg(test)]
@@ -836,5 +1232,72 @@ mod tests {
         let parity = check_parity_2d(&fes, &fes, 1.0);
         assert_eq!(parity.status, "MATCH");
         assert!(parity.max_deviation_kjmol < 1e-10);
+    }
+
+    #[test]
+    fn test_compare_free_bound_identical() {
+        let fes = FesResult {
+            grid: (0..100).map(|i| i as f64 * std::f64::consts::PI / 99.0).collect(),
+            free_energy: (0..100).map(|i| {
+                let x = i as f64 * std::f64::consts::PI / 99.0;
+                50.0 * (-(x - 0.2).powi(2) / 0.1).exp()
+                    + 30.0 * (-(x - 1.5).powi(2) / 0.1).exp()
+                    + 45.0 * (-(x - 2.9).powi(2) / 0.1).exp()
+            }).collect(),
+            nbins: 100,
+        };
+
+        let report = compare_free_bound(&fes, &fes, 5.0);
+        assert!(report.rmsd_kjmol < 0.001);
+        assert!(matches!(report.verdict, CrossLandscapeVerdict::IdenticalWithinNoise));
+    }
+
+    #[test]
+    fn test_compare_free_bound_distinct() {
+        let pi = std::f64::consts::PI;
+        let grid: Vec<f64> = (0..100).map(|i| i as f64 * pi / 99.0).collect();
+
+        let free = FesResult {
+            grid: grid.clone(),
+            free_energy: grid.iter().map(|&x| {
+                50.0 - 50.0 * (-(x - 0.2).powi(2) / 0.02).exp()
+                     - 20.0 * (-(x - 1.5).powi(2) / 0.02).exp()
+                     - 45.0 * (-(x - 2.9).powi(2) / 0.02).exp()
+            }).collect(),
+            nbins: 100,
+        };
+
+        // Enzyme-bound: barriers lowered significantly
+        let bound = FesResult {
+            grid: grid.clone(),
+            free_energy: grid.iter().map(|&x| {
+                30.0 - 50.0 * (-(x - 0.2).powi(2) / 0.02).exp()
+                     - 35.0 * (-(x - 1.5).powi(2) / 0.02).exp()
+                     - 45.0 * (-(x - 2.9).powi(2) / 0.02).exp()
+            }).collect(),
+            nbins: 100,
+        };
+
+        let report = compare_free_bound(&free, &bound, 3.0);
+        assert!(report.rmsd_kjmol > 3.0, "RMSD {} should be > 3.0", report.rmsd_kjmol);
+        assert!(matches!(report.verdict, CrossLandscapeVerdict::Distinct));
+    }
+
+    #[test]
+    fn test_ks_same_distribution() {
+        let a: Vec<f64> = (0..1000).map(|i| (i as f64 / 1000.0) * std::f64::consts::PI).collect();
+        let b = a.clone();
+        let result = ks_two_sample(&a, &b);
+        assert!(result.statistic < result.critical_value_05);
+        assert!(result.distributions_same);
+    }
+
+    #[test]
+    fn test_ks_different_distribution() {
+        let a: Vec<f64> = (0..1000).map(|i| (i as f64 / 1000.0) * 0.5).collect();
+        let b: Vec<f64> = (0..1000).map(|i| 2.0 + (i as f64 / 1000.0) * 0.5).collect();
+        let result = ks_two_sample(&a, &b);
+        assert!(result.statistic > result.critical_value_05);
+        assert!(!result.distributions_same);
     }
 }
