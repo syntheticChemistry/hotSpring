@@ -371,11 +371,11 @@ See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
 # BarraCuda validation (all 65 suites, 3 tiers)
 cd barracuda && cargo run --release --bin validate_all
 
-# CompChem GuideStone pipeline (Rust-orchestrated, requires GROMACS+PLUMED env)
-./pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/run
-
-# CompChem validation only (existing data, 190/190 checks)
-cd control/plumed_nest && ./nest-validate/target/release/nest-validate guidestone validate ../../../pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0
+# CompChem GuideStone pipeline (run simulations → build pseudoSpore → validate)
+cd control/plumed_nest && cargo build --release --manifest-path nest-validate/Cargo.toml
+./nest-validate/target/release/nest-validate guidestone run
+./nest-validate/target/release/nest-validate guidestone finalize
+./nest-validate/target/release/nest-validate guidestone validate
 ```
 
 > **Note**: Legacy regeneration scripts (`regenerate-all.sh`, `clone-repos.sh`,
@@ -559,8 +559,7 @@ hotSpring/
 | [`niches/compchem-explorer.yaml`](niches/compchem-explorer.yaml) | biomeOS niche definition — organisms, interactions, degradation tiers |
 | [`graphs/hotspring_qcd_deploy.toml`](graphs/hotspring_qcd_deploy.toml) | biomeOS deploy graph — 10 primals, bonding policy, spawn order |
 | [`CHANGELOG.md`](CHANGELOG.md) | Root changelog — spring-level changes |
-| [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/README.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/README.md) | pseudoSpore artifact — 22 modules, 185/187 checks, epimer survey + GH11 mechanistic comparison |
-| [`pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/DEPLOY.md`](pseudoSpore_hotSpring-CompChem-GuideStone_v1.7.0/DEPLOY.md) | 5 deployment paths: local, web, VPS, litho promotion, NUCLEUS nest |
+| pseudoSpore v1.7.0 (artifact, not in repo) | 22-module transmission package — ships via tarball/Discord/cellMembrane. Build with `nest-validate guidestone finalize`. |
 | [`barracuda/ABSORPTION_MANIFEST.md`](barracuda/ABSORPTION_MANIFEST.md) | Write → Absorb → Lean tracking for upstream absorption |
 | [`Dockerfile`](Dockerfile) | OCI container image for universal substrate deployment |
 

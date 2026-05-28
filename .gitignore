@@ -136,6 +136,9 @@ env/
 .idea/
 .cursor/
 
+# ----- Legacy fossil staging (moved to fossilRecord/) -----
+.fossil/
+
 # ----- Local cargo overrides (developer-specific path patches) -----
 **/.cargo/config.toml
 
@@ -210,12 +213,13 @@ control/gromacs_fel/cazyme_gh10_v2/COLVAR
 control/gromacs_fel/cazyme_gh10_v2/HILLS
 control/gromacs_fel/cazyme_gh10_v2/#*
 
-# ----- pseudoSpore raw observables (belong in lithoSpore/braids, not git) -----
-pseudoSpore_*/modules/*/COLVAR*
-pseudoSpore_*/modules/*/HILLS*
-pseudoSpore_*/modules/*/Kernels*
-pseudoSpore_*/modules/*/*.xtc
-pseudoSpore_*/modules/*/*.trr
+# ----- pseudoSpore / lithoSpore artifacts (transmission packages, NOT repo content) -----
+# The pseudoSpore is the artifact — tarballs ship via Discord/lithoSpore/cellMembrane.
+# The repo holds only the machinery that builds and validates them.
+pseudoSpore_*/
+pseudoSpore_*.tar.gz
+lithoSpore_*.tar.gz
+fossilRecord/pseudoSpores/
 
 # ----- GuideStone refresh (simulation working data — multi-GB, regenerable via `nest-validate guidestone run`) -----
 control/gromacs_fel/guidestone_refresh/**/*.gro
