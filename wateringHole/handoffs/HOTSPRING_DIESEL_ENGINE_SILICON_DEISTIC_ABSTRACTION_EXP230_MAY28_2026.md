@@ -3,7 +3,7 @@
 **Date:** May 28, 2026
 **Experiments:** 230–231 (Diesel Abstraction Revalidation + K80 Cross-Gen Quench Probe)
 **Sprint:** S280
-**Status:** Code complete, awaiting hardware revalidation
+**Status:** COMPLETE — hardware revalidated (Exp 230 Run 2: 20/20 patches, 79s, WarmCompute)
 
 ## Summary
 

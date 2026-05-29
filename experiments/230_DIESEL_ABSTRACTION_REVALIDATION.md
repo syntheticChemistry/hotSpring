@@ -1,7 +1,7 @@
 # Experiment 230: Diesel Engine Abstraction Revalidation
 
 **Date:** 2026-05-28
-**Status:** READY — Awaiting hardware run
+**Status:** COMPLETE — Revalidation passed (2026-05-28 12:25 EDT)
 **Hardware:** Dual Titan V (GV100, SM70) — 0000:02:00.0 + 0000:49:00.0
 **Prerequisite:** Exp 229 (Catalyst Channel + Lockup Forensics — COMPLETE)
 
@@ -63,8 +63,47 @@ experiment confirms no regressions were introduced by the abstraction.
 
 ## Success Criteria
 
-- [ ] Full catalyst handoff completes without lockup
-- [ ] Journal shows generation-aware quench dispatch (profile-driven logs)
-- [ ] Watchdog receives heartbeats (no false-positive trigger)
-- [ ] Tier classification matches Exp 229 Run #9 result
-- [ ] `rm_trigger` runs with `--bdf 0000:49:00.0` (not hardcoded)
+- [x] Full catalyst handoff completes without lockup
+- [x] Journal shows generation-aware quench dispatch (profile-driven logs)
+- [x] Watchdog receives heartbeats (no false-positive trigger)
+- [x] Tier classification matches Exp 229 Run #9 result
+- [x] `rm_trigger` runs with `--bdf 0000:49:00.0` (not hardcoded)
+
+## Run Results
+
+### Run 1 — Preflight Halt (stuck module)
+
+- **Outcome**: Preflight halt — `nvsov` stuck in `Unloading` (refcount -1) from prior crash
+- **Not a regression**: Pipeline detected zombie module and halted gracefully
+- **Positive signals**: Watchdog activated (450s), RAII deactivation on halt, keepalive exclude/restore
+- **Resolution**: Full power cycle to clear zombie module
+
+### Run 2 — FULL SUCCESS
+
+- **Outcome**: `success: true`, Tier: `WarmCompute`, Total: `79,090ms`
+- **PMC DEVINIT**: `0x40000121` (cold, popcount 4) → `0x5fecdff1` (warm, popcount 23)
+- **Interrupt quench**: Volta path via `CLEAR@0x180` — `0x7fffffff → 0x00000000`
+- **rm_trigger**: `--bdf 0000:49:00.0` passed correctly, exit 0
+- **Module patching**: 20/20 targets applied, identity rename `nvidia→nvsov`
+- **BAR0 capture**: 62,569 alive registers across 22 domains
+- **FECS INIT_CTXSW**: Succeeded (`mb0=0x1`, `tpc0=0xcf`)
+- **PRI recovery**: Complete — IMEM captured (24,314 nonzero bytes), 8/8 words alive
+- **Firmware**: `fecs_imem_gv100.bin`, `gpccs_imem_gv100.bin` (chip_name-driven)
+- **Watchdog**: Armed at 450s, deactivated cleanly on completion
+- **Keepalive**: BDFs excluded during handoff, restored after
+
+### Lockup Vector Verification
+
+| # | Vector | Result | Evidence |
+|---|--------|--------|----------|
+| 1 | PCIe bridge keepalive deadlock | PASS | Exclusion guard active, no pci_lock contention |
+| 2 | INTR_EN quench via InterruptProfile | PASS | `disable_offset: 0x180` (Volta CLEAR path) |
+| 3 | nvidia_close re-enable → post-exit quench | PASS | `pmc::quench_interrupts()` with profile |
+| 4 | nv_close_device use-after-free | PASS | RetAtEntry patch applied (offset 11189) |
+| 5 | nv_pci_remove hang | PASS | RetAtEntry patch applied (offset 30741) |
+
+### Known Non-Regression Issue
+
+- `module_cleanup` step failed: `nvsov` rmmod returns -1 (refcount goes to -1)
+- Pre-existing before abstraction — the patched module's cleanup_module path is neutered
+- Module becomes zombie until reboot — tracked since Exp 225

@@ -7,6 +7,51 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Crash Vector Reprofile + Diesel Engine Defense Matrix — Exp 232 (May 28, 2026)
+
+### Added
+- **Experiment 232**: Crash Vector Reprofile — systematic reprofile of all known
+  crash vectors through the abstracted diesel engine. 4 probes executed, all
+  success criteria met.
+- **Kernel Oops Sentinel** (`kernel_sentinel.rs`) — new background OS thread
+  monitoring `/dev/kmsg` in real-time for kernel crash signatures (Oops, BUG,
+  RIP, panic, irq_domain). On detection: saves full crash report with GPU BAR0
+  registers, module state, PCI config, and kernel log context to
+  `/var/lib/toadstool/crash-reports/`. Triggers emergency quench if handoff active.
+- **IRQ Storm Detector** — watchdog now samples INTR_EN_0 via BAR0 mmap during
+  active handoffs at 500ms intervals. Pre-emptively quenches if unexpected hot
+  bits (beyond PBDMA bit 9) appear.
+- **Watchdog cross-module API** — `is_active()` and `force_emergency_quench()`
+  exported for sentinel integration.
+- **Zombie module defense** — `rmmod_guarded` retries with `O_NONBLOCK|O_TRUNC`
+  flags as zombie-killer fallback. Pipeline preflight detects zombies, attempts
+  burial, halts gracefully if permanent.
+- **`ModuleSnapshot` struct** — point-in-time kernel module state capture
+  (name, size, refcount, state, is_zombie). Used by watchdog during module
+  cleanup phase for 200ms high-frequency polling.
+- **`PipelineSignal` enum** — lifecycle events (`EnterModuleCleanup`,
+  `ExitModuleCleanup`) between pipeline and watchdog.
+- **`execute_handoff_with_signals()`** — accepts signal callback for watchdog
+  phase transitions.
+
+### Fixed
+- **A6 crash vector identified and reverted** — `cleanup_module` RetAtEntry patch
+  caused kernel oops in `irq_domain_remove` + `msi_device_data_release` during
+  PCI unbind. Zombie module (B2) accepted as non-fatal instead.
+
+### Changed
+- Patch count for `nvidia_catalyst_handoff`: 21→20 (cleanup_module reverted).
+- `toadstool-ember.service`: added `CAP_SYSLOG` to capability bounding set
+  (required for `/dev/kmsg` sentinel).
+- Server crate: added `libc` dependency for sentinel mmap/lseek operations.
+
+### Crash Vector Taxonomy (Exp 232)
+- **A1–A5**: Confirmed kills — all defended (no regression)
+- **A6**: NEW — irq_domain_remove crash from cleanup_module NOP (reverted)
+- **B1–B3**: Confirmed hangs — detected and reported gracefully
+- **C3**: PRI ring faults — SAFE (GPU-internal, zero PCIe AER)
+- **C7**: Pending interrupts — SAFE (masked by INTR_EN)
+
 ## Diesel Engine Silicon Deistic Abstraction — Exp 230/231 (May 28, 2026)
 
 ### Added
