@@ -2004,7 +2004,7 @@ Next: hardware validation on Titan V and K80.
 
 - **Primal:** Ecosystem documentation
 - **Severity:** Low (documentation only)
-- **Status:** Active
+- **Status:** Resolved locally (Wave 60) — upstream pending
 - **Description:** Upstream gate assignment table and `HARDWARE.md` still list
   K80 at biomeGate. K80 was retired Exp 199 (hardware fire), replaced by second
   Titan V. Actual fleet: 2× Titan V (GV100) + RTX 5060 per `glowplug.toml`.
@@ -2015,7 +2015,7 @@ Next: hardware validation on Titan V and K80.
 
 - **Primal:** skunkBat / plasmidBin
 - **Severity:** Low
-- **Status:** Active
+- **Status:** Resolved (Wave 60)
 - **Description:** `infra/plasmidBin/ports.env` includes `skunkbat` in
   `niche-hotspring`, but the proto-nucleate `depends_on` list in
   `downstream_manifest.toml` does not include skunkbat. Deploy graphs have
@@ -2025,6 +2025,10 @@ Next: hardware validation on Titan V and K80.
   (making it deploy-graph-only), or add skunkbat to proto-nucleate `depends_on`
   with an `optional = true` annotation. Recommend: remove from niche, keep in
   deploy graph as optional.
+- **Resolution:** `niche/tables.rs` already declares `skunkbat` with
+  `required: false` — this IS the optional annotation. `ports.env` includes
+  it in `NICHE_HOTSPRING` because Tower Atomic includes skunkBat (defense layer).
+  The deploy graph semantics and niche tables are consistent. No change needed.
 
 ### GAP-HS-110 — Sovereign Stack Not in validate-primal-proof.sh (May 23, 2026)
 
@@ -2078,6 +2082,25 @@ Next: hardware validation on Titan V and K80.
   2. CV trajectory overlay on FEL surface
   3. Interactive Cremer-Pople ring puckering visualization
   4. Convergence diagnostic plots (hill height vs time, FES evolution)
+
+---
+
+### DH-1 — Deployment Hygiene: /tmp Hardcoding Fixes (May 29, 2026)
+
+- **Source:** primalSpring DH-1 audit (Wave 60)
+- **Scope:** 5 of 6 offending primals fixed by strandGate
+- **Status:** Fixes committed locally, pending upstream push
+
+| Primal | Fix applied |
+|--------|-------------|
+| **barraCuda** | `neural_announce.rs`: added `BIOMEOS_SOCKET_DIR` tier, replaced `/tmp` with `temp_dir()` |
+| **sweetGrass** | `primal_names.rs`: deprecated `DEFAULT_SOCKET_DIR` const, added `default_socket_dir()` fn; fixed `composition.rs`, `neural_announce.rs`, `discovery.rs` |
+| **songBird** | `env_config/mod.rs`: `runtime_or_tmp_base` uses `temp_dir()` instead of `"/tmp"`; fixed misleading startup log |
+| **squirrel** | `network.rs`: `get_socket_dir()` checks `BIOMEOS_SOCKET_DIR` first, uses `temp_dir()` fallback; fixed `manifest_discovery.rs`, `unix_socket.rs`, `discovery.rs` |
+| **toadStool** | `identity.rs`: announce uses `BIOMEOS_SOCKET_DIR` → `XDG` → `temp_dir()`; fixed `socket.rs`, `platform/mod.rs`, `deployment.rs` |
+| **coralReef** | Already clean — uses `temp_dir()` in production code |
+
+All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
 
 ---
 
