@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 29, 2026 (GAP-HS-111 resolved: 4 bonded force shaders in barraCuda, topology reader + metadynamics bias + FES parity in hotSpring compchem module. 30 new tests pass. 1 active gap HS-112 — petalTongue visualization)
+**Last audited:** May 30, 2026 (Wave 63 delta audit: GAP-HS-005 upstream resolved — BearDog ionic protocol fully implemented. Songbird restarted with federation-port 7700. GAP-HS-111 committed + pushed. Remaining: hotSpring GPU lease prototype on BearDog ionic RPCs)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -49,12 +49,21 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 - **Primal:** BearDog / Songbird
 - **Severity:** Medium (ecosystem-wide)
-- **Status:** Blocked upstream
-- **Description:** The proto-nucleate documents ionic bonding for cross-
-  FAMILY_ID GPU lease (CERN-style deployment). BearDog's
-  `crypto.sign_contract` and ionic propose/accept/seal protocol are not
-  yet implemented. This blocks multi-family metallic fleet pooling.
+- **Status:** Upstream resolved, hotSpring integration pending
+- **Description:** BearDog now has full ionic protocol implementation:
+  `crypto.sign_contract`, `crypto.verify_contract`, `crypto.ionic_bond.propose`,
+  `crypto.ionic_bond.accept`, `crypto.ionic_bond.seal`, plus cross-family
+  `crypto.contract.propose/countersign/verify` with lease TTL support.
+  30+ tests in beardog-tunnel. hotSpring needs to build the GPU lease
+  prototype on top of these RPCs — wire barraCuda session creation through
+  ionic bond negotiation for cross-FAMILY_ID GPU scheduling.
 - **Upstream ref:** `primalSpring/docs/PRIMAL_GAPS.md` IONIC-RUNTIME item.
+  BearDog: `crates/beardog-tunnel/src/unix_socket_ipc/handlers/ionic_bond/`.
+- **Resolution (upstream):** Resolved in BearDog Wave 42/97/102. Full
+  `IonicBondHandler` with lifecycle state machine (Proposed → Active → Sealed),
+  Ed25519 contract signing, and persistence hooks.
+- **Remaining:** hotSpring GPU lease prototype: invoke `crypto.sign_contract`
+  from barraCuda session setup, implement cross-family GPU scheduling graph.
 
 ### GAP-HS-006: BTSP-BARRACUDA-WIRE Session Crypto — RESOLVED
 
