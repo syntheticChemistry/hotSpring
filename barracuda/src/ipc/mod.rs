@@ -20,6 +20,7 @@
 //! ipc::squirrel        — SquirrelClient (inference via neuralSpring/squirrel)
 //! ipc::toadstool       — ToadStool performance surface reporter
 //! ipc::signing         — Receipt signing via bearDog crypto.sign_ed25519
+//! ipc::ionic_lease     — Cross-family GPU lease via bearDog ionic bonding (GAP-HS-005)
 //! ipc::provenance      — Per-trio modules (rhizoCrypt, loamSpine, sweetGrass)
 //! ipc::skunkbat        — SkunkBat security.audit_log client (JH-5)
 //! ipc::tier2           — Tier 2 Live Science API (toadstool.validate, precision.route)
@@ -38,6 +39,9 @@
 
 /// biomeOS `composition.status` IPC client (v3.51).
 pub mod biome_status;
+
+/// Ionic GPU lease — cross-family GPU scheduling via BearDog ionic bonding (GAP-HS-005).
+pub mod ionic_lease;
 
 /// biomeOS `method.register` IPC client (v3.51).
 pub mod method_register;

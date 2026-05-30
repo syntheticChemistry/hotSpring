@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 30, 2026 (Wave 63 delta audit: GAP-HS-005 upstream resolved — BearDog ionic protocol fully implemented. Songbird restarted with federation-port 7700. GAP-HS-111 committed + pushed. Remaining: hotSpring GPU lease prototype on BearDog ionic RPCs)
+**Last audited:** May 30, 2026 (Wave 63 delta audit: GAP-HS-005 prototype implemented — `ipc::ionic_lease` module with GpuLeaseClient, propose/sign/verify/seal lifecycle, 4 tests. Songbird on federation-port 7700. GAP-HS-111 committed + pushed. Temporal sync 24/24 parity)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -62,8 +62,12 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution (upstream):** Resolved in BearDog Wave 42/97/102. Full
   `IonicBondHandler` with lifecycle state machine (Proposed → Active → Sealed),
   Ed25519 contract signing, and persistence hooks.
-- **Remaining:** hotSpring GPU lease prototype: invoke `crypto.sign_contract`
-  from barraCuda session setup, implement cross-family GPU scheduling graph.
+- **Prototype (Wave 63):** `ipc::ionic_lease` module implemented with:
+  `GpuLeaseClient` (from NucleusContext), `propose_lease`, `sign_lease_contract`,
+  `verify_lease`, `seal_bond`, and `negotiate_gpu_lease` convenience function.
+  4 unit tests pass (serialization roundtrip, state transitions, BearDog discovery guard).
+- **Remaining:** Live E2E cross-family GPU lease test (requires second FAMILY_ID
+  gate with toadStool dispatch), integration with barraCuda session builder.
 
 ### GAP-HS-006: BTSP-BARRACUDA-WIRE Session Crypto — RESOLVED
 
