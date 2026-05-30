@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 28, 2026 (231 experiments. Exps 230–231: Diesel Engine Silicon Deistic Abstraction — generation-aware interrupt defense (InterruptProfile), HandoffCapabilityProfile, TOML recipe loading, pipeline heartbeats, rm_trigger BDF parameterization. 15 files refactored across cylinder+server. Exp 229 catalyst channel + lockup forensics COMPLETE — Tier 2 WarmCompute handoff achieved. Diesel engine FLR-first fix (Exp 225), catalyst lockup defense proven (Exp 229: 5 vectors cataloged+fixed). 2 active gaps HS-111/112 — biomolecular FF + petalTongue visualization)
+**Last audited:** May 29, 2026 (GAP-HS-111 resolved: 4 bonded force shaders in barraCuda, topology reader + metadynamics bias + FES parity in hotSpring compchem module. 30 new tests pass. 1 active gap HS-112 — petalTongue visualization)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -2049,7 +2049,7 @@ Next: hardware validation on Titan V and K80.
 
 - **Primal:** barraCuda / hotSpring
 - **Severity:** Medium (feature gap, not regression)
-- **Status:** Active — Exp 220 Phase 0 started
+- **Status:** Resolved locally (Wave 60, strandGate May 29 2026)
 - **Description:** barraCuda has full nonbonded MD primitives (LJ, Coulomb,
   PPPM, cell/Verlet lists, VV, thermostats, observables) but lacks bonded
   force field terms (harmonic bonds, harmonic angles, dihedral torsions,
@@ -2060,12 +2060,23 @@ Next: hardware validation on Titan V and K80.
 - **Context:** CAZyme conformational energy landscape project with Alistaire
   (domain expert) and Mark (NSF HPC access). GROMACS 2026.0 installed as
   industry control. See Exp 220.
-- **Action:**
-  1. barraCuda: 4 new WGSL shaders (`harmonic_bond`, `harmonic_angle`,
-     `dihedral_torsion`, `improper_dihedral`)
-  2. hotSpring: topology reader for GROMOS 45a4 / GLYCAM06
-  3. hotSpring: metadynamics bias (Cremer-Pople CV + Gaussian hills)
-  4. hotSpring: parity validation against GROMACS FEL
+- **Resolution (Wave 60):**
+  1. **barraCuda bonded shaders (4/4):** `harmonic_bond_f64`, `harmonic_angle_f64`,
+     `dihedral_f64`, `improper_f64` — all f64, two-pass GPU dispatch, 10 unit tests pass.
+     Follows Morse f64 pattern: per-term forces → reduce to per-particle.
+     Angle uses 3-body scatter (`[M*9]`), dihedral/improper use Blondel-Karplus 4-body (`[M*12]`).
+  2. **hotSpring topology reader:** `compchem/topology/gromacs.rs` — parses GROMACS `.top`/`.itp`
+     files, extracts atoms/bonds/angles/dihedrals with 0-based indexing. Validated against
+     real xylose topology (20 atoms, 20 bonds, 35 angles, 54 dihedrals). Handles `#include`
+     skip, comment stripping, molecule expansion for multi-copy systems.
+  3. **hotSpring metadynamics bias:** `compchem/metadynamics/` — Cremer-Pople ring puckering
+     CVs (Q, θ, φ) with numerical gradients; well-tempered Gaussian hill deposition/evaluation;
+     1D/2D bias with periodic boundary support. 11 unit tests pass.
+  4. **FES parity validation:** `compchem/parity/fes_parity.rs` — loads PLUMED HILLS,
+     reconstructs F(θ) = −V(s), compares against GROMACS `sum_hills --mintozero` reference.
+     Real xylose 1D parity: RMSD < 2.0 kJ/mol (10,000 hills, biasfactor=15).
+- **Remaining:** Sovereign MD loop composition (K1–K4), FF parameter table reader
+  (resolve `bondtypes`/`angletypes` from `.ff/` tree), GPU shader integration test.
 - **Visualization:** FEL rendering → ludoSpring via petalTongue evolution
 
 ### GAP-HS-112 — petalTongue FEL Visualization Evolution (May 24, 2026)

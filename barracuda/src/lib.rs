@@ -57,6 +57,8 @@ pub mod bench;
 pub mod bin_helpers;
 /// Composition certification engine — absorbed guideStone organelle (L0–L5).
 pub mod certification;
+/// Computational chemistry: topology parsing, force field bridge, parity validation.
+pub mod compchem;
 /// NUCLEUS composition validation — atomic health, capability routing, science probes.
 pub mod composition;
 /// ToadStool compute dispatch validation (submit/result/capabilities).
