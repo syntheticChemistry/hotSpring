@@ -2169,19 +2169,21 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
   Shader now compiles through both coralReef and wgpu.
 - **Status**: RESOLVED locally — upstream may want to add f64 pow() extension.
 
-### GAP-HS-118: toadStool VFIO cylinder readback not implemented
+### GAP-HS-118: toadStool VFIO cylinder readback ~~not implemented~~ — wire format + FECS
 
-- **Severity**: P0 — blocks all end-to-end compute result verification
-- **Upstream**: toadStool `local_cylinder` dispatch path
-- **Symptom**: `shader.dispatch` and `compute.dispatch.submit` succeed with
-  `status: completed` but always return `buffers: []` and `readback_ms: 0`,
-  even when `readback: true` is set in binding descriptors.
-- **Evidence**: Tested with vector multiply and tree reduction kernels on both
-  Titan V GPUs (`0000:02:00.0`, `0000:49:00.0`). Dispatch completes in ~1s
-  but no output data is returned.
-- **Root cause**: The local_cylinder VFIO dispatch engine loads and executes
-  the compiled binary but does not implement DMA readback of GPU memory.
-- **Status**: OPEN — filed June 1, 2026. Blocks pipeline validation.
+- **Severity**: P0 → **P1** — readback works with correct buffer format; real gap is FECS
+- **Upstream**: toadStool `local_cylinder` dispatch path + VFIO compute context
+- **Symptom**: Readback returns zeros for all values. Buffers are returned correctly
+  when using the proper wire format (array of `{size, direction, data, domain}` objects).
+- **Root cause (revised)**: Two-layer gap:
+  1. **Wire format** (RESOLVED): Callers were passing bindings as objects with `type`/
+     `data_b64` fields. The cylinder expects arrays with `size`/`direction`/`data`/`domain`.
+     With correct format, readback returns 256 values correctly.
+  2. **FECS execution** (OPEN): The Titan V VFIO path dispatches pushbuffer commands
+     successfully but the compute kernel doesn't execute — FECS hasn't loaded the golden
+     context (PENDING_CTX_RELOAD, Exp 228). The GPU accepts the command but can't process it.
+- **Status**: PARTIALLY RESOLVED — wire format fixed. FECS context init remains the
+  Tier 2 sovereignty boundary. Filed June 1, 2026 (revised same day).
 
 ### GAP-HS-119: toadStool DRM dispatch requires missing visualization provider
 
@@ -2194,23 +2196,32 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
   songbird registrations to toadStool's internal registry.
 - **Status**: OPEN — filed June 1, 2026.
 
-### GAP-HS-120: barraCuda cross-gate dispatch calls nonexistent method
+### GAP-HS-120: ~~barraCuda~~ toadStool internal dispatch calls nonexistent method
 
-- **Severity**: P0 — blocks barraCuda → toadStool dispatch pipeline
-- **Upstream**: barraCuda `compute.dispatch` cross-gate router
-- **Symptom**: `compute.dispatch.submit` on barraCuda routes to toadStool but
-  calls `compute.dispatch.execute` which returns `-32601 Method not found`.
-  Actual toadStool method is `compute.dispatch.submit` or `shader.dispatch`.
-- **Status**: OPEN — filed June 1, 2026.
+- **Severity**: P0 → **RESOLVED**
+- **Upstream**: toadStool `shader_dispatch.rs` and `submit.rs` — `coral_client` call
+- **Symptom**: toadStool's DRM fallback path calls `compute.dispatch.execute` on its
+  internal `coral_client`, but this method doesn't exist. Returns `-32601 Method not found`.
+- **Root cause (corrected)**: Not a barraCuda issue. The `compute-hotspring-validate.sock`
+  is toadStool's socket, not barraCuda's. toadStool's `shader_dispatch.rs:211` and
+  `submit.rs:475` both call `compute.dispatch.execute` — should be `compute.dispatch.submit`.
+- **Fix applied**: Changed both call sites in toadStool to `compute.dispatch.submit`.
+- **Status**: RESOLVED — June 1, 2026. Fix committed to toadStool.
 
-### GAP-HS-121: Blackwell (RTX 5060) compute_viable: false — missing firmware
+### GAP-HS-121: Blackwell (RTX 5060) compute_viable via VFIO: false — wgpu path WORKS
 
-- **Severity**: P1 — blocks VFIO sovereignty on Blackwell
-- **Upstream**: toadStool firmware inventory
+- **Severity**: P1 → **P2** — wgpu/Vulkan compute verified working
+- **Upstream**: toadStool VFIO viability + firmware inventory
 - **Symptom**: `gpu.query_info` returns `chip: unknown-2d05`, all firmware
-  fields `Missing` (gr, pmu, gsp, acr, sec2, nvdec). `compute_viable: false`,
-  blockers: `["gr", "pmu/gsp"]`. f64 transcendentals marked unsafe.
-- **Status**: OPEN — filed June 1, 2026.
+  fields `Missing`. `compute_viable: false` for VFIO path. RTX 5060 is primary
+  display GPU on `nvidia` DRM driver — VFIO binding requires display unbinding.
+- **Workaround**: **wgpu/Vulkan compute VERIFIED** — direct wgpu dispatch
+  produces correct results (256/256 f32 values, exact match). The Blackwell
+  GPU works through the standard Vulkan compute path via wgpu v28.
+- **Evolution**: toadStool needs a `wgpu` dispatch backend for DRM-bound GPUs
+  (complement to VFIO `local_cylinder` path). This enables dual-path compute:
+  VFIO for sovereign bare-metal, wgpu for DRM-bound cards.
+- **Status**: PARTIALLY RESOLVED — wgpu path validated June 1, 2026.
 
 ### GAP-HS-122: coralReef has no sm_120 (Blackwell) codegen target
 

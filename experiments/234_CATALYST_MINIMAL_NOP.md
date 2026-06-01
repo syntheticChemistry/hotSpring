@@ -345,9 +345,10 @@ After upstream sync (coralReef 1d9452c, barraCuda 5c70da46), full pipeline reval
 | songbird discovery resolution | **PASS** — coralReef registered for 7 capabilities |
 | toadStool VFIO dispatch (Titan V #1) | **PASS** — `local_cylinder`, ~1s |
 | toadStool VFIO dispatch (Titan V #2) | **PASS** — `local_cylinder`, ~4s |
-| VFIO readback | **FAIL** — 0 buffers, 0ms readback (not implemented) |
-| DRM dispatch (Blackwell) | **FAIL** — no visualization provider |
-| barraCuda cross-gate → toadStool | **FAIL** — calls `compute.dispatch.execute` (nonexistent) |
+| VFIO readback | ~~FAIL~~ **PASS** — wire format fix: 256 values returned, but all zeros (FECS boundary) |
+| DRM dispatch (Blackwell) | **FAIL** via toadStool — no visualization provider |
+| Blackwell wgpu compute | **PASS** — 256/256 values correct via wgpu/Vulkan |
+| barraCuda cross-gate → toadStool | ~~FAIL~~ **FIXED** — toadStool called `compute.dispatch.execute`, corrected to `.submit` |
 
 ### Key Findings
 
@@ -355,20 +356,42 @@ After upstream sync (coralReef 1d9452c, barraCuda 5c70da46), full pipeline reval
    on bare-metal Titan V GPUs. The cylinder loads and executes compiled SPIR-V.
    This is the first successful sovereign shader dispatch in the ecoPrimals stack.
 
-2. **Readback is the critical gap** — toadStool's local_cylinder dispatches the binary
-   but has no DMA readback mechanism. This blocks result verification.
+2. **Readback was a wire format issue, not a missing feature** — the local_cylinder
+   readback code is fully implemented (alloc→upload→dispatch→sync→readback). Callers
+   were passing bindings in the wrong format (`type`/`data_b64` instead of
+   `direction`/`data`/`size`). With correct format, 256 values are returned.
+   However, all values are zero — the **real gap is FECS execution**. The GPU accepts
+   pushbuffer commands but the compute kernel doesn't run because FECS hasn't loaded
+   the golden context (PENDING_CTX_RELOAD from Exp 228). This is the Tier 2 sovereignty
+   boundary.
 
-3. **Blackwell is non-viable** — `compute_viable: false`, all firmware missing,
-   no sm_120 codegen in coralReef. DRM path also blocked by provider gap.
+3. **Blackwell wgpu compute VERIFIED** — the RTX 5060 produces correct results
+   (256/256 f32 values, exact match) through the wgpu/Vulkan compute path. The GPU
+   is fully functional for compute — only the toadStool VFIO/DRM integration is
+   missing. Evolution target: add wgpu dispatch backend to toadStool for DRM-bound GPUs.
 
-4. **barraCuda method mismatch** — `compute.dispatch.execute` should be
-   `compute.dispatch.submit`. One-line fix in barraCuda cross-gate router.
+4. **toadStool method mismatch fixed** — both `shader_dispatch.rs` and `submit.rs`
+   called `compute.dispatch.execute` on the internal `coral_client`. Fixed to
+   `compute.dispatch.submit`. (Not a barraCuda issue as originally diagnosed.)
 
-5. **songbird ↔ toadStool disconnect** — registering providers with songbird
+5. **coralReef subgroup panic persists** — `sum_reduce_subgroup_f64.wgsl` still
+   crashes coralReef with `opt_copy_prop` assertion failure after upstream evolution.
+
+6. **songbird ↔ toadStool disconnect** — registering providers with songbird
    doesn't propagate to toadStool's internal registry. The NUCLEUS discovery
    contract is incomplete.
 
+### Evolution Targets
+
+- **toadStool wgpu backend**: Add a wgpu/Vulkan compute dispatch path for DRM-bound
+  GPUs. The Blackwell is proven compute-capable — toadStool just needs to use wgpu
+  instead of local_cylinder for non-VFIO cards.
+- **FECS context init**: The Tier 2 boundary requires FECS golden context loading
+  for VFIO compute execution. This is a toadStool diesel engine evolution target
+  (GPU firmware/microcontroller init sequence).
+- **coralReef subgroup codegen**: `opt_copy_prop` panic on `subgroupAdd` — upstream.
+
 ### Filed Gaps
 
-GAP-HS-118 through GAP-HS-122 filed in `docs/PRIMAL_GAPS.md`.
+GAP-HS-118 through GAP-HS-122 filed in `docs/PRIMAL_GAPS.md` (118 and 120-121 revised).
 Full handback: `infra/wateringHole/handoffs/hotSpring/HOTSPRING_PIPELINE_INTELLIGENCE_JUN01_2026.md`
