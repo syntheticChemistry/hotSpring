@@ -590,6 +590,11 @@ operational. 27 RPC methods. **Post-primordial sovereign compute trio validated
 (June 1, 2026)** — Yukawa MD force + Wilson plaquette compiled via coralReef,
 dispatched via toadStool, results received across hardware. Lockup defense matrix
 11/11. Silicon capabilities 9/12 on RTX 5060 Blackwell. BLAKE3 witness pipeline live.
+**First sovereign VFIO shader dispatch (June 1, 2026)** — coralReef WGSL → SPIR-V
+(sm_70) compilation, toadStool local_cylinder bare-metal execution on both Titan Vs.
+No vendor runtime, no CUDA, no proprietary API. 5 pipeline gaps identified (GAP-HS-118
+through 122): readback, DRM provider, cross-gate method, Blackwell firmware, sm_120 codegen.
+NMI watchdog (nmi/softlockup/hardlockup panic) deployed for crash forensics.
 **Vendor-atheistic target**: not just agnostic to vendor, but independent of
 vendor entirely — solving sovereign compute across Volta, Blackwell,
 and AMD RDNA2. Three-tier validation: Python validates Rust. Rust validates NUCLEUS.

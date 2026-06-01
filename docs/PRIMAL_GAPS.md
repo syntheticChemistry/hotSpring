@@ -2169,6 +2169,57 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
   Shader now compiles through both coralReef and wgpu.
 - **Status**: RESOLVED locally — upstream may want to add f64 pow() extension.
 
+### GAP-HS-118: toadStool VFIO cylinder readback not implemented
+
+- **Severity**: P0 — blocks all end-to-end compute result verification
+- **Upstream**: toadStool `local_cylinder` dispatch path
+- **Symptom**: `shader.dispatch` and `compute.dispatch.submit` succeed with
+  `status: completed` but always return `buffers: []` and `readback_ms: 0`,
+  even when `readback: true` is set in binding descriptors.
+- **Evidence**: Tested with vector multiply and tree reduction kernels on both
+  Titan V GPUs (`0000:02:00.0`, `0000:49:00.0`). Dispatch completes in ~1s
+  but no output data is returned.
+- **Root cause**: The local_cylinder VFIO dispatch engine loads and executes
+  the compiled binary but does not implement DMA readback of GPU memory.
+- **Status**: OPEN — filed June 1, 2026. Blocks pipeline validation.
+
+### GAP-HS-119: toadStool DRM dispatch requires missing visualization provider
+
+- **Severity**: P0 — blocks all DRM-path GPU dispatch
+- **Upstream**: toadStool DRM dispatch engine
+- **Symptom**: `"visualization/shader service not available"` on all DRM GPUs,
+  even after coralReef is registered with songbird as shader/compile provider.
+- **Root cause**: toadStool's DRM dispatch path uses its own internal provider
+  registry, separate from songbird's `ipc.resolve`. No mechanism to propagate
+  songbird registrations to toadStool's internal registry.
+- **Status**: OPEN — filed June 1, 2026.
+
+### GAP-HS-120: barraCuda cross-gate dispatch calls nonexistent method
+
+- **Severity**: P0 — blocks barraCuda → toadStool dispatch pipeline
+- **Upstream**: barraCuda `compute.dispatch` cross-gate router
+- **Symptom**: `compute.dispatch.submit` on barraCuda routes to toadStool but
+  calls `compute.dispatch.execute` which returns `-32601 Method not found`.
+  Actual toadStool method is `compute.dispatch.submit` or `shader.dispatch`.
+- **Status**: OPEN — filed June 1, 2026.
+
+### GAP-HS-121: Blackwell (RTX 5060) compute_viable: false — missing firmware
+
+- **Severity**: P1 — blocks VFIO sovereignty on Blackwell
+- **Upstream**: toadStool firmware inventory
+- **Symptom**: `gpu.query_info` returns `chip: unknown-2d05`, all firmware
+  fields `Missing` (gr, pmu, gsp, acr, sec2, nvdec). `compute_viable: false`,
+  blockers: `["gr", "pmu/gsp"]`. f64 transcendentals marked unsafe.
+- **Status**: OPEN — filed June 1, 2026.
+
+### GAP-HS-122: coralReef has no sm_120 (Blackwell) codegen target
+
+- **Severity**: P1 — Blackwell compilations fall back to sm_70
+- **Upstream**: coralReef codegen
+- **Symptom**: All WGSL compilations return `target: sm_70` regardless of
+  requested architecture. No sm_120 SASS/PTX output available.
+- **Status**: OPEN — filed June 1, 2026.
+
 ## Handback Protocol
 
 1. Document gap in this file with severity and upstream reference.

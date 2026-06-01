@@ -327,7 +327,48 @@ Timeline:
 - [ ] Pre-rm_trigger PCI health check — abort if config space returns I/O errors
 - [ ] rm_trigger timeout: spawn in cgroup with hardware watchdog NMI as backstop
 - [ ] Investigate: can we skip rm_trigger entirely and use Tier 1 (MMIO-only) path?
-- [ ] NMI watchdog capture: enable `nmi_watchdog=1` + `softlockup_panic=1` to get
+- [x] NMI watchdog capture: enable `nmi_watchdog=1` + `softlockup_panic=1` to get
   a stack trace on next lockup instead of silent hang
+  — DONE: `/etc/sysctl.d/99-hotspring-watchdog.conf` deployed, also `hardlockup_panic=1`
 - [ ] Consider: warm the GPU via nouveau HBM2 training BEFORE loading nvsov
   (cold GPU init is the suspected kill vector)
+
+## Pipeline Revalidation (June 1, 2026 — S284 late)
+
+After upstream sync (coralReef 1d9452c, barraCuda 5c70da46), full pipeline revalidation.
+
+### Compute Trio Status
+
+| Stage | Result |
+|-------|--------|
+| coralReef WGSL → SPIR-V (sm_70) | **PASS** — new hyperbolic/float decomp ops validated |
+| songbird discovery resolution | **PASS** — coralReef registered for 7 capabilities |
+| toadStool VFIO dispatch (Titan V #1) | **PASS** — `local_cylinder`, ~1s |
+| toadStool VFIO dispatch (Titan V #2) | **PASS** — `local_cylinder`, ~4s |
+| VFIO readback | **FAIL** — 0 buffers, 0ms readback (not implemented) |
+| DRM dispatch (Blackwell) | **FAIL** — no visualization provider |
+| barraCuda cross-gate → toadStool | **FAIL** — calls `compute.dispatch.execute` (nonexistent) |
+
+### Key Findings
+
+1. **VFIO SPIR-V dispatch is working** — the full compile→dispatch path executes
+   on bare-metal Titan V GPUs. The cylinder loads and executes compiled SPIR-V.
+   This is the first successful sovereign shader dispatch in the ecoPrimals stack.
+
+2. **Readback is the critical gap** — toadStool's local_cylinder dispatches the binary
+   but has no DMA readback mechanism. This blocks result verification.
+
+3. **Blackwell is non-viable** — `compute_viable: false`, all firmware missing,
+   no sm_120 codegen in coralReef. DRM path also blocked by provider gap.
+
+4. **barraCuda method mismatch** — `compute.dispatch.execute` should be
+   `compute.dispatch.submit`. One-line fix in barraCuda cross-gate router.
+
+5. **songbird ↔ toadStool disconnect** — registering providers with songbird
+   doesn't propagate to toadStool's internal registry. The NUCLEUS discovery
+   contract is incomplete.
+
+### Filed Gaps
+
+GAP-HS-118 through GAP-HS-122 filed in `docs/PRIMAL_GAPS.md`.
+Full handback: `infra/wateringHole/handoffs/hotSpring/HOTSPRING_PIPELINE_INTELLIGENCE_JUN01_2026.md`

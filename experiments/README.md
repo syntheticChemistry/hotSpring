@@ -103,9 +103,14 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 231 | K80_CROSSGEN_QUENCH_PROBE | analysis | 🔄 READY — awaiting K80 hardware. Cross-generation quench probe methodology designed |
 | 232 | CRASH_VECTOR_REPROFILE | validation | ✅ Crash vector reprofile. Module cleanup watchdog, catalyst boot watchdog activation. 9175 tests |
 | 233 | HYBRID_RM_DISPATCH | analysis | RM dispatch hybrid approach. device_alloc 0x22 root cause: NOP'd cap system prevents GPU registration in RM device table. Option 5 (os_is_administrator + device registry) analysis |
-| 234 | CATALYST_MINIMAL_NOP | validation | PAUSED — nvidia_catalyst_minimal_nop patch set. GPU inits (23 engines, firmware captured), but teardown/rebind path causes system lockups. 3 bugs found+fixed: cleanup_module NOP regression, usage_count leak, fire-and-poll race. Awaiting clean Run #6 |
+| 234 | CATALYST_MINIMAL_NOP | validation | ACTIVE — nvidia_catalyst_minimal_nop patch set. GPU inits (23 engines, firmware captured). Run #6 hard-locked at `rm_trigger → rm_init_adapter` (RM kernel deadlock on cold GPU + double RPC race). Safe caller with file-lock + NMI watchdog deployed. **Pipeline revalidation (S284):** VFIO sovereign dispatch PROVEN on both Titan Vs via local_cylinder. coralReef WGSL→SPIR-V compilation validated. Readback gap identified (GAP-HS-118). See `HOTSPRING_PIPELINE_INTELLIGENCE_JUN01_2026.md` |
 
 > **Note:** 234 experiments total (001–190 archived + 191–234 active).
+>
+> **Milestone (June 1, 2026):** First sovereign VFIO shader dispatch in ecoPrimals. coralReef
+> compiles WGSL → SPIR-V (sm_70), toadStool's local_cylinder executes on bare-metal Titan V
+> GPUs. Pipeline intelligence filed as GAP-HS-118 through GAP-HS-122. See
+> `infra/wateringHole/handoffs/hotSpring/HOTSPRING_PIPELINE_INTELLIGENCE_JUN01_2026.md`.
 >
 > **Naming clarification:** The `exp224_pmu_acr_catalyst` binary implements what was originally the Exp 223 PMU ACR boot attempt; the binary name carries forward the Exp 224 numbering (sovereignty audit checkpoint) because the binary was created during that session. Exp 227 (`exp227_pmu_acr_revalidation`) is the ember-wired successor.
 

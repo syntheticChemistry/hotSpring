@@ -7,7 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Post-Primordial QCD Evolution + Sovereign Compute Validation — S284 (June 1, 2026)
+## Sovereign Pipeline Validation + First VFIO Dispatch — S284 (June 1, 2026)
 
 ### Added
 - **Post-primordial QCD evolution (8 phases):** Rewired 46 lattice shader `include_str!`
@@ -21,8 +21,21 @@ This file covers the spring as a whole. For crate-level details see
   trio pipeline 16/19 (Yukawa + Wilson plaquette E2E). Compute dispatch FULL PASS with
   BLAKE3 witness. Silicon capabilities 9/12 on RTX 5060 Blackwell. MMIO probes on both
   Titan Vs alive (23 engines, PTIMER ticking).
-- **wateringHole handoff:** `HOTSPRING_SOVEREIGN_COMPUTE_TRIO_VALIDATED_JUN01_2026.md`
-  with upstream handbacks for coralReef, songbird, plasmidBin, barraCuda.
+- **First sovereign VFIO shader dispatch:** coralReef WGSL → SPIR-V (sm_70) compilation
+  + toadStool local_cylinder bare-metal execution on both Titan V GPUs. No vendor runtime.
+  Pipeline: compile ~120ms, dispatch ~1-4s. Readback gap identified (GAP-HS-118).
+- **Safe warm_handoff caller (`exp234_sovereign_warm_handoff`):** File-lock mutex,
+  NMI watchdog preflight, MMIO liveness probe, PCI config health check, stale module
+  detection. Prevents the double-RPC race that caused Run #6 kernel deadlock.
+- **NMI watchdog hardening:** `nmi_watchdog=1`, `softlockup_panic=1`,
+  `hardlockup_panic=1` — persistent via `/etc/sysctl.d/99-hotspring-watchdog.conf`.
+- **Pipeline intelligence handbacks:** GAP-HS-118 through GAP-HS-122 filed.
+  5 toadStool, 3 coralReef, 2 barraCuda, 2 songbird gaps documented with severity,
+  evidence, and fix recommendations.
+- **wateringHole handoffs:**
+  - `HOTSPRING_SOVEREIGN_COMPUTE_TRIO_VALIDATED_JUN01_2026.md`
+  - `HOTSPRING_PIPELINE_INTELLIGENCE_JUN01_2026.md`
+  - `HOTSPRING_NUCLEUS_DEPLOYMENT_LESSONS_JUN01_2026.md`
 
 ### Fixed
 - `complex_f64.rs`: restored minimal `Complex64` fallback for non-`barracuda-local`
