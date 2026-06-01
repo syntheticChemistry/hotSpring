@@ -4,6 +4,9 @@
 
 pub mod celllist_diag;
 pub mod chuna_overnight;
+pub mod qcd_silicon;
+pub mod silicon_budget;
+pub mod validate_chuna;
 pub mod k80_gr_sovereign;
 pub mod cross_spring;
 pub mod cross_substrate_esn;

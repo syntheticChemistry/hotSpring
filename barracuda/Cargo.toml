@@ -95,7 +95,7 @@ gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
 # sovereign-dispatch: compilation gates toadStool IPC pipeline (shader.compile.wgsl).
 # VFIO dispatch routes through toadStool's compute.dispatch.submit.
-sovereign-dispatch = ["barracuda-local", "barracuda/sovereign-dispatch"]
+sovereign-dispatch = ["toadstool-dispatch", "barracuda/sovereign-dispatch"]
 toadstool-dispatch = ["barracuda-local"]
 # Phase D: local dispatch via toadStool's LocalDeviceFactory (S250+).
 # Exercises try_local_dispatch() without IPC forwarding.
@@ -851,16 +851,16 @@ path = "src/bin/bench_sovereign_dispatch.rs"
 required-features = ["barracuda-local"]
 
 # ── Exp 070: BAR0 register dump (JSON output for backend matrix) ──
-# Direct mmap path requires `low-level` feature; `--via-ember` works without it.
+# All MMIO via ember `mmio.read32` RPC — no `low-level` feature required.
 [[bin]]
 name = "exp070_register_dump"
 path = "src/bin/exp070_register_dump.rs"
 
 # ── Exp 070: Register diff analysis (cold vs warm backend comparison) ──
+# JSON-only diff tool; no direct BAR0 access.
 [[bin]]
 name = "exp070_register_diff"
 path = "src/bin/exp070_register_diff.rs"
-required-features = ["low-level"]
 
 # ── RTX 5060 dual-use validation: CUDA compute alongside display ──
 [[bin]]
@@ -1014,6 +1014,12 @@ path = "src/bin/validate_nucleus_tower.rs"
 [[bin]]
 name = "validate_nucleus_node"
 path = "src/bin/validate_nucleus_node.rs"
+
+# Node atomic E2E QCD: NUCLEUS → coralReef → toadStool → GPU readback → CPU parity
+[[bin]]
+name = "validate_node_atomic"
+path = "src/bin/validate_node_atomic.rs"
+required-features = ["sovereign-dispatch"]
 
 # Compute trio E2E: barraCuda → coralReef → toadStool → hardware → physics parity
 [[bin]]

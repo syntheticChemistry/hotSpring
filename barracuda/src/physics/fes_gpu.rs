@@ -11,10 +11,9 @@
 //! Mirrors the CPU implementation in `cazyme-fel` for Tier 2→3 parity.
 
 use crate::gpu::GpuF64;
+use barracuda::ops::physics::WGSL_FES_GAUSSIAN_SUM;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
-
-const FES_SHADER: &str = include_str!("shaders/fes_gaussian_sum_f64.wgsl");
 
 /// Uniform params matching the WGSL `FesParams` struct.
 #[repr(C)]
@@ -91,7 +90,7 @@ impl<'a> FesGaussianSumGpu<'a> {
 
         let shader = gpu
             .to_wgpu_device()
-            .compile_shader_f64(FES_SHADER, Some("hotSpring FES Gaussian Sum f64"));
+            .compile_shader_f64(WGSL_FES_GAUSSIAN_SUM, Some("hotSpring FES Gaussian Sum f64"));
 
         let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("FES BGL"),

@@ -17,7 +17,7 @@
 //! ```
 
 use hotspring_barracuda::bench::compute_backend::{
-    BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec, ComputeBackend,
+    BackendKind, BarraCudaCpuBackend, BenchError, BenchmarkResult, BenchmarkSpec, ComputeBackend,
     PrecisionMode, compare_backends,
 };
 use hotspring_barracuda::gpu::GpuF64;
@@ -34,11 +34,11 @@ struct BarraCudaGpuBackend {
 }
 
 impl BarraCudaGpuBackend {
-    fn new() -> Result<Self, String> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
+    fn new() -> Result<Self, BenchError> {
+        let rt = tokio::runtime::Runtime::new().map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
         let gpu = rt
             .block_on(GpuF64::new())
-            .map_err(|e| format!("GPU: {e}"))?;
+            .map_err(|e| BenchError::Gpu(format!("{e}")))?;
         let pipelines = GpuHmcStreamingPipelines::new(&gpu);
         Ok(Self { gpu, pipelines })
     }
@@ -58,7 +58,7 @@ impl ComputeBackend for BarraCudaGpuBackend {
         true
     }
 
-    fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, String> {
+    fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, BenchError> {
         let mut lat = Lattice::hot_start(spec.dims, spec.beta, spec.seed);
         let mut cfg = HmcConfig {
             n_md_steps: spec.n_md_steps,
@@ -249,7 +249,7 @@ fn main() {
         vec![BenchmarkSpec::quenched_default(d, beta)]
     };
 
-    let mut all_results: Vec<(String, Vec<Result<BenchmarkResult, String>>)> = Vec::new();
+    let mut all_results: Vec<(String, Vec<Result<BenchmarkResult, BenchError>>)> = Vec::new();
 
     for spec in &configs {
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

@@ -58,7 +58,7 @@ use hotspring_barracuda::fleet_client::EmberClient;
 
 #[path = "../bin_helpers/sovereignty/mod.rs"]
 mod sovereignty;
-use sovereignty::connect::{connect_ember, extract_arg, is_dry_run};
+use sovereignty::connect::{connect_ember, extract_arg, is_dry_run, resolve_target_bdf};
 
 fn r32(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
     match ember.mmio_read(bdf, offset) {
@@ -152,9 +152,11 @@ const FW_SIG: [u32; 4] = [0x614c_30ee, 0x854d_057c, 0x2679_2cd8, 0x33b4_42f8];
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
-        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:02:00.0".into())
-    });
+    let bdf = resolve_target_bdf(&args, 0);
+    if bdf.is_empty() {
+        eprintln!("FATAL: no target BDF — pass --bdf or set HOTSPRING_BARRACUDA_TARGET_BDF");
+        std::process::exit(1);
+    }
     let fw_path = extract_arg(&args, "--firmware")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("wateringHole/titanv_pmu_hs_fw_from_trace.bin"));

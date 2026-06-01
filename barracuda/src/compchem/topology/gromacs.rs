@@ -18,6 +18,32 @@
 
 use super::types::*;
 
+/// Errors from parsing GROMACS topology files.
+#[derive(Debug)]
+pub enum TopologyParseError {
+    /// Underlying file I/O failure.
+    Io(std::io::Error),
+    /// Malformed or unsupported topology content.
+    Format(String),
+}
+
+impl std::fmt::Display for TopologyParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Io(e) => write!(f, "topology I/O error: {e}"),
+            Self::Format(msg) => write!(f, "topology parse error: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for TopologyParseError {}
+
+impl From<std::io::Error> for TopologyParseError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+
 /// Parser for GROMACS topology files.
 pub struct GmxTopology;
 
@@ -44,7 +70,7 @@ impl GmxTopology {
     ///
     /// Skips `#include`, `#ifdef`, `#endif` directives — expects either a
     /// standalone topology or a pre-merged file.
-    pub fn parse(content: &str) -> Result<SystemTopology, String> {
+    pub fn parse(content: &str) -> Result<SystemTopology, TopologyParseError> {
         let mut molecule_types: Vec<MoleculeType> = Vec::new();
         let mut system_name = String::new();
         let mut molecules: Vec<MoleculeCount> = Vec::new();

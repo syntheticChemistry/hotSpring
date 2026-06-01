@@ -31,7 +31,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 #[path = "../bin_helpers/sovereignty/mod.rs"]
 mod sovereignty;
-use sovereignty::connect::{extract_arg, try_connect_ember, try_connect_glowplug};
+use sovereignty::connect::{resolve_target_bdf, try_connect_ember, try_connect_glowplug};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -42,9 +42,11 @@ fn main() {
     let mut harness = ValidationHarness::new("exp167_warm_handoff");
 
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
-        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string())
-    });
+    let bdf = resolve_target_bdf(&args, 0);
+    if bdf.is_empty() {
+        eprintln!("FATAL: no target BDF — pass --bdf or set HOTSPRING_BARRACUDA_TARGET_BDF");
+        std::process::exit(1);
+    }
     println!("  Target BDF: {bdf}\n");
 
     let glowplug = try_connect_glowplug();
@@ -122,20 +124,27 @@ fn phase1_baseline(
 
     let detail = match glowplug.get_device(bdf) {
         Ok(d) => {
-            println!("  chip:        {}", d.chip);
-            println!("  personality: {}", d.personality);
-            println!("  power:       {}", d.power);
-            println!("  vram_alive:  {}", d.vram_alive);
+            println!("  chip:        {}", d.chip.as_deref().unwrap_or("unknown"));
+            println!(
+                "  personality: {}",
+                d.personality.as_deref().unwrap_or("unknown")
+            );
+            println!("  power:       {}", d.power.as_deref().unwrap_or("unknown"));
+            println!("  vram_alive:  {}", d.vram_alive.unwrap_or(false));
             println!("  has_vfio_fd: {}", d.has_vfio_fd);
             println!(
                 "  domains:     alive={}, faulted={}",
-                d.domains_alive, d.domains_faulted
+                d.domains_alive.unwrap_or(0),
+                d.domains_faulted.unwrap_or(0)
             );
             harness.check_bool("device visible in glowplug", true);
             PreSwapState {
-                personality: d.personality.clone(),
-                vram_alive: d.vram_alive,
-                domains_alive: d.domains_alive,
+                personality: d
+                    .personality
+                    .clone()
+                    .unwrap_or_else(|| "unknown".into()),
+                vram_alive: d.vram_alive.unwrap_or(false),
+                domains_alive: d.domains_alive.unwrap_or(0),
             }
         }
         Err(e) => {
@@ -206,20 +215,27 @@ fn phase2_swap_to_nouveau(
 fn phase3_verify_nouveau(harness: &mut ValidationHarness, glowplug: &GlowplugClient, bdf: &str) {
     match glowplug.get_device(bdf) {
         Ok(d) => {
-            println!("  personality: {}", d.personality);
-            println!("  vram_alive:  {}", d.vram_alive);
-            println!("  chip:        {}", d.chip);
+            println!(
+                "  personality: {}",
+                d.personality.as_deref().unwrap_or("unknown")
+            );
+            println!("  vram_alive:  {}", d.vram_alive.unwrap_or(false));
+            println!("  chip:        {}", d.chip.as_deref().unwrap_or("unknown"));
 
-            let is_nouveau = d.personality.contains("nouveau");
+            let is_nouveau = d
+                .personality
+                .as_deref()
+                .map_or(false, |s| s.contains("nouveau"));
             harness.check_bool("device on nouveau after swap", is_nouveau);
 
-            if d.vram_alive {
+            let vram_alive = d.vram_alive.unwrap_or(false);
+            if vram_alive {
                 println!("  HBM2 training confirmed (vram_alive=true)");
             } else {
                 println!("  WARNING: vram_alive=false — nouveau may not have trained HBM2");
                 println!("  (GV100 needs the PMU falcon to fully train, nouveau may stub)");
             }
-            harness.check_bool("HBM2 trained by nouveau", d.vram_alive);
+            harness.check_bool("HBM2 trained by nouveau", vram_alive);
         }
         Err(e) => {
             println!("  device.get failed: {e}");
@@ -292,21 +308,28 @@ fn phase5_verify_ember(
     // Verify device state via glowplug
     match glowplug.get_device(bdf) {
         Ok(d) => {
-            let is_vfio = d.personality.contains("vfio");
-            println!("  personality: {} (want vfio)", d.personality);
+            let personality = d.personality.as_deref().unwrap_or("unknown");
+            let vram_alive = d.vram_alive.unwrap_or(false);
+            let domains_alive = d.domains_alive.unwrap_or(0);
+            let domains_faulted = d.domains_faulted.unwrap_or(0);
+
+            let is_vfio = d
+                .personality
+                .as_deref()
+                .map_or(false, |s| s.contains("vfio"));
+            println!("  personality: {personality} (want vfio)");
             println!("  has_vfio_fd: {}", d.has_vfio_fd);
-            println!("  vram_alive:  {}", d.vram_alive);
+            println!("  vram_alive:  {vram_alive}");
             println!(
-                "  domains:     alive={}, faulted={}",
-                d.domains_alive, d.domains_faulted
+                "  domains:     alive={domains_alive}, faulted={domains_faulted}"
             );
-            println!("  power:       {}", d.power);
+            println!("  power:       {}", d.power.as_deref().unwrap_or("unknown"));
 
             harness.check_bool("device back on vfio after round-trip", is_vfio);
             harness.check_bool("ember holds VFIO fd post-swap", d.has_vfio_fd);
 
             // The key result: did HBM2 training survive the round-trip?
-            if d.vram_alive {
+            if vram_alive {
                 println!(
                     "\n  ✓ WARM HANDOFF SUCCESS: HBM2 state preserved through nouveau→vfio swap"
                 );
@@ -318,15 +341,15 @@ fn phase5_verify_ember(
                 println!("    - Nouveau did not fully train HBM2 (PMU stub)");
                 println!("    - Domain health check is too aggressive for post-swap state");
             }
-            harness.check_bool("VRAM alive after warm handoff round-trip", d.vram_alive);
+            harness.check_bool("VRAM alive after warm handoff round-trip", vram_alive);
 
             // Compare with pre-swap state
             println!("\n  Pre/post comparison:");
-            println!("    personality: {} → {}", pre.personality, d.personality);
-            println!("    vram_alive:  {} → {}", pre.vram_alive, d.vram_alive);
+            println!("    personality: {} → {personality}", pre.personality);
+            println!("    vram_alive:  {} → {vram_alive}", pre.vram_alive);
             println!(
-                "    domains:     {} → {}",
-                pre.domains_alive, d.domains_alive
+                "    domains:     {} → {domains_alive}",
+                pre.domains_alive
             );
         }
         Err(e) => {

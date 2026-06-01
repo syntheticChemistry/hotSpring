@@ -2,32 +2,10 @@
 
 //! GPU FP64 compute for hotSpring science workloads.
 //!
-//! Creates a wgpu device with `SHADER_F64` enabled, and provides helpers
-//! for running f64 compute shaders on any Vulkan GPU (NVIDIA proprietary,
-//! NVK/nouveau, RADV, etc.).
-//!
-//! ## Adapter selection
-//!
-//! Explicit adapter targeting is the default. Set `HOTSPRING_GPU_ADAPTER`
-//! to select a specific GPU:
-//!
-//! | Value | Behavior |
-//! |-------|----------|
-//! | `auto` | wgpu `HighPerformance` preference (legacy default) |
-//! | `0`, `1`, … | Select adapter by enumeration index |
-//! | substring | Case-insensitive name match (e.g. `"titan"`, `"4070"`) |
-//! | *(unset)* | Enumerate all adapters, pick first with `SHADER_F64` |
-//!
-//! Use `GpuF64::enumerate_adapters` to list available GPUs before selecting.
-//!
-//! ## Module structure
-//!
-//! | Submodule | Responsibility |
-//! |-----------|---------------|
-//! | `adapter` | Adapter discovery, selection, device construction helpers |
-//! | `buffers` | f64/u32 buffer creation, upload, readback, DF64 wire helpers |
-//! | `dispatch` | Command encoding, pipeline creation (merged with sub-module) |
-//! | `telemetry` | GPU power, temperature, VRAM monitoring |
+//! Thin wrapper around barraCuda's [`WgpuDevice`] + [`TensorContext`]. Device
+//! creation, adapter selection, and f64 probing delegate to barraCuda; this
+//! module keeps hotSpring-specific buffer layouts (DF64 wire format), dispatch
+//! encoders, and pipeline entry points used by lattice/MD code.
 
 mod adapter;
 mod buffers;
@@ -68,9 +46,12 @@ pub struct GpuF64 {
     /// True when native f64 shaders are broken and all GPU work must use
     /// full DF64 (f32-pair) data plane — storage as `vec2<f32>`, not `f64`.
     pub full_df64_mode: bool,
-    pub(crate) wgpu_device: Arc<WgpuDevice>,
-    pub(crate) tensor_ctx: Arc<TensorContext>,
-    pub(crate) capabilities: DeviceCapabilities,
+    /// Underlying barraCuda wgpu device (shader compile, driver profile, buffer pool).
+    pub wgpu_device: Arc<WgpuDevice>,
+    /// Batched dispatch context (`begin_batch` / `end_batch`, buffer reuse).
+    pub tensor_ctx: Arc<TensorContext>,
+    /// Runtime-detected limits and precision routing for this adapter.
+    pub capabilities: DeviceCapabilities,
 }
 
 // ── Core accessors ────────────────────────────────────────────────────────────
@@ -134,29 +115,50 @@ impl GpuF64 {
 // ── Constructors ──────────────────────────────────────────────────────────────
 
 impl GpuF64 {
+    /// Build a [`GpuF64`] wrapper around an existing barraCuda [`WgpuDevice`].
+    ///
+    /// Derives `has_f64`, `full_df64_mode`, and capability flags from barraCuda's
+    /// runtime probe cache. Prefer calling barraCuda directly when migrating call sites.
+    #[must_use]
+    pub fn from_wgpu_device(wgpu_device: Arc<WgpuDevice>) -> Self {
+        let info = wgpu_device.adapter_info();
+        let features = wgpu_device.device().features();
+        let has_f64 = wgpu_device.has_f64_shaders();
+        Self {
+            adapter_name: info.name.clone(),
+            has_f64,
+            has_timestamps: features.contains(wgpu::Features::TIMESTAMP_QUERY),
+            has_subgroups: features.contains(wgpu::Features::SUBGROUP),
+            has_f16: features.contains(wgpu::Features::SHADER_F16),
+            full_df64_mode: !has_f64,
+            tensor_ctx: Arc::new(TensorContext::new(Arc::clone(&wgpu_device))),
+            capabilities: DeviceCapabilities::from_device(&wgpu_device),
+            wgpu_device,
+        }
+    }
+
     /// Create GPU device requesting `SHADER_F64`.
     ///
     /// Adapter selection: `HOTSPRING_GPU_ADAPTER` takes priority, then falls
-    /// through to `BARRACUDA_GPU_ADAPTER`, then auto-detect.
+    /// through to `BARRACUDA_GPU_ADAPTER`, then auto-detect (via barraCuda).
     ///
-    /// After device creation, runs barraCuda's f64 probe to verify shader
-    /// compilation actually works. On NVK with broken NAK, switches to full
-    /// DF64 mode automatically.
+    /// After device creation, barraCuda's f64 probe determines whether native
+    /// f64 shaders work; otherwise `full_df64_mode` is set.
     ///
     /// # Errors
     ///
     /// Returns [`crate::error::HotSpringError`] if no compatible adapter is found
     /// or device creation fails.
     pub async fn new() -> Result<Self, crate::error::HotSpringError> {
-        let selected = adapter::select_adapter()?;
-        adapter::open_from_adapter_inner(selected, "hotSpring science device").await
+        let wgpu_device = Arc::new(adapter::create_wgpu_from_env().await?);
+        Ok(Self::from_wgpu_device(wgpu_device))
     }
 
     /// Create GPU device from an explicit adapter hint (numeric index,
     /// case-insensitive name substring, or `"auto"`).
     pub async fn with_adapter(hint: &str) -> Result<Self, crate::error::HotSpringError> {
-        let selected = adapter::select_adapter_hint(hint)?;
-        Self::from_adapter(selected).await
+        let wgpu_device = Arc::new(adapter::create_wgpu_from_hint(hint).await?);
+        Ok(Self::from_wgpu_device(wgpu_device))
     }
 
     /// Create GPU device by matching an adapter name substring.
@@ -165,16 +167,7 @@ impl GpuF64 {
     ///
     /// Returns [`crate::error::HotSpringError`] if no matching adapter is found.
     pub async fn from_adapter_name(name_hint: &str) -> Result<Self, crate::error::HotSpringError> {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-        let adapters: Vec<wgpu::Adapter> = instance.enumerate_adapters(wgpu::Backends::all()).await;
-
-        let hint_lower = name_hint.to_lowercase();
-        let selected = adapters
-            .into_iter()
-            .find(|a: &wgpu::Adapter| a.get_info().name.to_lowercase().contains(&hint_lower))
-            .ok_or(crate::error::HotSpringError::NoAdapter)?;
-
-        Self::from_adapter(selected).await
+        Self::with_adapter(name_hint).await
     }
 
     /// Create GPU device from a pre-selected wgpu adapter.
@@ -185,7 +178,8 @@ impl GpuF64 {
     pub async fn from_adapter(
         selected: wgpu::Adapter,
     ) -> Result<Self, crate::error::HotSpringError> {
-        adapter::open_from_adapter_inner(selected, "hotSpring secondary device").await
+        let wgpu_device = Arc::new(adapter::create_wgpu_from_adapter(selected).await?);
+        Ok(Self::from_wgpu_device(wgpu_device))
     }
 
     /// Enumerate all available GPU adapters.

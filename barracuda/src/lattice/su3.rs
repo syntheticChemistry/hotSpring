@@ -2,6 +2,10 @@
 
 //! SU(3) matrix operations for lattice gauge theory.
 //!
+//! Canonical CPU implementation: barraCuda `ops/lattice/cpu_su3` (currently
+//! `#[cfg(test)]`-gated upstream — not yet a public runtime export). Local
+//! `Su3Matrix` retained until upstream promotion; WGSL re-exported below.
+//!
 //! An SU(3) matrix is a 3×3 unitary matrix with determinant 1.
 //! In lattice QCD, each link variable `U_μ`(x) is an `SU(3)` matrix
 //! representing the parallel transporter along direction μ from site x.
@@ -282,9 +286,12 @@ fn row_dot(u: &Su3Matrix, r1: usize, r2: usize) -> Complex64 {
 /// WGSL shader for SU(3) 3×3 complex matrix operations.
 ///
 /// Depends on Complex64 WGSL (prepend `WGSL_COMPLEX64` before this).
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::absorbed_shaders::WGSL_SU3_LATTICE_F64 as WGSL_SU3;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_SU3: &str = include_str!("shaders/su3_f64.wgsl");
 
-#[cfg(test)]
+#[cfg(all(test, feature = "barracuda-local"))]
 mod tests {
     use super::*;
 

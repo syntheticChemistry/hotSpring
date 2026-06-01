@@ -7,6 +7,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Post-Primordial QCD Evolution + Sovereign Compute Validation — S284 (June 1, 2026)
+
+### Added
+- **Post-primordial QCD evolution (8 phases):** Rewired 46 lattice shader `include_str!`
+  to barraCuda canonical sources. Absorbed 40 physics+MD WGSL shaders into barraCuda
+  upstream. Collapsed hotSpring GPU runtime → barraCuda device API delegation. Built
+  WGSL preamble merge pipeline for 51 QCD shaders. Built `LatticeDispatchAdapter` for
+  QCD bind groups → toadStool wire format. Deprecated `low_level/` → toadStool RPCs.
+  Built `TrioGpuBackend` (gpu_hmc through primal compute trio). Created systemd units
+  (`hotspring.service`, `ecoprimals-node.target`) and `validate_node_atomic` binary.
+- **Sovereign compute validation on hardware:** Lockup defense matrix 11/11. Compute
+  trio pipeline 16/19 (Yukawa + Wilson plaquette E2E). Compute dispatch FULL PASS with
+  BLAKE3 witness. Silicon capabilities 9/12 on RTX 5060 Blackwell. MMIO probes on both
+  Titan Vs alive (23 engines, PTIMER ticking).
+- **wateringHole handoff:** `HOTSPRING_SOVEREIGN_COMPUTE_TRIO_VALIDATED_JUN01_2026.md`
+  with upstream handbacks for coralReef, songbird, plasmidBin, barraCuda.
+
+### Fixed
+- `complex_f64.rs`: restored minimal `Complex64` fallback for non-`barracuda-local`
+  builds — the Phase 1 absorption removed the local definition, breaking IPC-only bins.
+- `md/shaders.rs`: added `cfg(feature)` gates with `include_str!` fallbacks for 15 MD
+  shader constants — Phase 2 absorption broke the default (non-barracuda-local) build.
+- `compute_dispatch/mod.rs`: fixed `binary_b64` extraction to handle coralReef's
+  byte-array response format (was expecting string, got `[u8]` array); added inline
+  base64 encoder.
+
+### Changed
+- `README.md`: fixed directory tree (191-234), deduped Quick Start, added sovereign
+  compute trio validation results to footer.
+- `.gitignore`: updated fossil script paths to `scripts/fossils/`, livepatch paths to
+  `scripts/archive/`.
+- `EVOLUTION_READINESS.md`: refreshed stale banner with current metrics.
+- `specs/SOVEREIGN_VALIDATION_MATRIX.md`: corrected RPC count (87 → 27).
+- `specs/README.md`: corrected license to AGPL-3.0-or-later.
+- `docs/PRIMAL_GAPS.md`: updated audit date to June 1, 2026.
+
 ## Catalyst Minimal NOP + Sprint 1+2 Evolution — Exp 234 (May 30 – June 1, 2026)
 
 ### Added

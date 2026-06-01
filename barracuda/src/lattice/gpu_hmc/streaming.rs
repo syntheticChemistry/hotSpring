@@ -22,6 +22,8 @@ use super::{
     GpuF64, GpuHmcPipelines, GpuHmcResult, GpuHmcState, gpu_link_update_dispatch,
     make_force_params, make_link_mom_params, make_prng_params,
 };
+use barracuda::ops::lattice::absorbed_shaders::{WGSL_GAUSSIAN_FERMION_F64, WGSL_PRNG_PCG_F64};
+
 use crate::error::HotSpringError;
 
 /// Streaming HMC pipelines: quenched HMC + GPU PRNG + GPU reduce for observables.
@@ -318,11 +320,10 @@ fn gpu_streaming_md_encoder(
 }
 
 /// WGSL shared PRNG core (PCG hash → uniform f64).
-const WGSL_PRNG_CORE: &str = include_str!("../shaders/prng_pcg_f64.wgsl");
+const WGSL_PRNG_CORE: &str = WGSL_PRNG_PCG_F64;
 /// WGSL shader: GPU-resident PRNG for Gaussian fermion fields.
 pub static WGSL_GAUSSIAN_FERMION: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-    let body = include_str!("../shaders/gaussian_fermion_f64.wgsl");
-    format!("{WGSL_PRNG_CORE}\n{body}")
+    format!("{WGSL_PRNG_CORE}\n{WGSL_GAUSSIAN_FERMION_F64}")
 });
 
 /// Streaming pipelines for dynamical fermion HMC.

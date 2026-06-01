@@ -6,7 +6,7 @@
 //! produces a categorized diff: changed, unchanged, and new registers.
 //!
 //! Usage:
-//!   cargo run --release --features low-level --bin exp070_register_diff -- <baseline.json> <warm.json> [output.json]
+//!   cargo run --release --bin exp070_register_diff -- <baseline.json> <warm.json> [output.json]
 //!
 //! Examples:
 //!   cargo run --release --bin exp070_register_diff -- data/070/cold_oracle.json data/070/nouveau_warm_oracle.json

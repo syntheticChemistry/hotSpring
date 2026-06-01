@@ -27,14 +27,7 @@ use barracuda::pipeline::ReduceScalarPipeline;
 /// seconds of non-increasing integral (expressed as time / `dt_dump`).
 const PLATEAU_DETECTION_TIME: f64 = 20.0;
 
-/// WGSL shader: batched VACF — one dispatch computes C(lag) across all origins.
-pub const WGSL_VACF_BATCH_F64: &str = include_str!("../shaders/vacf_batch_f64.wgsl");
-
-/// WGSL shader: per-particle v(t0) · v(t) for VACF (single-origin, kept for tests).
-pub const WGSL_VACF_DOT_F64: &str = include_str!("../shaders/vacf_dot_f64.wgsl");
-
-/// WGSL shader: per-particle `σ_xy` for Green-Kubo viscosity.
-pub const WGSL_STRESS_VIRIAL_F64: &str = include_str!("../shaders/stress_virial_f64.wgsl");
+pub use barracuda::ops::md::{WGSL_STRESS_VIRIAL_F64, WGSL_VACF_BATCH_F64, WGSL_VACF_DOT_F64};
 
 /// GPU-resident velocity ring buffer backed by a single flat buffer.
 ///

@@ -9,166 +9,57 @@
 //! # Provenance
 //!
 //! Original: barraCuda `ops/lattice/cpu_complex.rs`.
-//! hotSpring extensions: `from_polar`, `WGSL_COMPLEX64`.
+//! hotSpring extensions: `from_polar`.
 
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::complex_f64::WGSL_COMPLEX64;
+#[cfg(not(feature = "barracuda-local"))]
+pub const WGSL_COMPLEX64: &str = include_str!("shaders/complex_f64.wgsl");
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::lattice::cpu_complex::Complex64;
 
 #[cfg(not(feature = "barracuda-local"))]
-pub use self::local_complex::Complex64;
+mod ipc_complex {
+    use std::ops::{Add, Sub, Mul, Neg, AddAssign, SubAssign, MulAssign, Div};
 
-#[cfg(not(feature = "barracuda-local"))]
-mod local_complex {
-    /// Minimal Complex64 for IPC-only builds (mirrors barraCuda cpu_complex).
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Complex64 {
         pub re: f64,
         pub im: f64,
     }
-
     impl Complex64 {
         pub const ZERO: Self = Self { re: 0.0, im: 0.0 };
         pub const ONE: Self = Self { re: 1.0, im: 0.0 };
         pub const I: Self = Self { re: 0.0, im: 1.0 };
-
-        #[inline]
-        pub const fn new(re: f64, im: f64) -> Self {
-            Self { re, im }
-        }
-
-        #[inline]
-        pub fn conj(self) -> Self {
-            Self::new(self.re, -self.im)
-        }
-
-        #[inline]
-        pub fn abs(self) -> f64 {
-            (self.re * self.re + self.im * self.im).sqrt()
-        }
-
-        #[inline]
-        pub fn norm_sq(self) -> f64 {
-            self.re * self.re + self.im * self.im
-        }
-
-        #[inline]
-        pub fn abs_sq(self) -> f64 {
-            self.re * self.re + self.im * self.im
-        }
-
-        #[inline]
-        pub fn scale(self, s: f64) -> Self {
-            Self::new(self.re * s, self.im * s)
-        }
-
-        #[inline]
-        pub fn inv(self) -> Self {
-            let n = self.norm_sq();
-            Self::new(self.re / n, -self.im / n)
-        }
-
+        #[inline] pub fn new(re: f64, im: f64) -> Self { Self { re, im } }
+        #[inline] pub fn conj(self) -> Self { Self { re: self.re, im: -self.im } }
+        #[inline] pub fn abs_sq(self) -> f64 { self.re * self.re + self.im * self.im }
+        #[inline] pub fn abs(self) -> f64 { self.abs_sq().sqrt() }
+        #[inline] pub fn scale(self, s: f64) -> Self { Self { re: self.re * s, im: self.im * s } }
         #[inline]
         pub fn exp(self) -> Self {
-            let r = self.re.exp();
-            Self::new(r * self.im.cos(), r * self.im.sin())
+            let e = self.re.exp();
+            Self { re: e * self.im.cos(), im: e * self.im.sin() }
         }
-    }
-
-    impl std::ops::Add for Complex64 {
-        type Output = Self;
         #[inline]
-        fn add(self, rhs: Self) -> Self {
-            Self::new(self.re + rhs.re, self.im + rhs.im)
+        pub fn inv(self) -> Self {
+            let d = self.abs_sq();
+            Self { re: self.re / d, im: -self.im / d }
         }
     }
-
-    impl std::ops::Sub for Complex64 {
-        type Output = Self;
-        #[inline]
-        fn sub(self, rhs: Self) -> Self {
-            Self::new(self.re - rhs.re, self.im - rhs.im)
-        }
-    }
-
-    impl std::ops::Mul for Complex64 {
-        type Output = Self;
-        #[inline]
-        fn mul(self, rhs: Self) -> Self {
-            Self::new(
-                self.re * rhs.re - self.im * rhs.im,
-                self.re * rhs.im + self.im * rhs.re,
-            )
-        }
-    }
-
-    impl std::ops::Mul<f64> for Complex64 {
-        type Output = Self;
-        #[inline]
-        fn mul(self, rhs: f64) -> Self {
-            Self::new(self.re * rhs, self.im * rhs)
-        }
-    }
-
-    impl std::ops::Neg for Complex64 {
-        type Output = Self;
-        #[inline]
-        fn neg(self) -> Self {
-            Self::new(-self.re, -self.im)
-        }
-    }
-
-    impl std::ops::AddAssign for Complex64 {
-        #[inline]
-        fn add_assign(&mut self, rhs: Self) {
-            self.re += rhs.re;
-            self.im += rhs.im;
-        }
-    }
-
-    impl std::ops::SubAssign for Complex64 {
-        #[inline]
-        fn sub_assign(&mut self, rhs: Self) {
-            self.re -= rhs.re;
-            self.im -= rhs.im;
-        }
-    }
-
-    impl std::ops::MulAssign for Complex64 {
-        #[inline]
-        fn mul_assign(&mut self, rhs: Self) {
-            let re = self.re * rhs.re - self.im * rhs.im;
-            let im = self.re * rhs.im + self.im * rhs.re;
-            self.re = re;
-            self.im = im;
-        }
-    }
-
-    impl std::ops::MulAssign<f64> for Complex64 {
-        #[inline]
-        fn mul_assign(&mut self, rhs: f64) {
-            self.re *= rhs;
-            self.im *= rhs;
-        }
-    }
-
-    impl std::ops::Div for Complex64 {
-        type Output = Self;
-        #[inline]
-        #[expect(
-            clippy::suspicious_arithmetic_impl,
-            reason = "complex division via multiplication by inverse is correct"
-        )]
-        fn div(self, rhs: Self) -> Self {
-            self * rhs.inv()
-        }
-    }
+    impl Add for Complex64 { type Output = Self; fn add(self, r: Self) -> Self { Self { re: self.re + r.re, im: self.im + r.im } } }
+    impl Sub for Complex64 { type Output = Self; fn sub(self, r: Self) -> Self { Self { re: self.re - r.re, im: self.im - r.im } } }
+    impl Mul for Complex64 { type Output = Self; fn mul(self, r: Self) -> Self { Self { re: self.re * r.re - self.im * r.im, im: self.re * r.im + self.im * r.re } } }
+    impl Div for Complex64 { type Output = Self; fn div(self, r: Self) -> Self { self * r.conj().scale(1.0 / r.abs_sq()) } }
+    impl Neg for Complex64 { type Output = Self; fn neg(self) -> Self { Self { re: -self.re, im: -self.im } } }
+    impl Mul<f64> for Complex64 { type Output = Self; fn mul(self, s: f64) -> Self { self.scale(s) } }
+    impl AddAssign for Complex64 { fn add_assign(&mut self, r: Self) { self.re += r.re; self.im += r.im; } }
+    impl SubAssign for Complex64 { fn sub_assign(&mut self, r: Self) { self.re -= r.re; self.im -= r.im; } }
+    impl MulAssign for Complex64 { fn mul_assign(&mut self, r: Self) { *self = *self * r; } }
+    impl std::fmt::Display for Complex64 { fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "({} + {}i)", self.re, self.im) } }
 }
-
-/// WGSL shader source for Complex64 operations.
-///
-/// Matches the Rust-side implementation exactly. Can be prepended to any
-/// WGSL shader that needs complex arithmetic.
-pub const WGSL_COMPLEX64: &str = include_str!("shaders/complex_f64.wgsl");
+#[cfg(not(feature = "barracuda-local"))]
+pub use ipc_complex::Complex64;
 
 /// hotSpring extension: construct e^{iθ} from polar angle.
 #[inline]
@@ -176,7 +67,7 @@ pub fn from_polar(theta: f64) -> Complex64 {
     Complex64::new(theta.cos(), theta.sin())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "barracuda-local"))]
 mod tests {
     use super::*;
 

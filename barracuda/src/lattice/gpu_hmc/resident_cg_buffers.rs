@@ -305,6 +305,55 @@ pub fn encode_reduce_chain(
     }
 }
 
+/// Re⟨a|b⟩ via complex dot kernel + tree-reduce + 8-byte staging readback.
+///
+/// Replaces deprecated `gpu_dot_re`, which read back O(n_pairs) partial sums on CPU.
+/// Pass `reduce_chain` when the chain is pre-built (e.g. from [`GpuResidentCgBuffers`]);
+/// otherwise a chain is built from scratch buffers for this call.
+pub fn read_complex_dot_re(
+    gpu: &GpuF64,
+    dot_pl: &wgpu::ComputePipeline,
+    reduce_pl: &wgpu::ComputePipeline,
+    dot_buf: &wgpu::Buffer,
+    scratch_a: &wgpu::Buffer,
+    scratch_b: &wgpu::Buffer,
+    scalar_buf: &wgpu::Buffer,
+    staging: &wgpu::Buffer,
+    a: &wgpu::Buffer,
+    b: &wgpu::Buffer,
+    n_pairs: usize,
+    reduce_chain: Option<&ReduceChain>,
+) -> f64 {
+    let wg = (n_pairs as u32).div_ceil(64);
+    let params = make_u32x4_params(n_pairs as u32);
+    let pbuf = gpu.create_uniform_buffer(&params, "dot_read_p");
+    let dot_bg = gpu.create_bind_group(dot_pl, &[&pbuf, a, b, dot_buf]);
+    let owned_chain;
+    let chain = if let Some(chain) = reduce_chain {
+        chain
+    } else {
+        owned_chain = build_reduce_chain(
+            gpu,
+            reduce_pl,
+            dot_buf,
+            scratch_a,
+            scratch_b,
+            scalar_buf,
+            n_pairs,
+        );
+        &owned_chain
+    };
+    let mut enc = gpu.begin_encoder("dot_read");
+    GpuF64::encode_pass(&mut enc, dot_pl, &dot_bg, wg);
+    encode_reduce_chain(&mut enc, reduce_pl, chain);
+    enc.copy_buffer_to_buffer(scalar_buf, 0, staging, 0, 8);
+    gpu.submit_encoder(enc);
+    match gpu.read_staging_f64(staging) {
+        Ok(v) => v.first().copied().unwrap_or(f64::NAN),
+        Err(_) => f64::NAN,
+    }
+}
+
 /// Encode one batch of CG iterations into a command encoder.
 pub fn encode_cg_batch(
     enc: &mut wgpu::CommandEncoder,

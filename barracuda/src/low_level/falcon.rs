@@ -2,9 +2,13 @@
 
 //! Falcon v5 microcontroller register map, snapshot, and PIO helpers.
 //!
-//! Canonical register offsets verified against toadStool `falcon.rs` and
-//! envytools. Used by sovereign boot experiment binaries (exp224+) and
-//! available as a library module behind the `low-level` feature gate.
+//! **Legacy module** — canonical definitions live in
+//! `toadstool_cylinder::nv::registers::falcon`. Experiment binaries should
+//! use `ember.falcon.upload_*` / `ember.falcon.poll` RPCs instead of PIO
+//! via this module.
+//!
+//! Register offsets verified against toadStool `falcon.rs` and envytools.
+//! Retained behind the `low-level` feature gate for archaeological reference.
 //!
 //! # Register Map Corrections (Exp 223)
 //!

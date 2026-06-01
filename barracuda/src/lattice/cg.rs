@@ -39,6 +39,9 @@ use super::wilson::Lattice;
 /// | 1 | storage, read | `a: array<f64>` (2×n_pairs) |
 /// | 2 | storage, read | `b: array<f64>` (2×n_pairs) |
 /// | 3 | storage, read_write | `out: array<f64>` (n_pairs) |
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::cg::WGSL_COMPLEX_DOT_RE_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_COMPLEX_DOT_RE_F64: &str = include_str!("shaders/complex_dot_re_f64.wgsl");
 
 /// WGSL shader: real-scalar axpy on f64 arrays.
@@ -53,6 +56,9 @@ pub const WGSL_COMPLEX_DOT_RE_F64: &str = include_str!("shaders/complex_dot_re_f
 /// | 0 | uniform | `{ n: u32, pad: u32, alpha: f64 }` |
 /// | 1 | storage, read | `x: array<f64>` |
 /// | 2 | storage, read_write | `y: array<f64>` |
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::cg::WGSL_AXPY_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_AXPY_F64: &str = include_str!("shaders/axpy_f64.wgsl");
 
 /// WGSL shader: xpay operation `p[i] = x[i] + beta * p[i]`.
@@ -66,6 +72,9 @@ pub const WGSL_AXPY_F64: &str = include_str!("shaders/axpy_f64.wgsl");
 /// | 0 | uniform | `{ n: u32, pad: u32, beta: f64 }` |
 /// | 1 | storage, read | `x: array<f64>` |
 /// | 2 | storage, read_write | `p: array<f64>` |
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::cg::WGSL_XPAY_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_XPAY_F64: &str = include_str!("shaders/xpay_f64.wgsl");
 
 /// WGSL shader: tree sum reduction for f64 arrays.
@@ -80,25 +89,46 @@ pub const WGSL_XPAY_F64: &str = include_str!("shaders/xpay_f64.wgsl");
 /// | 0 | storage, read | `input: array<f64>` (N) |
 /// | 1 | storage, read_write | `output: array<f64>` (ceil(N/256)) |
 /// | 2 | uniform | `{ size: u32, pad: u32×3 }` |
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::cg::WGSL_SUM_REDUCE_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_SUM_REDUCE_F64: &str = include_str!("shaders/sum_reduce_f64.wgsl");
 
 /// WGSL shader: CG scalar alpha = rz / pAp (1-thread kernel).
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::cg::WGSL_CG_COMPUTE_ALPHA_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_CG_COMPUTE_ALPHA_F64: &str = include_str!("shaders/cg_compute_alpha_f64.wgsl");
 
 /// WGSL shader: CG scalar beta = `rz_new` / `rz_old` + copy (1-thread kernel).
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::cg::WGSL_CG_COMPUTE_BETA_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_CG_COMPUTE_BETA_F64: &str = include_str!("shaders/cg_compute_beta_f64.wgsl");
 
 /// WGSL shader: CG vector update x += alpha*p, r -= alpha*ap (reads alpha from GPU buffer).
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::cg::WGSL_CG_UPDATE_XR_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_CG_UPDATE_XR_F64: &str = include_str!("shaders/cg_update_xr_f64.wgsl");
 
 /// WGSL shader: CG vector update p = r + beta*p (reads beta from GPU buffer).
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::cg::WGSL_CG_UPDATE_P_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_CG_UPDATE_P_F64: &str = include_str!("shaders/cg_update_p_f64.wgsl");
 
 /// WGSL shader: shifted CG alpha = rz / (pAp + sigma * pp) (1-thread kernel).
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::absorbed_shaders::WGSL_CG_COMPUTE_ALPHA_SHIFTED_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_CG_COMPUTE_ALPHA_SHIFTED_F64: &str =
     include_str!("shaders/cg_compute_alpha_shifted_f64.wgsl");
 
 /// WGSL shader: shifted CG vector update x += alpha*p, r -= alpha*(ap + sigma*p).
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::absorbed_shaders::WGSL_CG_UPDATE_XR_SHIFTED_F64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const WGSL_CG_UPDATE_XR_SHIFTED_F64: &str =
     include_str!("shaders/cg_update_xr_shifted_f64.wgsl");
 

@@ -13,10 +13,9 @@
 use super::kinetic_fluid::{SodResult, run_sod_shock_tube};
 use crate::gpu::GpuF64;
 
+use barracuda::ops::physics::WGSL_EULER_HLL;
 use barracuda::shaders::precision::ShaderTemplate;
 use wgpu::util::DeviceExt;
-
-const WGSL_EULER: &str = include_str!("shaders/euler_hll_f64.wgsl");
 
 const GAMMA: f64 = 5.0 / 3.0;
 
@@ -41,7 +40,7 @@ impl GpuEulerPipeline {
     /// Compile Euler HLL shaders.
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
-        let source = ShaderTemplate::with_math_f64_auto(WGSL_EULER);
+        let source = ShaderTemplate::with_math_f64_auto(WGSL_EULER_HLL);
         Self {
             flux_pipeline: gpu.create_pipeline_f64_entry(
                 &source,

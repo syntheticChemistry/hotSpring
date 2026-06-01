@@ -55,7 +55,7 @@ pub fn certify(max_layer: u8) -> ValidationResult {
 
     v.section("Layer 1: Discovery + Liveness");
     let mut ctx = CompositionContext::from_live_discovery_with_fallback();
-    let alive = validate_liveness(&mut ctx, &mut v, &["tensor", "security", "compute"]);
+    let alive = validate_liveness(&mut ctx, &mut v, &["math", "crypto", "compute"]);
 
     if alive == 0 {
         log::warn!("[certify] No NUCLEUS primals discovered — bare certification only.");

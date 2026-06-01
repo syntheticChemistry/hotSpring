@@ -23,13 +23,11 @@ use super::kinetic_fluid::{
 };
 use crate::gpu::GpuF64;
 
+use barracuda::ops::physics::{WGSL_BGK_RELAXATION, WGSL_EULER_HLL};
 use barracuda::shaders::precision::ShaderTemplate;
 use wgpu::util::DeviceExt;
 
 const GAMMA: f64 = 5.0 / 3.0;
-
-const WGSL_BGK: &str = include_str!("shaders/bgk_relaxation_f64.wgsl");
-const WGSL_EULER: &str = include_str!("shaders/euler_hll_f64.wgsl");
 
 /// Uniform parameter buffer for BGK (must match WGSL `BgkParams`).
 #[repr(C)]
@@ -86,8 +84,8 @@ impl GpuCoupledPipeline {
     /// Compile both BGK and Euler shaders.
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
-        let bgk_source = ShaderTemplate::with_math_f64_auto(WGSL_BGK);
-        let euler_source = ShaderTemplate::with_math_f64_auto(WGSL_EULER);
+        let bgk_source = ShaderTemplate::with_math_f64_auto(WGSL_BGK_RELAXATION);
+        let euler_source = ShaderTemplate::with_math_f64_auto(WGSL_EULER_HLL);
         Self {
             bgk_moments: gpu.create_pipeline_f64_entry(
                 &bgk_source,

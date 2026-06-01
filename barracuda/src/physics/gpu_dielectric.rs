@@ -15,10 +15,9 @@
 use super::dielectric::{self, PlasmaParams, f_sum_rule_integral};
 use crate::gpu::GpuF64;
 
+use barracuda::ops::lattice::complex_f64::WGSL_COMPLEX64 as WGSL_COMPLEX;
+use barracuda::ops::physics::WGSL_DIELECTRIC_MERMIN;
 use barracuda::shaders::precision::ShaderTemplate;
-
-const WGSL_COMPLEX: &str = include_str!("../lattice/shaders/complex_f64.wgsl");
-const WGSL_MERMIN: &str = include_str!("shaders/dielectric_mermin_f64.wgsl");
 
 /// Uniform parameter buffer layout (must match WGSL `DielectricParams`).
 #[repr(C)]
@@ -54,7 +53,7 @@ impl GpuDielectricPipeline {
             .collect::<Vec<_>>()
             .join("\n");
         let full_complex = format!("{complex_no_exp}\n{}", c64_exp_f64_source());
-        let user_shader = format!("{full_complex}\n{WGSL_MERMIN}");
+        let user_shader = format!("{full_complex}\n{WGSL_DIELECTRIC_MERMIN}");
         let source = ShaderTemplate::with_math_f64_auto(&user_shader);
         Self {
             pipeline: gpu.create_pipeline_f64(&source, "dielectric_mermin"),

@@ -8,15 +8,18 @@ use super::rop_force_accum::RopForceAccumulator;
 use super::streaming::WGSL_GAUSSIAN_FERMION;
 use super::tmu_tables::TmuLookupTables;
 use super::true_multishift_cg::TrueMultiShiftPipelines;
+use barracuda::ops::lattice::absorbed_shaders::{
+    WGSL_FERMION_ACTION_SUM_F64, WGSL_GPU_METROPOLIS_F64, WGSL_HAMILTONIAN_ASSEMBLY_F64,
+};
+
 use crate::gpu::GpuF64;
 
 /// WGSL: `H = beta*(6V - plaq) + T + S_f` (single-thread).
-pub const WGSL_HAMILTONIAN_ASSEMBLY: &str =
-    include_str!("../shaders/hamiltonian_assembly_f64.wgsl");
+pub const WGSL_HAMILTONIAN_ASSEMBLY: &str = WGSL_HAMILTONIAN_ASSEMBLY_F64;
 /// WGSL: weighted fermion action sum from dot products.
-pub const WGSL_FERMION_ACTION_SUM: &str = include_str!("../shaders/fermion_action_sum_f64.wgsl");
+pub const WGSL_FERMION_ACTION_SUM: &str = WGSL_FERMION_ACTION_SUM_F64;
 /// WGSL: Metropolis accept/reject + diagnostics.
-pub const WGSL_METROPOLIS: &str = include_str!("../shaders/metropolis_f64.wgsl");
+pub const WGSL_METROPOLIS: &str = WGSL_GPU_METROPOLIS_F64;
 
 /// All pipelines for unidirectional RHMC.
 pub struct UniPipelines {

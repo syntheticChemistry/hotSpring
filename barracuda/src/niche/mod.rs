@@ -78,19 +78,41 @@ pub fn socket_dirs() -> Vec<std::path::PathBuf> {
 
     let mut dirs = Vec::new();
 
-    if let Ok(d) = std::env::var("BIOMEOS_SOCKET_DIR") {
-        dirs.push(PathBuf::from(d));
-    }
-    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        dirs.push(PathBuf::from(xdg).join(ECOSYSTEM_SOCKET_DIR));
+    // Primary: colon-separated explicit search paths (`/a/biomeos:/c/biomeos`).
+    if let Ok(raw) = std::env::var("BIOMEOS_SOCKET_DIRS") {
+        for d in raw.split(':').filter(|s| !s.is_empty()) {
+            let p = PathBuf::from(d);
+            if !dirs.contains(&p) {
+                dirs.push(p);
+            }
+        }
     }
 
-    let toadstool_base = std::env::var("TOADSTOOL_RUN_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/run/toadstool"));
-    let toadstool_sys = toadstool_base.join(ECOSYSTEM_SOCKET_DIR);
-    if !dirs.contains(&toadstool_sys) {
-        dirs.push(toadstool_sys);
+    if let Ok(d) = std::env::var("BIOMEOS_SOCKET_DIR") {
+        let p = PathBuf::from(d);
+        if !dirs.contains(&p) {
+            dirs.push(p);
+        }
+    }
+    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
+        let p = PathBuf::from(xdg).join(ECOSYSTEM_SOCKET_DIR);
+        if !dirs.contains(&p) {
+            dirs.push(p);
+        }
+    }
+
+    // Fallback for NUCLEUS-less environments: any primal runtime dir under `/run/`.
+    if let Ok(entries) = std::fs::read_dir("/run") {
+        for entry in entries.flatten() {
+            let candidate = entry.path().join(ECOSYSTEM_SOCKET_DIR);
+            if candidate.is_dir() && !dirs.contains(&candidate) {
+                dirs.push(candidate);
+            }
+        }
+    }
+    let run_biomeos = PathBuf::from("/run").join(ECOSYSTEM_SOCKET_DIR);
+    if run_biomeos.is_dir() && !dirs.contains(&run_biomeos) {
+        dirs.push(run_biomeos);
     }
 
     let user = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
@@ -281,7 +303,9 @@ fn legacy_register(biomeos_path: &Path, sock_str: &str) {
             payload["operation_dependencies"] = operation_dependencies();
             payload["cost_estimates"] = cost_estimates();
         }
-        let _ = send_registration(biomeos_path, "capability.register", &payload);
+        if let Err(e) = send_registration(biomeos_path, "capability.register", &payload) {
+            warn!("niche registration failed: {e}");
+        }
     }
 
     let mut registered = 0u32;
@@ -305,7 +329,9 @@ fn legacy_register(biomeos_path: &Path, sock_str: &str) {
             "served_locally": false,
             "canonical_provider": provider,
         });
-        let _ = send_registration(biomeos_path, "capability.register", &params);
+        if let Err(e) = send_registration(biomeos_path, "capability.register", &params) {
+            warn!("niche registration failed: {e}");
+        }
     }
 
     let total = LOCAL_CAPABILITIES.len() + ROUTED_CAPABILITIES.len();

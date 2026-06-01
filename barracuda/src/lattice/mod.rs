@@ -36,6 +36,9 @@
 pub mod abelian_higgs;
 /// Conjugate gradient solver for D-dagger-D on GPU.
 pub mod cg;
+/// Lattice QCD dispatch adapter: QCD bind groups → toadStool IPC wire format.
+#[cfg(feature = "barracuda-local")]
+pub mod dispatch_adapter;
 /// Complex f64 arithmetic (re, im) with WGSL shader template.
 pub mod complex_f64;
 /// LCG PRNG, lattice constants, and shared numerical guards.
@@ -77,5 +80,8 @@ pub mod rhmc;
 pub mod su3;
 /// Task matrix: systematic parameter sweeps with priority scheduling.
 pub mod task_matrix;
+/// Sovereign trio GPU backend for lattice HMC (coralReef + toadStool IPC).
+#[cfg(feature = "sovereign-dispatch")]
+pub mod trio_backend;
 /// Wilson gauge action: plaquettes, staples, gauge force.
 pub mod wilson;

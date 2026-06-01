@@ -59,4 +59,19 @@ pub enum Commands {
     },
     /// Show version information.
     Version,
+    /// Fleet management operations.
+    Fleet {
+        #[command(subcommand)]
+        action: FleetAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum FleetAction {
+    /// Generate fleet file from NUCLEUS scan + device.list enrichment.
+    Init {
+        /// Output file path (default: $XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json).
+        #[arg(short, long)]
+        output: Option<String>,
+    },
 }

@@ -1,0 +1,30 @@
+[Unit]
+Description=hotSpring — ecoPrimal QCD Orchestration
+Documentation=https://github.com/ecoPrimals/hotSpring
+After=network.target toadstool.service coralreef.service barracuda.service
+Wants=toadstool.service coralreef.service barracuda.service
+PartOf=ecoprimals-node.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/local/bin/hotspring serve --family-id hotspring-biome
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+WatchdogSec=30
+Environment=RUST_LOG=info
+
+# NUCLEUS socket
+Environment=NUCLEUS_SOCKET_DIR=/run/ecoprimals/sockets
+Environment=FAMILY_ID=hotspring-biome
+RuntimeDirectory=ecoprimals/hotspring
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+
+[Install]
+WantedBy=ecoprimals-node.target

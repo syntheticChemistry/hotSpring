@@ -67,9 +67,9 @@ pub fn run(v: &mut ValidationHarness) {
         }
     }
 
-    // --- Sovereign dispatch probe ---
+    // --- Sovereign dispatch probe (method: compute.dispatch.submit) ---
     let dispatch_available = nucleus
-        .get_by_capability("compute.dispatch.submit")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
 
     if dispatch_available {
@@ -93,9 +93,9 @@ pub fn run(v: &mut ValidationHarness) {
         );
     }
 
-    // --- FECS state probe (coralReef sentinel) ---
+    // --- FECS state probe (coralReef sentinel; method: ember.fecs.state) ---
     let ember_available = nucleus
-        .get_by_capability("ember.fecs.state")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
 
     if ember_available {
@@ -115,44 +115,45 @@ pub fn run(v: &mut ValidationHarness) {
         );
     }
 
-    // --- Warm catch (toadStool S256+ device.warm_catch) ---
+    // --- Warm catch (toadStool S256+; method: device.warm_catch) ---
     let warm_catch_available = nucleus
-        .get_by_capability("device.warm_catch")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
     v.check_bool(
         "sovereign:warm_catch_routable",
         warm_catch_available || !t2.toadstool_alive,
     );
 
-    // --- PBDMA dispatch surface (toadStool S258) ---
+    // --- PBDMA dispatch surface (toadStool S258; method: device.vfio.open) ---
     let vfio_open_available = nucleus
-        .get_by_capability("device.vfio.open")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
     v.check_bool(
         "sovereign:pbdma_open_routable",
         vfio_open_available || !t2.toadstool_alive,
     );
 
+    // method: device.vfio.roundtrip
     let vfio_roundtrip_available = nucleus
-        .get_by_capability("device.vfio.roundtrip")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
     v.check_bool(
         "sovereign:pbdma_roundtrip_routable",
         vfio_roundtrip_available || !t2.toadstool_alive,
     );
 
-    // --- GR context init (toadStool S262) ---
+    // --- GR context init (toadStool S262; method: device.gr.init) ---
     let gr_init_available = nucleus
-        .get_by_capability("device.gr.init")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
     v.check_bool(
         "sovereign:gr_init_routable",
         gr_init_available || !t2.toadstool_alive,
     );
 
-    // --- Warm cycle routable ---
+    // --- Warm cycle routable (method: ember.warm_cycle) ---
     let warm_available = nucleus
-        .get_by_capability("ember.warm_cycle")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
     v.check_bool(
         "sovereign:warm_cycle_routable",

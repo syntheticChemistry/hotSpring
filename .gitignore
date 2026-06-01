@@ -2,13 +2,13 @@
 # hotSpring .gitignore — standalone repo
 # ============================================================
 
-# ----- Cloned upstream repos (restore via scripts/clone-repos.sh) -----
+# ----- Cloned upstream repos (restore via scripts/fossils/clone-repos.sh) -----
 control/sarkas/sarkas-upstream/
 control/ttm/Two-Temperature-Model/
 control/surrogate/code-ocean-capsule/
 data/plasma-properties-db/Dense-Plasma-Properties-Database/
 
-# ----- Downloaded data (restore via scripts/download-data.sh) -----
+# ----- Downloaded data (restore via scripts/fossils/download-data.sh) -----
 data/zenodo-surrogate/*.tar.gz
 data/zenodo-surrogate/*.zip
 data/zenodo-surrogate/*.h5
@@ -44,16 +44,16 @@ control/akida_dw_edma/modules.order
 control/akida_dw_edma/akida-dw-edma/*.o
 control/akida_dw_edma/akida-dw-edma/.*.cmd
 
-# ----- Livepatch kernel module build artifacts -----
-scripts/livepatch/*.o
-scripts/livepatch/*.ko
-scripts/livepatch/*.mod
-scripts/livepatch/*.mod.c
-scripts/livepatch/*.mod.o
-scripts/livepatch/.*.o
-scripts/livepatch/.*.cmd
-scripts/livepatch/Module.symvers
-scripts/livepatch/modules.order
+# ----- Livepatch kernel module build artifacts (now under scripts/archive/) -----
+scripts/archive/livepatch*/*.o
+scripts/archive/livepatch*/*.ko
+scripts/archive/livepatch*/*.mod
+scripts/archive/livepatch*/*.mod.c
+scripts/archive/livepatch*/*.mod.o
+scripts/archive/livepatch*/.*.o
+scripts/archive/livepatch*/.*.cmd
+scripts/archive/livepatch*/Module.symvers
+scripts/archive/livepatch*/modules.order
 
 # ----- Profiling data -----
 *.prof

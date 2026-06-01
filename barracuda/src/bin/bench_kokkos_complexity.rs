@@ -14,6 +14,7 @@
 //!   bench_kokkos_complexity --quick            # 500 + 2000 only
 //!   bench_kokkos_complexity --output data.json
 
+use hotspring_barracuda::bench::compute_backend::BenchError;
 use hotspring_barracuda::bench::md_backend::{
     BarraCudaMdBackend, ForceMethod, KokkosLammpsBackend, MdBenchmarkBackend, MdBenchmarkResult,
     MdBenchmarkSpec,
@@ -168,9 +169,9 @@ fn main() {
         for &n in &sizes {
             let spec = build_spec(case, n, quick);
 
-            let bc_result: Option<Result<MdBenchmarkResult, String>> =
+            let bc_result: Option<Result<MdBenchmarkResult, BenchError>> =
                 bc.as_ref().map(|b| b.run_yukawa_md(&spec));
-            let kk_result: Option<Result<MdBenchmarkResult, String>> = if kokkos.available() {
+            let kk_result: Option<Result<MdBenchmarkResult, BenchError>> = if kokkos.available() {
                 Some(kokkos.run_yukawa_md(&spec))
             } else {
                 None

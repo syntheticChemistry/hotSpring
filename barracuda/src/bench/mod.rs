@@ -23,7 +23,7 @@ mod silicon_spec_sheets;
 pub mod telemetry;
 
 pub use compute_backend::{
-    BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec, ComputeBackend,
+    BackendKind, BarraCudaCpuBackend, BenchError, BenchmarkResult, BenchmarkSpec, ComputeBackend,
     PrecisionMode, compare_backends,
 };
 pub use esn_benchmark::{

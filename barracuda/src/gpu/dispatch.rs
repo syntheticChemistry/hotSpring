@@ -2,15 +2,9 @@
 
 //! GPU dispatch and encoder management.
 //!
-//! Streaming dispatch pattern: pre-plan GPU work, submit as few command
-//! buffers as possible, read back only at control points.
-//!
-//! ```text
-//! begin_encoder()  → CommandEncoder
-//!   ↕  encode N dispatches via compute passes
-//! submit_encoder() → ONE GPU submission
-//! read_staging_f64() → read back results
-//! ```
+//! hotSpring streaming dispatch pattern (batch encoders, sequential bind groups).
+//! Pipeline creation delegates shader compile to barraCuda; bind-group and
+//! encoder helpers remain here because lattice/MD code uses this layout.
 
 use super::GpuF64;
 

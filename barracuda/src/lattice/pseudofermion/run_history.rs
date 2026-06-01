@@ -92,7 +92,11 @@ impl RunHistoryWriter {
     }
 
     /// Write a trajectory record as a single JSONL line.
-    pub fn write_trajectory(&mut self, rec: &TrajectoryRecord) {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the write to the underlying file fails.
+    pub fn write_trajectory(&mut self, rec: &TrajectoryRecord) -> std::io::Result<()> {
         let line = format!(
             "{{\"beta\":{},\"mass\":{},\"dt\":{},\"n_md\":{},\
               \"plaquette\":{},\"delta_h\":{},\"cg_iters\":{},\
@@ -108,11 +112,15 @@ impl RunHistoryWriter {
             rec.wall_us,
             rec.stage,
         );
-        let _ = self.file.write_all(line.as_bytes());
+        self.file.write_all(line.as_bytes())
     }
 
     /// Write a run summary as a single JSONL line.
-    pub fn write_summary(&mut self, summary: &RunSummary) {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the write to the underlying file fails.
+    pub fn write_summary(&mut self, summary: &RunSummary) -> std::io::Result<()> {
         let line = format!(
             "{{\"type\":\"summary\",\"beta\":{},\"mass\":{},\
               \"final_acceptance\":{},\"final_plaquette\":{},\
@@ -125,12 +133,16 @@ impl RunHistoryWriter {
             summary.n_trajectories,
             summary.converged,
         );
-        let _ = self.file.write_all(line.as_bytes());
+        self.file.write_all(line.as_bytes())
     }
 
     /// Flush buffered writes.
-    pub fn flush(&mut self) {
-        let _ = self.file.flush();
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if flushing the underlying file fails.
+    pub fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()
     }
 }
 
@@ -360,8 +372,8 @@ mod tests {
 
         {
             let mut writer = RunHistoryWriter::open(&path).unwrap();
-            writer.write_trajectory(&rec);
-            writer.flush();
+            writer.write_trajectory(&rec).unwrap();
+            writer.flush().unwrap();
         }
 
         let reader = RunHistoryReader::from_file(&path);
@@ -393,8 +405,8 @@ mod tests {
 
         {
             let mut writer = RunHistoryWriter::open(&path).unwrap();
-            writer.write_summary(&summary);
-            writer.flush();
+            writer.write_summary(&summary).unwrap();
+            writer.flush().unwrap();
         }
 
         let reader = RunHistoryReader::from_file(&path);

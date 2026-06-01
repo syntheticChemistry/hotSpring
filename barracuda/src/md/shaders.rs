@@ -72,119 +72,79 @@ pub fn patch_math_f64_preamble(preamble: &str) -> String {
 //   F = -dU/dr = prefactor * exp(-kappa*r) * (1 + kappa*r) / r² * r_hat
 //
 // The shader also accumulates per-particle potential energy (half-counted).
-/// Yukawa pairwise force kernel WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_YUKAWA_FORCE;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_YUKAWA_FORCE: &str = include_str!("shaders/yukawa_force_f64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Velocity-Verlet Half-Kick + Drift + PBC Wrap (f64)
-// ═══════════════════════════════════════════════════════════════════
-/// VV half-kick, drift, and PBC wrap WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_VV_KICK_DRIFT;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_VV_KICK_DRIFT: &str = include_str!("shaders/vv_kick_drift_f64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Velocity-Verlet Second Half-Kick (f64)
-// ═══════════════════════════════════════════════════════════════════
-//
-// After forces are recomputed with new positions, apply the second
-// half-kick: v += 0.5 * dt * a_new
-/// VV second half-kick WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_VV_HALF_KICK;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_VV_HALF_KICK: &str = include_str!("shaders/vv_half_kick_f64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Berendsen Thermostat (f64)
-// ═══════════════════════════════════════════════════════════════════
-//
-// Rescales velocities: v *= sqrt(1 + (dt/tau) * (T_target/T_current - 1))
-// Applied once per step during equilibration.
-/// Berendsen thermostat WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_BERENDSEN;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_BERENDSEN: &str = include_str!("shaders/berendsen_f64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Kinetic Energy Reduction (f64)
-// ═══════════════════════════════════════════════════════════════════
-//
-// Computes per-particle KE = 0.5 * m * v² for temperature calculation.
-/// Kinetic energy reduction WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_KINETIC_ENERGY;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_KINETIC_ENERGY: &str = include_str!("shaders/kinetic_energy_f64.wgsl");
 
-// Sum reduction (f64) is now provided by barracuda::pipeline::ReduceScalarPipeline.
-// The local SHADER_SUM_REDUCE was removed in v0.5.11 after ToadStool absorbed the
-// two-pass reduction pattern as a first-class API (Feb 19, 2026).
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_CELLLIST;
+#[cfg(not(feature = "barracuda-local"))]
+pub const SHADER_YUKAWA_FORCE_CELLLIST: &str = include_str!("shaders/yukawa_force_celllist_f64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Yukawa Cell-List Force Kernel (f64)
-// ═══════════════════════════════════════════════════════════════════
-/// Yukawa cell-list force WGSL source.
-pub const SHADER_YUKAWA_FORCE_CELLLIST: &str =
-    include_str!("shaders/yukawa_force_celllist_f64.wgsl");
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_CELLLIST_V2;
+#[cfg(not(feature = "barracuda-local"))]
+pub const SHADER_YUKAWA_FORCE_CELLLIST_V2: &str = include_str!("shaders/yukawa_force_celllist_v2_f64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Yukawa Cell-List Force Kernel v2 (f64) — flat neighbor loop
-// ═══════════════════════════════════════════════════════════════════
-/// Yukawa cell-list force v2 (flat neighbor loop) WGSL source.
-pub const SHADER_YUKAWA_FORCE_CELLLIST_V2: &str =
-    include_str!("shaders/yukawa_force_celllist_v2_f64.wgsl");
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_INDIRECT;
+#[cfg(not(feature = "barracuda-local"))]
+pub const SHADER_YUKAWA_FORCE_INDIRECT: &str = include_str!("shaders/yukawa_force_celllist_indirect_f64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Yukawa Cell-List Force Kernel — Indirect Indexing (f64)
-// ═══════════════════════════════════════════════════════════════════
-//
-// Same physics as SHADER_YUKAWA_FORCE_CELLLIST but with an extra
-// sorted_indices binding for indirect neighbor access. Positions,
-// velocities, and forces stay in original particle order — no CPU-side
-// sorting needed. Used with `barracuda::ops::md::CellListGpu`.
-/// Yukawa cell-list force with indirect indexing WGSL source.
-pub const SHADER_YUKAWA_FORCE_INDIRECT: &str =
-    include_str!("shaders/yukawa_force_celllist_indirect_f64.wgsl");
-
-// ═══════════════════════════════════════════════════════════════════
-// Yukawa DF64 Force Kernels — FP32 Core Streaming
-// ═══════════════════════════════════════════════════════════════════
-//
-// DF64 (f32-pair) variants for Fp64Strategy::Hybrid — runs force math
-// on all FP32 cores (~10,496 on RTX 3090) instead of 1:64 throttled
-// FP64 units. PBC and I/O stay in native f64 for exact rounding.
-//
-// Requires df64_core.wgsl + df64_transcendentals.wgsl prepended
-// (handled by GpuF64::create_pipeline_df64).
-/// Yukawa all-pairs force (DF64) WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_DF64;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_YUKAWA_FORCE_DF64: &str = include_str!("shaders/yukawa_force_df64.wgsl");
-/// Yukawa cell-list force with indirect indexing (DF64) WGSL source.
-pub const SHADER_YUKAWA_FORCE_INDIRECT_DF64: &str =
-    include_str!("shaders/yukawa_force_celllist_indirect_df64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Yukawa Verlet Neighbor List Force Kernels
-// ═══════════════════════════════════════════════════════════════════
-//
-// Compact neighbor loop: iterates only the pre-built per-particle
-// neighbor list instead of all particles (AllPairs) or the full
-// 27-cell stencil (CellList). Fewest interactions per thread.
-/// Yukawa Verlet force (f64) WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_INDIRECT_DF64;
+#[cfg(not(feature = "barracuda-local"))]
+pub const SHADER_YUKAWA_FORCE_INDIRECT_DF64: &str = include_str!("shaders/yukawa_force_celllist_indirect_df64.wgsl");
+
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_VERLET;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_YUKAWA_FORCE_VERLET: &str = include_str!("shaders/yukawa_force_verlet_f64.wgsl");
-/// Yukawa Verlet force (DF64) WGSL source.
-pub const SHADER_YUKAWA_FORCE_VERLET_DF64: &str =
-    include_str!("shaders/yukawa_force_verlet_df64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// RDF Histogram Kernel (f64)
-// ═══════════════════════════════════════════════════════════════════
-/// RDF histogram binning WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_VERLET_DF64;
+#[cfg(not(feature = "barracuda-local"))]
+pub const SHADER_YUKAWA_FORCE_VERLET_DF64: &str = include_str!("shaders/yukawa_force_verlet_df64.wgsl");
+
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_RDF_HISTOGRAM;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_RDF_HISTOGRAM: &str = include_str!("shaders/rdf_histogram_f64.wgsl");
 
-// ═══════════════════════════════════════════════════════════════════
-// Echo State Network Reservoir (f32) — shader-originating math
-// ═══════════════════════════════════════════════════════════════════
-//
-// The ESN math originates here in WGSL. ToadStool dispatches to:
-//   GPU: compile shader → wgpu dispatch → same math
-//   NPU: export weights → Akida load_reservoir() → hardware tanh
-//   CPU: reservoir.rs::EchoStateNetwork → pure Rust reference
-//
-// All three substrates execute identical linear algebra + tanh.
-/// ESN reservoir update WGSL source.
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_ESN_RESERVOIR_UPDATE;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_ESN_RESERVOIR_UPDATE: &str = include_str!("shaders/esn_reservoir_update.wgsl");
-/// ESN readout WGSL source.
+
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::md::SHADER_ESN_READOUT;
+#[cfg(not(feature = "barracuda-local"))]
 pub const SHADER_ESN_READOUT: &str = include_str!("shaders/esn_readout.wgsl");
 
 #[cfg(test)]

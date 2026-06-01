@@ -23,6 +23,23 @@
 //! ```
 
 use crate::dag_provenance::{DagEvent, DagSession, blake3_hex};
+
+const B64_CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+fn b64_encode_simple(data: &[u8]) -> String {
+    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
+        let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
+        let n = (b0 << 16) | (b1 << 8) | b2;
+        out.push(B64_CHARS[((n >> 18) & 0x3F) as usize] as char);
+        out.push(B64_CHARS[((n >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 { out.push(B64_CHARS[((n >> 6) & 0x3F) as usize] as char); } else { out.push('='); }
+        if chunk.len() > 2 { out.push(B64_CHARS[(n & 0x3F) as usize] as char); } else { out.push('='); }
+    }
+    out
+}
 use crate::error::HotSpringError;
 use crate::primal_bridge::{NucleusContext, parse_jsonrpc_response};
 use crate::witness::WireWitnessRef;
@@ -95,17 +112,29 @@ pub fn compile_and_submit(
 
     let compile_result = parse_jsonrpc_response(&compile_resp, "shader.compile.wgsl")?;
 
-    let binary_b64 = compile_result
+    let binary_field = compile_result
         .get("binary_b64")
-        .or_else(|| compile_result.get("binary"))
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| {
+        .or_else(|| compile_result.get("binary"));
+
+    let binary_b64 = match binary_field {
+        Some(serde_json::Value::String(s)) => s.clone(),
+        Some(serde_json::Value::Array(arr)) => {
+            let bytes: Vec<u8> = arr
+                .iter()
+                .filter_map(|v| v.as_u64().map(|n| n as u8))
+                .collect();
+            b64_encode_simple(&bytes)
+        }
+        _ => {
             let err_detail = compile_result.get("error").map_or_else(
                 || "no binary in compile response".into(),
                 ToString::to_string,
             );
-            HotSpringError::Ipc(format!("shader compile failed: {err_detail}"))
-        })?;
+            return Err(HotSpringError::Ipc(format!(
+                "shader compile failed: {err_detail}"
+            )));
+        }
+    };
 
     let input_hash = blake3_hex(&serde_json::to_vec(&input_data).unwrap_or_default());
 
@@ -589,7 +618,11 @@ pub fn dispatch_cpu_fallback(
             }))
         }
         "spmv" => {
-            log::warn!("spmv dispatch not yet implemented — GAP-HS-027");
+            // GAP-HS-027: CPU SpMV fallback needs barraCuda sparse module integration.
+            // The sparse module exists upstream but the dispatch interface isn't wired yet.
+            log::warn!(
+                "spmv dispatch deferred (GAP-HS-027) — barraCuda sparse module integration pending"
+            );
             None
         }
         _ => None,

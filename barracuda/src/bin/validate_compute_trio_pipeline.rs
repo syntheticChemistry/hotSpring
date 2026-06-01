@@ -65,7 +65,7 @@ fn check_trio_liveness(ctx: &NucleusContext, harness: &mut ValidationHarness) ->
 
     for (domain, label) in [
         ("compute", "toadStool"),
-        ("tensor", "barraCuda"),
+        ("math", "barraCuda"),
         ("shader", "coralReef"),
     ] {
         let alive = ctx.by_domain(domain).is_some_and(|ep| ep.alive);

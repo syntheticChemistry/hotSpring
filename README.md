@@ -368,8 +368,17 @@ See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
 # guideStone Primal Proof (bare mode — no NUCLEUS required)
 ./scripts/validate-primal-proof.sh
 
+# guideStone Primal Proof (full mode — against live NUCLEUS from plasmidBin)
+export FAMILY_ID="hotspring-validation"
+export BEARDOG_FAMILY_SEED="$(head -c 32 /dev/urandom | xxd -p)"
+cd ../plasmidBin && ./nucleus_launcher.sh --family-id "$FAMILY_ID" --composition niche-hotspring
+cd ../hotSpring && ./scripts/validate-primal-proof.sh --full
+
 # BarraCuda validation (all 65 suites, 3 tiers)
 cd barracuda && cargo run --release --bin validate_all
+
+# Sovereign compute trio validation (requires NUCLEUS stack running)
+cargo run --release --bin validate_compute_trio_pipeline
 
 # CompChem GuideStone pipeline (run simulations → build pseudoSpore → validate)
 cd control/plumed_nest && cargo build --release --manifest-path nest-validate/Cargo.toml
@@ -382,17 +391,6 @@ cd control/plumed_nest && cargo build --release --manifest-path nest-validate/Ca
 > `download-data.sh`, `setup-envs.sh`) have been fossilized to `scripts/fossils/`.
 > Their functionality is superseded by `nest-validate guidestone run` (CompChem)
 > and `cargo run --release --bin validate_all` (BarraCuda).
-
-```bash
-# guideStone Primal Proof (bare mode — no NUCLEUS required)
-./scripts/validate-primal-proof.sh
-
-# guideStone Primal Proof (full mode — against live NUCLEUS from plasmidBin)
-export FAMILY_ID="hotspring-validation"
-export BEARDOG_FAMILY_SEED="$(head -c 32 /dev/urandom | xxd -p)"
-cd ../plasmidBin && ./nucleus_launcher.sh --family-id "$FAMILY_ID" --composition niche-hotspring
-cd ../hotSpring && ./scripts/validate-primal-proof.sh --full
-```
 
 ```bash
 # Phase C: GPU Molecular Dynamics (requires SHADER_F64 GPU)
@@ -503,7 +501,7 @@ hotSpring/
 │
 ├── experiments/                        # 234 experiment journals (fossil record); 001-190 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-190 (archived journals + FOSSIL_RECORD summaries)
-│   └── 191-226: active experiments (toadStool PBDMA, HW validation, PLX keepalive, cold/warm boot, driver lab, warm swap, diesel engine, power safety, CG sweep, surface rewire, warm/cold convergence, VBIOS live validation, dual Titan V, Falcon ACR DMA, sovereign boot abstraction + profiling, reboot-efficient sovereign evolution, VFIO dispatch bridge, GPC boundary, PMU mailbox Tier 2, sovereignty consolidation, live HW warm handoff, D-state hardening, TPC wall identification, kernel health preflight, TPC PRI station creation, nvidia-470 nvsov dual-load, catalyst driver pattern, CAZyme FEL biomolecular MD, UEFI model PRI ring recovery, reagent pipeline, ACR sovereign boot catalyst, sovereignty audit checkpoint, catalyst TPC persistence test, SBR bus reset suppression)
+│   └── 191-234: active experiments (toadStool PBDMA, HW validation, diesel engine, sovereignty, CAZyme FEL, catalyst pipeline, crash vector forensics, RM channel, catalyst minimal NOP — Exp 234 PAUSED pending Run #6)
 │
 ├── infra/                              # Catalyst and sovereignty infrastructure
 │   ├── catalysts/                     # Catalyst driver preservation (Exp 219)
@@ -588,7 +586,10 @@ preservation, fd store, 76× faster than cold). RTX 5060 full dispatch LIVE
 firmware-dependent (Exp 217). **Catalyst Driver Pattern** (Exp 219, HW validated
 May 24) — 26s pipeline, 83K alive regs captured via domain-scoped scan (897ms),
 surgical NopCallAt patches, SBR bridge reset recovery. 3-layer preservation
-operational. 27 RPC methods.
+operational. 27 RPC methods. **Post-primordial sovereign compute trio validated
+(June 1, 2026)** — Yukawa MD force + Wilson plaquette compiled via coralReef,
+dispatched via toadStool, results received across hardware. Lockup defense matrix
+11/11. Silicon capabilities 9/12 on RTX 5060 Blackwell. BLAKE3 witness pipeline live.
 **Vendor-atheistic target**: not just agnostic to vendor, but independent of
 vendor entirely — solving sovereign compute across Volta, Blackwell,
 and AMD RDNA2. Three-tier validation: Python validates Rust. Rust validates NUCLEUS.

@@ -74,7 +74,7 @@ fn main() {
     v.section("NUCLEUS: Discovery + Liveness");
 
     let mut ctx = CompositionContext::from_live_discovery_with_fallback();
-    let alive = validate_liveness(&mut ctx, &mut v, &["tensor", "security", "compute"]);
+    let alive = validate_liveness(&mut ctx, &mut v, &["math", "crypto", "compute"]);
 
     if alive == 0 {
         eprintln!("[guideStone] No NUCLEUS primals discovered — bare certification only.");
@@ -260,7 +260,7 @@ fn validate_scalar_parity(ctx: &mut CompositionContext, v: &mut ValidationResult
         ctx,
         v,
         "parity:plaquette_mean",
-        "tensor",
+        "math",
         "stats.mean",
         serde_json::json!({"data": [0.333, 0.334, 0.332, 0.335, 0.331]}),
         "result",
@@ -273,7 +273,7 @@ fn validate_scalar_parity(ctx: &mut CompositionContext, v: &mut ValidationResult
         ctx,
         v,
         "parity:observable_mean",
-        "tensor",
+        "math",
         "stats.mean",
         serde_json::json!({"data": [1.0, 2.0, 3.0, 4.0, 5.0]}),
         "result",
@@ -292,7 +292,7 @@ fn validate_vector_parity(ctx: &mut CompositionContext, v: &mut ValidationResult
         ctx,
         v,
         "parity:su3_identity_matmul",
-        "tensor",
+        "math",
         "tensor.matmul",
         serde_json::json!({
             "a": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
@@ -309,7 +309,7 @@ fn validate_vector_parity(ctx: &mut CompositionContext, v: &mut ValidationResult
         ctx,
         v,
         "parity:field_arithmetic_matmul",
-        "tensor",
+        "math",
         "tensor.matmul",
         serde_json::json!({
             "a": [[1.0, 2.0], [3.0, 4.0]],
@@ -344,7 +344,7 @@ fn validate_semf_e2e(ctx: &mut CompositionContext, v: &mut ValidationResult) {
         ctx,
         v,
         "parity:semf_pb208_mean",
-        "tensor",
+        "math",
         "stats.mean",
         serde_json::json!({"data": [part, part, part, part, part]}),
         "result",

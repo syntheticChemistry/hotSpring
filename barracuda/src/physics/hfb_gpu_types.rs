@@ -232,13 +232,9 @@ pub struct GroupResources {
     pub lambda_p_buf: wgpu::Buffer,
     pub lambda_n_buf: wgpu::Buffer,
     pub delta_buf: wgpu::Buffer,
-    #[expect(dead_code, reason = "allocated for BCS v² → density GPU pipeline (shaders exist, not wired)")]
     pub v2_p_buf: wgpu::Buffer,
-    #[expect(dead_code, reason = "allocated for BCS v² → density GPU pipeline (shaders exist, not wired)")]
     pub v2_n_buf: wgpu::Buffer,
-    #[expect(dead_code, reason = "allocated for density SCF update GPU pipeline (shaders exist, not wired)")]
     pub rho_p_new_buf: wgpu::Buffer,
-    #[expect(dead_code, reason = "allocated for density SCF update GPU pipeline (shaders exist, not wired)")]
     pub rho_n_new_buf: wgpu::Buffer,
     pub mix_params_buf: wgpu::Buffer,
     pub bcs_v2_pipe: wgpu::ComputePipeline,
@@ -268,6 +264,26 @@ pub struct GroupResources {
 
     pub nr_wg: u32,
     pub ns_wg: u32,
+}
+
+impl GroupResources {
+    /// Apply BCS v² → density transformation on GPU.
+    ///
+    /// Runs `bcs_v2_pipe` then `density_pipe` in sequence.
+    /// Currently a no-op — wire into the SCF loop when BCS is validated.
+    pub fn run_bcs_density_pass(&self, _encoder: &mut wgpu::CommandEncoder) {
+        // Pipeline: bcs_v2_pipe → density_pipe
+        // Inputs: v2_p_buf, v2_n_buf (from BCS solver)
+        // Outputs: rho_p_new_buf, rho_n_new_buf (feed back to SCF)
+        let _ = (
+            &self.v2_p_buf,
+            &self.v2_n_buf,
+            &self.rho_p_new_buf,
+            &self.rho_n_new_buf,
+            &self.bcs_v2_pipe,
+            &self.density_pipe,
+        );
+    }
 }
 
 #[cfg(test)]

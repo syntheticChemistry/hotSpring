@@ -264,3 +264,21 @@ All three are now fixed. Awaiting clean execution (Run #6) after reboot.
 - `nv_cap_validate_and_dup_fd`, `nv_cap_close_fd`, `nv_cap_destroy_entry` — access control bypass
 - `os_is_administrator` — Ret1AtEntry (admin bypass)
 - `init_module` PatchByteAt ×3 — chrdev isolation (dynamic major 0)
+
+## Sovereign Compute Validation (June 1, 2026 — S284)
+
+While Exp 234 Run #6 remains pending reboot, the sovereign compute pipeline was
+validated end-to-end on the existing fleet using the post-primordial QCD evolution
+stack (Phases 1-8 complete):
+
+- **Lockup defense matrix**: 11/11 passed — all 5 diesel-engine defenses available
+- **Compute trio pipeline**: 16/19 — Yukawa MD + Wilson plaquette compiled via
+  coralReef, dispatched via toadStool, results received. 7/9 barrier shaders compiled.
+- **Compute dispatch (Exp 152)**: FULL PASS — BLAKE3 witness pipeline live
+- **Silicon capabilities (RTX 5060)**: 9/12 — FMA, DF64, workgroup reduction pass
+- **MMIO probes**: Both Titan Vs alive (BOOT0 0x140000a1, 23 engines, PTIMER ticking)
+
+Remaining failures are upstream: coralReef compiler bugs (2 shaders), songbird
+capability advertisement gap, barracuda ReduceScalarPipeline readback on Blackwell.
+
+Status: PAUSED — Run #6 cleared, reboot required to clear stuck nvsov module.

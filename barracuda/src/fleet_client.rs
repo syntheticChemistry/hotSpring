@@ -31,7 +31,9 @@ pub use crate::fleet_ember::{
     extract_ember_pid, flood_test, verify_ember_alive,
 };
 
-/// Environment variable overriding the fleet discovery JSON path.
+/// Environment variable overriding the fleet discovery JSON path (preferred).
+pub const HOTSPRING_FLEET_FILE_ENV: &str = "HOTSPRING_FLEET_FILE";
+/// Legacy alias for [`HOTSPRING_FLEET_FILE_ENV`].
 pub const EMBER_FLEET_FILE_ENV: &str = "EMBER_FLEET_FILE";
 
 /// Relative path under `XDG_RUNTIME_DIR` for fleet discovery.
@@ -99,11 +101,15 @@ impl FleetDiscovery {
     /// Resolve the fleet file path.
     ///
     /// Search order:
-    /// 1. `EMBER_FLEET_FILE` env var (explicit override)
-    /// 2. `$XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json`
-    /// 3. `<temp_dir>/biomeos/toadstool-ember-fleet.json` (platform temp via `std::env::temp_dir()`)
+    /// 1. `HOTSPRING_FLEET_FILE` env var (explicit override)
+    /// 2. `EMBER_FLEET_FILE` env var (legacy alias)
+    /// 3. `$XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json`
+    /// 4. `<temp_dir>/biomeos/toadstool-ember-fleet.json` (platform temp via `std::env::temp_dir()`)
     #[must_use]
     pub fn resolve_path() -> PathBuf {
+        if let Ok(p) = std::env::var(HOTSPRING_FLEET_FILE_ENV) {
+            return PathBuf::from(p);
+        }
         if let Ok(p) = std::env::var(EMBER_FLEET_FILE_ENV) {
             return PathBuf::from(p);
         }
@@ -247,13 +253,18 @@ pub fn probe_ember_socket(socket_path: &Path) -> bool {
         .is_ok_and(|resp| resp.get("result").is_some())
 }
 
-/// Resolve the toadStool compute socket path.
+/// Resolve the compute-domain primal socket path.
 ///
-/// Precedence: `TOADSTOOL_SOCKET` env → first existing `compute.sock` in
-/// [`niche::socket_dirs()`] → `compute.sock` in the first niche dir.
+/// Precedence: `TOADSTOOL_SOCKET` env → NUCLEUS `get_by_capability("compute")`
+/// → first existing `compute.sock` in [`niche::socket_dirs()`] → conventional
+/// fallback path (NUCLEUS-less environments only).
 fn toadstool_compute_socket() -> PathBuf {
     if let Ok(sock) = std::env::var("TOADSTOOL_SOCKET") {
         return PathBuf::from(sock);
+    }
+    let ctx = crate::primal_bridge::NucleusContext::detect();
+    if let Some(ep) = ctx.get_by_capability("compute").filter(|ep| ep.alive) {
+        return PathBuf::from(&ep.socket);
     }
     let dirs = niche::socket_dirs();
     for dir in &dirs {
@@ -265,17 +276,18 @@ fn toadstool_compute_socket() -> PathBuf {
     dirs.first()
         .map(|d| d.join("compute.sock"))
         .unwrap_or_else(|| {
+            // Fallback for environments without NUCLEUS: generic compute socket location.
             let base = std::env::var("TOADSTOOL_RUN_DIR")
                 .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("/run/toadstool/biomeos"));
+                .unwrap_or_else(|_| PathBuf::from("/run/biomeos"));
             base.join("compute.sock")
         })
 }
 
-/// Resolve the toadStool runtime directory for ember sockets.
+/// Resolve the compute runtime directory for per-BDF ember sockets.
 ///
 /// Precedence: `TOADSTOOL_RUN_DIR` env → parent of first existing niche
-/// socket dir → `/run/toadstool`.
+/// socket dir → `/run` (NUCLEUS-less fallback).
 fn toadstool_run_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("TOADSTOOL_RUN_DIR") {
         return PathBuf::from(dir);
@@ -287,9 +299,8 @@ fn toadstool_run_dir() -> PathBuf {
             }
         }
     }
-    std::env::var("TOADSTOOL_RUN_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/run/toadstool"))
+    // Fallback for environments without NUCLEUS: scan generic runtime root.
+    PathBuf::from("/run")
 }
 
 /// Candidate ember socket paths for a given PCI BDF, in priority order.
@@ -301,7 +312,7 @@ pub fn ember_socket_candidates(bdf: &str) -> Vec<PathBuf> {
     let slug = bdf.replace([':', '.'], "-");
     let run = toadstool_run_dir();
     vec![
-        run.join(format!("toadstool-ember-{slug}.sock")),
+        run.join(format!("compute-ember-{slug}.sock")),
         run.join(format!("ember-{slug}.sock")),
         run.join("ember.sock"),
     ]
@@ -368,8 +379,7 @@ pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
-            let is_ember = (name_str.starts_with("toadstool-ember-")
-                || name_str.starts_with("ember-"))
+            let is_ember = (name_str.contains("-ember-") || name_str.starts_with("ember-"))
                 && name_str.ends_with(".sock");
             if !is_ember {
                 continue;

@@ -66,6 +66,7 @@ fn toadstool_socket() -> String {
     if let Some(ep) = nucleus.by_domain("compute").filter(|ep| ep.alive) {
         return ep.socket.clone();
     }
+    log::warn!("falling back to name-based socket resolution — NUCLEUS discovery preferred");
     let family = crate::niche::family_id();
     let sock_name = format!("toadstool-{family}.sock");
     for dir in crate::niche::socket_dirs() {

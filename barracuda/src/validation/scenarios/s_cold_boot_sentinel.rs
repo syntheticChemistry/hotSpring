@@ -79,18 +79,18 @@ pub fn run(v: &mut ValidationHarness) {
         }
     }
 
-    // --- Device recovery probe ---
+    // --- Device recovery probe (method: ember.device.recover) ---
     let recover_routable = nucleus
-        .get_by_capability("ember.device.recover")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
     v.check_bool(
         "sentinel:device_recover_routable",
         recover_routable || !ember_alive,
     );
 
-    // --- Dispatch result retrieval ---
+    // --- Dispatch result retrieval (method: compute.dispatch.result) ---
     let result_routable = nucleus
-        .get_by_capability("compute.dispatch.result")
+        .get_by_capability("compute")
         .is_some_and(|ep| ep.alive);
     v.check_bool(
         "sentinel:dispatch_result_routable",

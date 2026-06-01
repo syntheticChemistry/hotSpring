@@ -32,7 +32,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 #[path = "../bin_helpers/sovereignty/mod.rs"]
 mod sovereignty;
-use sovereignty::connect::{extract_arg, try_connect_ember, try_connect_glowplug};
+use sovereignty::connect::{resolve_target_bdf, try_connect_ember, try_connect_glowplug};
 
 // GV100 falcon engine bases (BAR0 offsets)
 const SEC2_BASE: u32 = 0x087000;
@@ -63,9 +63,11 @@ fn main() {
     let mut harness = ValidationHarness::new("exp154_sec2_acr_pipeline");
 
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
-        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string())
-    });
+    let bdf = resolve_target_bdf(&args, 0);
+    if bdf.is_empty() {
+        eprintln!("FATAL: no target BDF — pass --bdf or set HOTSPRING_BARRACUDA_TARGET_BDF");
+        std::process::exit(1);
+    }
     println!("  Target BDF: {bdf}\n");
 
     let glowplug = try_connect_glowplug();

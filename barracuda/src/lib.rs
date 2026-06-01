@@ -104,12 +104,20 @@ pub mod hardware_calibration;
 pub mod ipc;
 /// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
-/// Low-level PCI BAR0 MMIO and Falcon register map.
+/// Low-level PCI BAR0 MMIO and Falcon register map (legacy).
+///
+/// **Deprecated**: canonical MMIO lives in toadStool cylinder (`sysfs_bar0`,
+/// `nv::registers::falcon`). Experiment binaries should use ember/glowplug RPCs
+/// via [`bin_helpers::sovereignty::connect`] instead of direct mmap.
 ///
 /// Contains `unsafe` blocks for mmap/`read_volatile`/`write_volatile`.
-/// Gated behind `low-level` feature; callers use safe public APIs.
+/// Gated behind `low-level` feature (not in default build).
 #[cfg(feature = "low-level")]
 #[expect(unsafe_code, reason = "MMIO mmap requires unsafe; audited surface confined to bar0.rs")]
+#[deprecated(
+    since = "0.6.32",
+    note = "Use toadStool ember/glowplug RPCs. See bin_helpers/sovereignty/connect.rs."
+)]
 pub mod low_level;
 
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.

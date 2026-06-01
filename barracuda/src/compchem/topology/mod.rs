@@ -8,4 +8,4 @@ pub mod types;
 pub mod gromacs;
 
 pub use types::*;
-pub use gromacs::GmxTopology;
+pub use gromacs::{GmxTopology, TopologyParseError};

@@ -19,6 +19,7 @@
 //! ```
 
 use hotspring_barracuda::bench::BackendKind;
+use hotspring_barracuda::bench::compute_backend::BenchError;
 use hotspring_barracuda::bench::md_backend::{
     BarraCudaMdBackend, KokkosLammpsBackend, MdBenchmarkBackend, MdBenchmarkResult,
     MdBenchmarkSpec, compare_md_backends, print_gap_analysis,
@@ -100,7 +101,7 @@ fn main() {
         return;
     }
 
-    let mut all_results: Vec<(String, Vec<Result<MdBenchmarkResult, String>>)> = Vec::new();
+    let mut all_results: Vec<(String, Vec<Result<MdBenchmarkResult, BenchError>>)> = Vec::new();
 
     for spec in &specs {
         let results = compare_md_backends(&backends, spec);

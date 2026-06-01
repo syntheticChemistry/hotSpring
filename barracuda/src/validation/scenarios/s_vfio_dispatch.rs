@@ -175,10 +175,10 @@ pub fn run(v: &mut ValidationHarness) {
                     .is_ok();
                 v.check_bool(&format!("{prefix}pbdma_vfio_open"), vfio_opened);
 
-                // --- S262 GR context init probe ---
+                // --- S262 GR context init probe (method: device.gr.init) ---
                 if vfio_opened {
                     let gr_init_routable = nucleus
-                        .get_by_capability("device.gr.init")
+                        .get_by_capability("compute")
                         .is_some_and(|ep| ep.alive);
                     v.check_bool(&format!("{prefix}gr_init_routable"), gr_init_routable);
                 }

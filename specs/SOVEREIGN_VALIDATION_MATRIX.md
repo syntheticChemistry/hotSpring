@@ -170,7 +170,7 @@
 
 | System | Version | Integration | Impact |
 |--------|---------|-------------|--------|
-| toadStool | S268 | `sovereign.warm_handoff` RPC, `sovereign.kernel_health` preflight, `sovereign.experiment` stages, `toadstool kernel-health` CLI, diesel engine per-GPU lifecycle, 87 RPC methods, 720 cylinder tests | Full orchestration — warm handoff → tier classify → experiment stages pipeline |
+| toadStool | S268 | `sovereign.warm_handoff` RPC, `sovereign.kernel_health` preflight, `sovereign.experiment` stages, `toadstool kernel-health` CLI, diesel engine per-GPU lifecycle, 27 sovereign RPC methods, 720 cylinder tests | Full orchestration — warm handoff → tier classify → experiment stages pipeline |
 | barraCuda | Sprint 23 | f64 precision pipeline fixed, `SovereignDevice` validates RPC contract | Correct physics results guaranteed; IPC contract validated |
 | cylinder | S267 | `kmod` lifecycle, `module_patch` binary NOP, `sovereign_handoff` 8-step pipeline, `sovereign_tiers` classifier, `kernel_health` 3-layer preflight, `NvGspBridge` firmware interface | Hardware sovereignty stack — all stages implemented |
 

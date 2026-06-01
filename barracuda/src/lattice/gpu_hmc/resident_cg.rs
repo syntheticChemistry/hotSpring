@@ -18,11 +18,10 @@ pub use super::resident_cg_pipelines::{
 };
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
-use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain};
+use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain, read_complex_dot_re};
 use super::streaming::{GpuDynHmcStreamingPipelines, make_ferm_prng_params};
-#[expect(deprecated, reason = "gpu_dot_re still used for final S_f = φ†x readback")]
 use super::{
-    GpuF64, gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch, gpu_force_dispatch,
+    GpuF64, gpu_dirac_dispatch, gpu_fermion_force_dispatch, gpu_force_dispatch,
     gpu_link_update_dispatch, gpu_mom_update_dispatch, make_link_mom_params, make_prng_params,
 };
 use super::resident_observables::{
@@ -109,8 +108,7 @@ pub fn gpu_cg_solve_resident(
     total_iters
 }
 
-/// Single `gpu_dot_re` for final S_f = φ†x — intentional, not per-iteration.
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
+/// Final S_f = φ†x via one 8-byte readback (not per-iteration).
 fn gpu_fermion_action_resident_single(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -130,15 +128,20 @@ fn gpu_fermion_action_resident_single(
         check_interval,
     );
 
-    let vol = state.gauge.volume;
-    let n_pairs = vol * 3;
-    let dot_val = gpu_dot_re(
+    let n_pairs = state.gauge.volume * 3;
+    let dot_val = read_complex_dot_re(
         gpu,
         &dyn_pipelines.dot_pipeline,
+        &resident_pipelines.reduce_pipeline,
         &state.dot_buf,
+        &cg_bufs.scratch_a,
+        &cg_bufs.scratch_b,
+        &cg_bufs.rz_buf,
+        &cg_bufs.convergence_staging_a,
         phi_buf,
         &state.x_buf,
         n_pairs,
+        Some(&cg_bufs.reduce_to_rz),
     );
 
     (dot_val, iters)

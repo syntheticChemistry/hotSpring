@@ -11,6 +11,7 @@
 //! The system auto-selects at runtime based on particle count and geometry.
 
 use barracuda::ops::md::CellListGpu;
+use barracuda::ops::md::{SHADER_VERLET_BUILD, SHADER_VERLET_CHECK_DISP, SHADER_VERLET_COPY_REF};
 
 use crate::gpu::GpuF64;
 use crate::md::config::MdConfig;
@@ -284,9 +285,3 @@ impl VerletListGpu {
         self.cell_list.n_cells()
     }
 }
-
-// ── Shader sources ───────────────────────────────────────────────────
-
-const SHADER_VERLET_BUILD: &str = include_str!("shaders/verlet_build.wgsl");
-const SHADER_VERLET_CHECK_DISP: &str = include_str!("shaders/verlet_check_displacement.wgsl");
-const SHADER_VERLET_COPY_REF: &str = include_str!("shaders/verlet_copy_ref.wgsl");

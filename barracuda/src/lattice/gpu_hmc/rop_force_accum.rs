@@ -15,12 +15,14 @@
 //! 2. For each pole: dispatch fused force+atomicAdd shader (independent, no barriers)
 //! 3. Single conversion dispatch: momentum += f64(accum) / scale
 
+use barracuda::ops::lattice::absorbed_shaders::{
+    WGSL_SU3_FERMION_FORCE_ACCUMULATE_ROP_F64, WGSL_SU3_FORCE_ATOMIC_TO_MOMENTUM_F64,
+};
+
 use super::GpuF64;
 
-const WGSL_FERM_FORCE_ACCUM_ROP: &str =
-    include_str!("../shaders/su3_fermion_force_accumulate_rop_f64.wgsl");
-const WGSL_ATOMIC_TO_MOMENTUM: &str =
-    include_str!("../shaders/su3_force_atomic_to_momentum_f64.wgsl");
+const WGSL_FERM_FORCE_ACCUM_ROP: &str = WGSL_SU3_FERMION_FORCE_ACCUMULATE_ROP_F64;
+const WGSL_ATOMIC_TO_MOMENTUM: &str = WGSL_SU3_FORCE_ATOMIC_TO_MOMENTUM_F64;
 
 const FIXED_POINT_SCALE: f64 = 1_048_576.0; // 2^20
 

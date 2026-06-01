@@ -25,8 +25,9 @@
 //! - Kalkreuter, hep-lat/9511009 — eigenvalue estimation for LQCD
 
 use super::dynamical::GpuDynHmcPipelines;
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
-use super::{GpuDynHmcState, GpuF64, gpu_dot_re};
+use super::resident_cg_buffers::{build_reduce_chain_pub, read_complex_dot_re};
+use super::resident_cg_pipelines::WGSL_SUM_REDUCE;
+use super::{GpuDynHmcState, GpuF64};
 use crate::tolerances::{
     RHMC_POWER_ITERATION_COUNT, RHMC_SPECTRAL_SAFETY_HIGH, RHMC_SPECTRAL_SAFETY_LOW,
 };
@@ -74,10 +75,8 @@ impl SpectralInfo {
 /// λ ≈ ‖w‖/‖v‖. After `n_iter` steps, the Rayleigh quotient
 /// converges geometrically with rate |λ₂/λ₁|.
 ///
-/// Reuses the existing Dirac dispatch and dot product pipelines.
-/// Uses `gpu_dot_re` (3 calls per iteration × ~5 iterations = ~15 total).
-/// Low call count; not a hot path.
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
+/// Reuses the existing Dirac dispatch and dot/reduce pipelines.
+/// ~3 dot reads per iteration × ~5 iterations — calibration-only, not a hot path.
 pub fn gpu_power_iteration_lambda_max(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -112,6 +111,39 @@ pub fn gpu_power_iteration_lambda_max(
     // Upload to p_buf (workspace)
     gpu.upload_f64(&state.p_buf, &v);
 
+    let max_wg = n_pairs.div_ceil(256);
+    let scratch_a = gpu.create_f64_output_buffer(max_wg.max(1), "spectral_scratch_a");
+    let scratch_b = gpu.create_f64_output_buffer(max_wg.max(1), "spectral_scratch_b");
+    let scalar_buf = gpu.create_f64_output_buffer(1, "spectral_dot_scalar");
+    let staging = gpu.create_staging_buffer(8, "spectral_dot_staging");
+    let reduce_pl = gpu.create_pipeline_f64_precise(WGSL_SUM_REDUCE, "spectral_reduce");
+    let dot_reduce = build_reduce_chain_pub(
+        gpu,
+        &reduce_pl,
+        &state.dot_buf,
+        &scratch_a,
+        &scratch_b,
+        &scalar_buf,
+        n_pairs,
+    );
+
+    let dot_re = |gpu: &GpuF64, a: &wgpu::Buffer, b: &wgpu::Buffer| {
+        read_complex_dot_re(
+            gpu,
+            &pipelines.dot_pipeline,
+            &reduce_pl,
+            &state.dot_buf,
+            &scratch_a,
+            &scratch_b,
+            &scalar_buf,
+            &staging,
+            a,
+            b,
+            n_pairs,
+            Some(&dot_reduce),
+        )
+    };
+
     let mut lambda_est = 0.0;
 
     for _ in 0..n_iter {
@@ -139,36 +171,15 @@ pub fn gpu_power_iteration_lambda_max(
         );
 
         // Rayleigh quotient: λ ≈ ⟨v|D†D·v⟩ / ⟨v|v⟩
-        let v_av = gpu_dot_re(
-            gpu,
-            &pipelines.dot_pipeline,
-            &state.dot_buf,
-            &state.p_buf,
-            &state.ap_buf,
-            n_pairs,
-        );
-        let v_v = gpu_dot_re(
-            gpu,
-            &pipelines.dot_pipeline,
-            &state.dot_buf,
-            &state.p_buf,
-            &state.p_buf,
-            n_pairs,
-        );
+        let v_av = dot_re(gpu, &state.p_buf, &state.ap_buf);
+        let v_v = dot_re(gpu, &state.p_buf, &state.p_buf);
 
         if v_v > 1e-30 {
             lambda_est = v_av / v_v;
         }
 
         // Normalize: v = D†D·v / ‖D†D·v‖
-        let w_norm_sq = gpu_dot_re(
-            gpu,
-            &pipelines.dot_pipeline,
-            &state.dot_buf,
-            &state.ap_buf,
-            &state.ap_buf,
-            n_pairs,
-        );
+        let w_norm_sq = dot_re(gpu, &state.ap_buf, &state.ap_buf);
         let inv_norm = if w_norm_sq > 1e-30 {
             1.0 / w_norm_sq.sqrt()
         } else {

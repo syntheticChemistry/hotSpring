@@ -176,7 +176,7 @@ fn evaluate_hfb_parallel(
     (n_initial, init_best)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments, reason = "surrogate refinement requires all physics parameters")]
 fn surrogate_refinement_round(
     round: usize,
     device: Arc<WgpuDevice>,

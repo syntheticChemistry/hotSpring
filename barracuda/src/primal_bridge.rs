@@ -571,6 +571,11 @@ pub fn send_jsonrpc(
 }
 
 /// Compiled-in fallback aliases (used when `capability_registry.toml` is missing).
+///
+/// These map canonical primal names to socket-stem aliases for **NUCLEUS-less
+/// environments only** (legacy compatibility). Runtime routing must always prefer
+/// capability-based discovery via [`NucleusContext::get_by_capability`] /
+/// [`NucleusContext::by_domain`] before falling back to name or alias resolution.
 const DEFAULT_ALIASES: &[(&str, &[&str])] = &[
     (
         "toadstool",

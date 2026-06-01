@@ -17,6 +17,7 @@
 //! Provenance: hotSpring v0.6.28 — multi-backend Kokkos parity initiative.
 
 use super::BackendKind;
+use super::compute_backend::BenchError;
 use crate::md::config::MdConfig;
 use std::fmt;
 use std::time::Duration;
@@ -186,7 +187,7 @@ pub trait MdBenchmarkBackend {
     /// Whether this backend can run right now.
     fn available(&self) -> bool;
     /// Execute Yukawa MD according to `spec` and return measurements.
-    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, String>;
+    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, BenchError>;
 }
 
 // Heterogeneous backend slice requires dynamic dispatch — this is a
@@ -197,7 +198,7 @@ pub trait MdBenchmarkBackend {
 pub fn compare_md_backends(
     backends: &[&dyn MdBenchmarkBackend],
     spec: &MdBenchmarkSpec,
-) -> Vec<Result<MdBenchmarkResult, String>> {
+) -> Vec<Result<MdBenchmarkResult, BenchError>> {
     let mut results = Vec::with_capacity(backends.len());
 
     println!(
@@ -208,7 +209,10 @@ pub fn compare_md_backends(
     for backend in backends {
         if !backend.available() {
             println!("    {} — SKIPPED (not available)", backend.name());
-            results.push(Err(format!("{} not available", backend.name())));
+            results.push(Err(BenchError::Config(format!(
+                "{} not available",
+                backend.name()
+            ))));
             continue;
         }
 
@@ -232,7 +236,7 @@ pub fn compare_md_backends(
 }
 
 /// Print a gap analysis table comparing MD results across backends.
-pub fn print_gap_analysis(all_results: &[(String, Vec<Result<MdBenchmarkResult, String>>)]) {
+pub fn print_gap_analysis(all_results: &[(String, Vec<Result<MdBenchmarkResult, BenchError>>)]) {
     println!();
     println!(
         "  {:>12} {:>20} {:>12} {:>8} {:>8}",
@@ -295,11 +299,11 @@ pub struct BarraCudaMdBackend {
 
 impl BarraCudaMdBackend {
     /// Create a new barraCuda MD backend, probing the default GPU.
-    pub fn new() -> Result<Self, String> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
+    pub fn new() -> Result<Self, BenchError> {
+        let rt = tokio::runtime::Runtime::new().map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
         let gpu = rt
             .block_on(crate::gpu::GpuF64::new())
-            .map_err(|e| format!("GPU: {e}"))?;
+            .map_err(|e| BenchError::Gpu(format!("{e}")))?;
         let caps = gpu.capabilities();
         let driver = format!("{} ({})", caps.device_name, caps.vendor_name());
         Ok(Self {
@@ -322,8 +326,8 @@ impl MdBenchmarkBackend for BarraCudaMdBackend {
         true
     }
 
-    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, String> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
+    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, BenchError> {
+        let rt = tokio::runtime::Runtime::new().map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
         let config = spec.to_md_config();
         let adapter_name = self.adapter_name.clone();
         let driver_info = self.driver_info.clone();
@@ -364,7 +368,7 @@ impl MdBenchmarkBackend for BarraCudaMdBackend {
                         driver_info,
                     })
                 }
-                Err(e) => Err(format!("MD simulation failed: {e}")),
+                Err(e) => Err(BenchError::Runtime(format!("MD simulation failed: {e}"))),
             }
         })
     }
@@ -384,7 +388,7 @@ impl GenericMdBackend {
     /// Probe hardware and select the best available backend.
     ///
     /// Priority: sovereign (coralReef) → wgpu (Vulkan/Metal).
-    pub fn new() -> Result<Self, String> {
+    pub fn new() -> Result<Self, BenchError> {
         #[cfg(feature = "sovereign-dispatch")]
         {
             use barracuda::device::SovereignDevice;
@@ -402,10 +406,10 @@ impl GenericMdBackend {
             }
         }
 
-        let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
+        let rt = tokio::runtime::Runtime::new().map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
         let dev = rt
             .block_on(barracuda::device::WgpuDevice::new())
-            .map_err(|e| format!("no GPU available: {e}"))?;
+            .map_err(|e| BenchError::Gpu(format!("no GPU available: {e}")))?;
         let name = barracuda::device::backend::GpuBackend::name(&dev);
         Ok(Self {
             adapter_name: name.to_string(),
@@ -434,7 +438,7 @@ impl MdBenchmarkBackend for GenericMdBackend {
         true
     }
 
-    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, String> {
+    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, BenchError> {
         let config = spec.to_md_config();
         let adapter_name = self.adapter_name.clone();
         let driver_info = self.driver_info.clone();
@@ -446,19 +450,24 @@ impl MdBenchmarkBackend for GenericMdBackend {
             {
                 use barracuda::device::SovereignDevice;
                 let dev = SovereignDevice::with_auto_device()
-                    .map_err(|e| format!("sovereign device: {e}"))?;
-                crate::md::sovereign_engine::run_simulation_generic(&dev, &config)?
+                    .map_err(|e| BenchError::Gpu(format!("sovereign device: {e}")))?;
+                crate::md::sovereign_engine::run_simulation_generic(&dev, &config)
+                    .map_err(BenchError::Runtime)?
             }
             #[cfg(not(feature = "sovereign-dispatch"))]
             {
-                return Err("sovereign-dispatch feature not enabled".to_string());
+                return Err(BenchError::Config(
+                    "sovereign-dispatch feature not enabled".into(),
+                ));
             }
         } else {
-            let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
+            let rt = tokio::runtime::Runtime::new()
+                .map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
             let dev = rt
                 .block_on(barracuda::device::WgpuDevice::new())
-                .map_err(|e| format!("wgpu device: {e}"))?;
-            crate::md::sovereign_engine::run_simulation_generic(&dev, &config)?
+                .map_err(|e| BenchError::Gpu(format!("wgpu device: {e}")))?;
+            crate::md::sovereign_engine::run_simulation_generic(&dev, &config)
+                .map_err(BenchError::Runtime)?
         };
 
         let wall_time = t0.elapsed();
@@ -523,7 +532,10 @@ impl KokkosLammpsBackend {
     /// FCC lattice in LAMMPS: `region` dimensions are in lattice units.
     /// For N particles in FCC (4 atoms/cell): L = ceil((N/4)^{1/3}).
     /// Actual atom count = 4 * L^3 (may differ slightly from spec.n_particles).
-    fn write_lammps_input(spec: &MdBenchmarkSpec, path: &std::path::Path) -> Result<(), String> {
+    fn write_lammps_input(
+        spec: &MdBenchmarkSpec,
+        path: &std::path::Path,
+    ) -> Result<(), BenchError> {
         let density = 3.0 / (4.0 * std::f64::consts::PI);
         let n_cells = ((spec.n_particles as f64 / 4.0).cbrt()).round() as usize;
         let n_actual = 4 * n_cells * n_cells * n_cells;
@@ -568,7 +580,9 @@ run {total_steps}
             n = spec.n_particles,
         );
 
-        std::fs::write(path, input).map_err(|e| format!("Failed to write LAMMPS input: {e}"))
+        std::fs::write(path, input).map_err(|e| {
+            BenchError::Runtime(format!("Failed to write LAMMPS input: {e}"))
+        })
     }
 
     /// Parse LAMMPS log output for performance metrics.
@@ -644,14 +658,15 @@ impl MdBenchmarkBackend for KokkosLammpsBackend {
         self.lmp_path.is_some()
     }
 
-    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, String> {
-        let lmp = self
-            .lmp_path
-            .as_ref()
-            .ok_or_else(|| "LAMMPS not installed".to_string())?;
+    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, BenchError> {
+        let lmp = self.lmp_path.as_ref().ok_or_else(|| {
+            BenchError::Config("LAMMPS not installed".into())
+        })?;
 
         let tmp_dir = std::env::temp_dir().join(format!("hotspring_kokkos_{}", spec.label));
-        std::fs::create_dir_all(&tmp_dir).map_err(|e| format!("Failed to create temp dir: {e}"))?;
+        std::fs::create_dir_all(&tmp_dir).map_err(|e| {
+            BenchError::Runtime(format!("Failed to create temp dir: {e}"))
+        })?;
 
         let input_path = tmp_dir.join("input.lammps");
         Self::write_lammps_input(spec, &input_path)?;
@@ -662,13 +677,16 @@ impl MdBenchmarkBackend for KokkosLammpsBackend {
             .arg(&input_path)
             .current_dir(&tmp_dir)
             .output()
-            .map_err(|e| format!("Failed to run LAMMPS: {e}"))?;
+            .map_err(|e| BenchError::Runtime(format!("Failed to run LAMMPS: {e}")))?;
 
         let wall_time = t0.elapsed();
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("LAMMPS exited with {}: {stderr}", output.status));
+            return Err(BenchError::Runtime(format!(
+                "LAMMPS exited with {}: {stderr}",
+                output.status
+            )));
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);

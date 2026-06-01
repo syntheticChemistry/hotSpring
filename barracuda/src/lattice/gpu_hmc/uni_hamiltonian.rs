@@ -22,18 +22,20 @@ use super::true_multishift_cg::{
 };
 use super::{GpuF64, GpuHmcState, make_u32x4_params};
 
+use barracuda::ops::lattice::absorbed_shaders::{
+    WGSL_FERMION_ACTION_SUM_F64, WGSL_GPU_METROPOLIS_F64, WGSL_HAMILTONIAN_ASSEMBLY_F64,
+};
+
 use crate::lattice::rhmc::RhmcConfig;
 
 // ── WGSL shaders for GPU-resident Hamiltonian (B2) ───────────────
 
 /// Hamiltonian assembly kernel: `H = beta*(6V - plaq) + T + S_f`.
-pub(crate) const WGSL_HAMILTONIAN_ASSEMBLY: &str =
-    include_str!("../shaders/hamiltonian_assembly_f64.wgsl");
+pub(crate) const WGSL_HAMILTONIAN_ASSEMBLY: &str = WGSL_HAMILTONIAN_ASSEMBLY_F64;
 /// Weighted sum of fermion dot products into `S_f`.
-pub(crate) const WGSL_FERMION_ACTION_SUM: &str =
-    include_str!("../shaders/fermion_action_sum_f64.wgsl");
+pub(crate) const WGSL_FERMION_ACTION_SUM: &str = WGSL_FERMION_ACTION_SUM_F64;
 /// Metropolis accept/reject + diagnostics (single-thread GPU kernel).
-pub(crate) const WGSL_METROPOLIS: &str = include_str!("../shaders/metropolis_f64.wgsl");
+pub(crate) const WGSL_METROPOLIS: &str = WGSL_GPU_METROPOLIS_F64;
 
 /// Maximum rational approximation poles per sector (dots buffer sizing).
 const MAX_RATIONAL_POLES: usize = 32;

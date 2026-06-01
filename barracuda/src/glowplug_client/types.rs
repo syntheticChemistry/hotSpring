@@ -40,6 +40,15 @@ impl Default for GlowplugDispatchOptions {
     }
 }
 
+/// Options for [`super::GlowplugClient::sovereign_init`].
+#[derive(Debug, Clone, Default)]
+pub struct SovereignInitOptions {
+    pub halt_before: Option<String>,
+    pub vbios_rom_path: Option<String>,
+    pub engine_init_path: Option<String>,
+    pub skip_gr_init: bool,
+}
+
 // ── Device list / detail types ──────────────────────────────────────
 
 /// One row from `device.list` — BDF, vendor id, display name, coarse health.
@@ -64,23 +73,37 @@ pub struct GlowplugDeviceHealthSummary {
 }
 
 /// Full `device.get` payload (structured like toadStool `DeviceInfo`).
+///
+/// Fields with `#[serde(default)]` are optional — older toadStool daemons
+/// return a leaner `EmberDeviceInfo` without chip/power/link details.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct GlowplugDeviceDetail {
     pub bdf: String,
     pub name: Option<String>,
-    pub chip: String,
+    #[serde(default)]
+    pub chip: Option<String>,
+    #[serde(default)]
     pub vendor_id: u16,
+    #[serde(default)]
     pub device_id: u16,
-    pub personality: String,
+    #[serde(default)]
+    pub personality: Option<String>,
     pub role: Option<String>,
-    pub power: String,
-    pub vram_alive: bool,
-    pub domains_alive: usize,
-    pub domains_faulted: usize,
+    #[serde(default)]
+    pub power: Option<String>,
+    #[serde(default)]
+    pub vram_alive: Option<bool>,
+    #[serde(default)]
+    pub domains_alive: Option<usize>,
+    #[serde(default)]
+    pub domains_faulted: Option<usize>,
+    #[serde(default)]
     pub has_vfio_fd: bool,
     pub pci_link_width: Option<u8>,
     #[serde(default)]
-    pub protected: bool,
+    pub protected: Option<bool>,
+    #[serde(default)]
+    pub vendor: Option<String>,
 }
 
 /// Daemon response for `health.check` / `health.liveness`.

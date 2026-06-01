@@ -43,6 +43,9 @@ fn main() {
             }
         }
         cli::Commands::Version => cmd_version(),
+        cli::Commands::Fleet { action } => match action {
+            cli::FleetAction::Init { output } => cmd_fleet_init(output),
+        },
     }
 }
 
@@ -234,4 +237,62 @@ fn cmd_status() {
 
 fn cmd_version() {
     println!("hotspring {}", env!("CARGO_PKG_VERSION"));
+}
+
+fn cmd_fleet_init(output: Option<String>) {
+    use hotspring_barracuda::glowplug_client::GlowplugClient;
+    use hotspring_barracuda::primal_bridge::NucleusContext;
+
+    let nucleus = NucleusContext::detect();
+    let glowplug = match GlowplugClient::from_nucleus(&nucleus) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("FATAL: toadStool not reachable — {e}");
+            std::process::exit(1);
+        }
+    };
+
+    let devices = match glowplug.list_devices() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("FATAL: device.list failed — {e}");
+            std::process::exit(1);
+        }
+    };
+
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let default_path = format!("{runtime_dir}/biomeos/toadstool-ember-fleet.json");
+    let out_path = output.unwrap_or(default_path);
+
+    let fleet = serde_json::json!({
+        "mode": "fleet",
+        "devices": devices.iter().map(|d| {
+            serde_json::json!({
+                "bdf": d.bdf,
+                "vendor": d.vendor,
+                "name": d.name,
+                "personality": d.personality,
+                "health": format!("{}", if d.health.vram_alive { "Alive" } else { "Unknown" }),
+            })
+        }).collect::<Vec<_>>(),
+    });
+
+    if let Some(parent) = std::path::Path::new(&out_path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    match serde_json::to_string_pretty(&fleet) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(&out_path, &json) {
+                eprintln!("ERROR: failed to write {out_path}: {e}");
+                std::process::exit(1);
+            }
+            println!("Fleet file written: {out_path}");
+            println!("  {} device(s)", devices.len());
+        }
+        Err(e) => {
+            eprintln!("ERROR: serialization failed: {e}");
+            std::process::exit(1);
+        }
+    }
 }

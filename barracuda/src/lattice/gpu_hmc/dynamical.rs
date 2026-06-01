@@ -2,17 +2,26 @@
 
 //! Dynamical fermion GPU HMC — full QCD with staggered quarks.
 
-#[expect(deprecated, reason = "gpu_dot_re still used in CG internals pending resident migration")]
+#[expect(
+    deprecated,
+    reason = "gpu_dot_re retained for gpu_cg_solve_internal — legacy per-iteration CG used by streaming.rs"
+)]
 use super::{
     GpuF64, GpuHmcPipelines, GpuHmcState, gpu_dirac_dispatch, gpu_dot_re,
     gpu_fermion_force_dispatch, gpu_force_dispatch, gpu_mom_update_dispatch, make_link_mom_params,
+};
+use super::resident_cg_buffers::read_complex_dot_re;
+use super::resident_cg_pipelines::WGSL_SUM_REDUCE;
+use barracuda::ops::lattice::absorbed_shaders::{
+    WGSL_PRNG_PCG_F64, WGSL_STAGGERED_FERMION_FORCE_F64, WGSL_SU3_RANDOM_MOMENTA_F64,
+    WGSL_SU3_RANDOM_MOMENTA_TMU_F64,
 };
 
 /// WGSL shader: staggered Dirac operator D·ψ.
 pub const WGSL_DIRAC_STAGGERED: &str = include_str!("../shaders/dirac_staggered_f64.wgsl");
 
 /// WGSL shader: staggered fermion force TA[U·M].
-pub const WGSL_FERMION_FORCE: &str = include_str!("../shaders/staggered_fermion_force_f64.wgsl");
+pub const WGSL_FERMION_FORCE: &str = WGSL_STAGGERED_FERMION_FORCE_F64;
 
 /// WGSL shader: complex dot product (Re part) for CG.
 pub const WGSL_COMPLEX_DOT_RE: &str = super::super::cg::WGSL_COMPLEX_DOT_RE_F64;
@@ -24,16 +33,14 @@ pub const WGSL_AXPY: &str = super::super::cg::WGSL_AXPY_F64;
 pub const WGSL_XPAY: &str = super::super::cg::WGSL_XPAY_F64;
 
 /// WGSL shared PRNG core (PCG hash → uniform f64).
-const WGSL_PRNG_CORE: &str = include_str!("../shaders/prng_pcg_f64.wgsl");
+const WGSL_PRNG_CORE: &str = WGSL_PRNG_PCG_F64;
 /// WGSL shader: GPU-resident PRNG for SU(3) algebra momenta (ALU path).
 pub static WGSL_RANDOM_MOMENTA: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-    let body = include_str!("../shaders/su3_random_momenta_f64.wgsl");
-    format!("{WGSL_PRNG_CORE}\n{body}")
+    format!("{WGSL_PRNG_CORE}\n{WGSL_SU3_RANDOM_MOMENTA_F64}")
 });
 /// WGSL shader: TMU-accelerated PRNG for SU(3) momenta (Tier 0 silicon routing).
 pub static WGSL_RANDOM_MOMENTA_TMU: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-    let body = include_str!("../shaders/su3_random_momenta_tmu_f64.wgsl");
-    format!("{WGSL_PRNG_CORE}\n{body}")
+    format!("{WGSL_PRNG_CORE}\n{WGSL_SU3_RANDOM_MOMENTA_TMU_F64}")
 });
 
 /// Pipelines for GPU dynamical fermion HMC.
@@ -197,8 +204,7 @@ pub struct GpuDynHmcResult {
 /// Returns (`S_f`, `cg_iterations`).
 ///
 /// **Legacy** — uses `gpu_cg_solve_internal` (per-iteration readback) +
-/// single `gpu_dot_re` for final action. Modern: `gpu_dynamical_hmc_trajectory_resident`.
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
+/// single dot readback for final action. Modern: `gpu_dynamical_hmc_trajectory_resident`.
 pub(super) fn gpu_fermion_action(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -207,16 +213,7 @@ pub(super) fn gpu_fermion_action(
 ) -> (f64, usize) {
     let iters = gpu_cg_solve_internal(gpu, pipelines, state, phi_buf);
 
-    let vol = state.gauge.volume;
-    let n_pairs = vol * 3;
-    let dot_val = gpu_dot_re(
-        gpu,
-        &pipelines.dot_pipeline,
-        &state.dot_buf,
-        phi_buf,
-        &state.x_buf,
-        n_pairs,
-    );
+    let dot_val = read_fermion_action_dot(gpu, pipelines, state, phi_buf);
 
     (dot_val, iters)
 }
@@ -278,7 +275,10 @@ pub(super) fn gpu_total_force_dispatch(
 /// GPU CG solver: (D†D)x = b, solution in `state.x_buf`.
 ///
 /// **Legacy** — per-iteration `gpu_dot_re` readback. Use `gpu_cg_solve_resident` instead.
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
+#[expect(
+    deprecated,
+    reason = "legacy per-iteration CG loop; blocked until streaming.rs migrates to gpu_dynamical_hmc_trajectory_resident"
+)]
 fn gpu_cg_solve_internal(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -415,4 +415,33 @@ pub(super) fn gpu_xpay(
     let pbuf = gpu.create_uniform_buffer(&params, "xpay_p");
     let bg = gpu.create_bind_group(xpay_pl, &[&pbuf, x, p]);
     gpu.dispatch(xpay_pl, &bg, wg);
+}
+
+fn read_fermion_action_dot(
+    gpu: &GpuF64,
+    pipelines: &GpuDynHmcPipelines,
+    state: &GpuDynHmcState,
+    phi_buf: &wgpu::Buffer,
+) -> f64 {
+    let n_pairs = state.gauge.volume * 3;
+    let max_wg = n_pairs.div_ceil(256);
+    let scratch_a = gpu.create_f64_output_buffer(max_wg.max(1), "sf_dot_scratch_a");
+    let scratch_b = gpu.create_f64_output_buffer(max_wg.max(1), "sf_dot_scratch_b");
+    let scalar_buf = gpu.create_f64_output_buffer(1, "sf_dot_scalar");
+    let staging = gpu.create_staging_buffer(8, "sf_dot_staging");
+    let reduce_pl = gpu.create_pipeline_f64_precise(WGSL_SUM_REDUCE, "sf_dot_reduce");
+    read_complex_dot_re(
+        gpu,
+        &pipelines.dot_pipeline,
+        &reduce_pl,
+        &state.dot_buf,
+        &scratch_a,
+        &scratch_b,
+        &scalar_buf,
+        &staging,
+        phi_buf,
+        &state.x_buf,
+        n_pairs,
+        None,
+    )
 }

@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** May 30, 2026 (Wave 63 delta audit: GAP-HS-005 prototype implemented — `ipc::ionic_lease` module with GpuLeaseClient, propose/sign/verify/seal lifecycle, 4 tests. Songbird on federation-port 7700. GAP-HS-111 committed + pushed. Temporal sync 24/24 parity)
+**Last audited:** June 1, 2026 (Wave 67: Post-primordial QCD evolution complete — 8 phases, sovereign compute trio validated 16/19 on hardware. coralReef compiler bugs + songbird capability gap handed upstream. Previous: May 30 Wave 63 delta audit: GAP-HS-005 prototype, GAP-HS-111 committed, temporal sync 24/24 parity)
 **License:** AGPL-3.0-or-later
 
 ---

@@ -6,9 +6,12 @@
 
 //! Safe RAII wrappers for PCI BAR0 MMIO via Linux `sysfs` resource files.
 //!
-//! The entire unsafe surface is confined to this module:
-//! - `mmap`/`munmap` via `rustix`
-//! - `read_volatile`/`write_volatile` for MMIO register access
+//! **Legacy module** — superseded by `toadstool_cylinder::vfio::sysfs_bar0`.
+//! New code should use `mmio.read32` / `mmio.write32` ember RPCs.
+//!
+//! The entire unsafe surface is confined to [`MmioRegion`]:
+//! - `mmap`/`munmap` via `rustix` (map + `Drop`)
+//! - two `read_volatile`/`write_volatile` lines for MMIO register access
 //!
 //! All public methods are safe Rust with bounds-checked, alignment-checked offsets.
 //!
@@ -48,11 +51,82 @@ fn bdf_to_resource0(bdf: &str) -> String {
     format!("{sysfs_base}/{bdf}/resource0")
 }
 
+// ── MMIO region (single unsafe encapsulation point) ──────────────────────────
+
+/// Pointer into an mmap'd PCI BAR; safe to send between threads.
+struct SendPtr(*mut u8);
+
+// SAFETY: the mapped BAR backing is stable for the mapping lifetime; concurrent
+// volatile MMIO access ordering is defined by the device/PCIe hardware.
+unsafe impl Send for SendPtr {}
+
+/// RAII wrapper for a file-backed MMIO mapping.
+struct MmioRegion {
+    base: SendPtr,
+    len: usize,
+}
+
+impl MmioRegion {
+    /// Map `file` at offset 0 for `len` bytes with the given protection flags.
+    fn map(file: &std::fs::File, len: usize, prot: ProtFlags) -> Result<Self, rustix::io::Errno> {
+        // SAFETY: `resource0` is a kernel-exported PCI BAR mmap. `ptr` is null
+        // so the kernel picks the address; `len` is derived from file metadata.
+        let base = unsafe {
+            mmap(
+                std::ptr::null_mut(),
+                len,
+                prot,
+                MapFlags::SHARED,
+                file,
+                0,
+            )
+        }?;
+        Ok(Self {
+            base: SendPtr(base.cast()),
+            len,
+        })
+    }
+
+    #[must_use]
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Read a 32-bit register at the given byte offset.
+    fn read_u32(&self, offset: usize) -> u32 {
+        assert!(offset + 4 <= self.len, "MMIO read out of bounds");
+        // SAFETY: pointer is valid for the mapped region's lifetime,
+        // offset is bounds-checked, and volatile prevents reordering.
+        unsafe { std::ptr::read_volatile(self.base.0.add(offset) as *const u32) }
+    }
+
+    /// Write a 32-bit register at the given byte offset.
+    fn write_u32(&self, offset: usize, value: u32) {
+        assert!(offset + 4 <= self.len, "MMIO write out of bounds");
+        // SAFETY: pointer is valid for the mapped region's lifetime,
+        // offset is bounds-checked, and volatile prevents store coalescing.
+        unsafe { std::ptr::write_volatile(self.base.0.add(offset) as *mut u32, value) }
+    }
+}
+
+impl Drop for MmioRegion {
+    fn drop(&mut self) {
+        // SAFETY: base/len from a successful mmap; called exactly once.
+        if unsafe { munmap(self.base.0.cast(), self.len) }.is_err() {
+            log::warn!("MmioRegion munmap failed");
+        }
+    }
+}
+
 // ── Bar0Error ────────────────────────────────────────────────────────────────
 
-/// Errors from checked BAR0 access.
-#[derive(Debug, Clone)]
+/// Errors from BAR0 open/map and checked register access.
+#[derive(Debug)]
 pub enum Bar0Error {
+    /// `resource0` could not be opened.
+    Open(std::io::Error),
+    /// `mmap` of `resource0` failed.
+    Mmap(rustix::io::Errno),
     /// PCIe link is down — all reads return `0xFFFF_FFFF`.
     DeadLink { offset: u32 },
     /// Register offset is not 4-byte aligned.
@@ -70,6 +144,8 @@ pub enum Bar0Error {
 impl fmt::Display for Bar0Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Open(e) => write!(f, "cannot open BAR0 resource0: {e}"),
+            Self::Mmap(e) => write!(f, "mmap of BAR0 resource0 failed: {e}"),
             Self::DeadLink { offset } =>
                 write!(f, "BAR0 dead link at {offset:#x} (0xFFFFFFFF)"),
             Self::Unaligned { offset } =>
@@ -94,8 +170,7 @@ impl std::error::Error for Bar0Error {}
 ///
 /// Provides bounds-checked volatile register reads. Released via `munmap` on drop.
 pub struct Bar0View {
-    base: *const u8,
-    len: usize,
+    region: MmioRegion,
 }
 
 impl Bar0View {
@@ -105,83 +180,33 @@ impl Bar0View {
     ///
     /// # Errors
     ///
-    /// Returns an error string if `resource0` cannot be opened or mapped.
-    pub fn open(bdf: &str) -> Result<Self, String> {
+    /// Returns [`Bar0Error::Open`] or [`Bar0Error::Mmap`] if mapping fails.
+    pub fn open(bdf: &str) -> Result<Self, Bar0Error> {
         let resource_path = bdf_to_resource0(bdf);
         let file = std::fs::File::options()
             .read(true)
             .open(&resource_path)
-            .map_err(|e| format!("cannot open {resource_path}: {e}"))?;
+            .map_err(Bar0Error::Open)?;
 
         let map_size = bar0_map_size(&file);
+        let region = MmioRegion::map(&file, map_size, ProtFlags::READ).map_err(Bar0Error::Mmap)?;
 
-        // SAFETY: `resource0` is a kernel-exported PCI BAR mmap. READ+SHARED
-        // mirrors hardware registers without writeback. The kernel guarantees
-        // coverage of at least `map_size` bytes.
-        let mm = unsafe {
-            mmap(
-                std::ptr::null_mut(),
-                map_size,
-                ProtFlags::READ,
-                MapFlags::SHARED,
-                &file,
-                0,
-            )
-        }
-        .map_err(|_| format!("mmap of {resource_path} failed"))?;
-
-        Ok(Self {
-            base: mm.cast::<u8>(),
-            len: map_size,
-        })
+        Ok(Self { region })
     }
 
     /// Read a little-endian `u32` register at `offset` bytes from BAR0 base.
     ///
     /// # Errors
     ///
-    /// Returns an error if `offset + 4 > mapping length`.
-    pub fn read_u32(&self, offset: u32) -> Result<u32, String> {
+    /// Returns [`Bar0Error::OutOfBounds`] if `offset + 4 > mapping length`.
+    pub fn read_u32(&self, offset: u32) -> Result<u32, Bar0Error> {
         let end = (offset as usize).saturating_add(4);
-        if end > self.len {
-            return Err(format!(
-                "offset {offset:#x} out of BAR0 range (len={:#x})",
-                self.len
-            ));
+        if end > self.region.len() {
+            return Err(Bar0Error::OutOfBounds { offset, map_len: self.region.len() });
         }
-        // SAFETY: `end <= self.len`; `self.base` valid for `self.len` bytes;
-        // `read_volatile` prevents MMIO read elision or reordering.
-        let bytes = unsafe {
-            let ptr = self.base.add(offset as usize);
-            [
-                std::ptr::read_volatile(ptr),
-                std::ptr::read_volatile(ptr.add(1)),
-                std::ptr::read_volatile(ptr.add(2)),
-                std::ptr::read_volatile(ptr.add(3)),
-            ]
-        };
-        Ok(u32::from_le_bytes(bytes))
+        Ok(self.region.read_u32(offset as usize))
     }
 }
-
-impl Drop for Bar0View {
-    fn drop(&mut self) {
-        // SAFETY: `self.base` was returned by `mmap` with `self.len`.
-        if unsafe { munmap(self.base.cast_mut().cast(), self.len) }.is_err() {
-            log::warn!("Bar0View munmap failed");
-        }
-    }
-}
-
-// SAFETY: BAR0View holds an immutable mmap of a PCI BAR0 resource file.
-// The kernel guarantees physical memory backing is stable for the file's
-// lifetime. No interior mutability: concurrent reads of MMIO registers
-// are naturally idempotent (hardware provides the ordering guarantees via
-// volatile reads). Ownership transfer between threads is safe because:
-// 1. The mapping is read-only — no data races on write.
-// 2. Drop calls munmap exactly once (RAII, not reference-counted).
-// 3. No pointers alias outside this struct.
-unsafe impl Send for Bar0View {}
 
 // ── Read-write MMIO ──────────────────────────────────────────────────────────
 
@@ -190,8 +215,7 @@ unsafe impl Send for Bar0View {}
 /// Enables register writes (e.g. engine init, PRAMIN windows) in addition to reads.
 /// Use [`Bar0View`] when writes are not needed — it is more restrictive and safer.
 pub struct Bar0Map {
-    ptr: *mut u8,
-    len: usize,
+    region: MmioRegion,
 }
 
 impl Bar0Map {
@@ -206,23 +230,9 @@ impl Bar0Map {
             .write(true)
             .open(path)?;
         let map_size = bar0_map_size(&file);
-        // SAFETY: `resource0` is a kernel PCI BAR file. READ|WRITE|SHARED
-        // gives direct MMIO access. Caller must ensure no concurrent driver access.
-        let ptr = unsafe {
-            mmap(
-                std::ptr::null_mut(),
-                map_size,
-                ProtFlags::READ | ProtFlags::WRITE,
-                MapFlags::SHARED,
-                &file,
-                0,
-            )
-            .map_err(io::Error::from)?
-        };
-        Ok(Self {
-            ptr: ptr.cast(),
-            len: map_size,
-        })
+        let region = MmioRegion::map(&file, map_size, ProtFlags::READ | ProtFlags::WRITE)
+            .map_err(io::Error::from)?;
+        Ok(Self { region })
     }
 
     /// Map `resource0` for a PCI BDF (e.g. `"0000:02:00.0"`).
@@ -245,11 +255,10 @@ impl Bar0Map {
     pub fn r32(&self, offset: u32) -> u32 {
         assert!(offset % 4 == 0, "r32: offset {offset:#x} is not 4-byte aligned");
         assert!(
-            (offset as usize + 4) <= self.len,
+            (offset as usize + 4) <= self.region.len(),
             "r32 out-of-bounds: {offset:#x}"
         );
-        // SAFETY: bounds checked above; volatile prevents MMIO elision.
-        unsafe { std::ptr::read_volatile(self.ptr.add(offset as usize).cast::<u32>()) }
+        self.region.read_u32(offset as usize)
     }
 
     /// Read a `u32` MMIO register with dead-link detection.
@@ -266,13 +275,10 @@ impl Bar0Map {
         if offset % 4 != 0 {
             return Err(Bar0Error::Unaligned { offset });
         }
-        if (offset as usize + 4) > self.len {
-            return Err(Bar0Error::OutOfBounds { offset, map_len: self.len });
+        if (offset as usize + 4) > self.region.len() {
+            return Err(Bar0Error::OutOfBounds { offset, map_len: self.region.len() });
         }
-        // SAFETY: bounds and alignment checked above.
-        let val = unsafe {
-            std::ptr::read_volatile(self.ptr.add(offset as usize).cast::<u32>())
-        };
+        let val = self.region.read_u32(offset as usize);
         if val == 0xFFFF_FFFF {
             return Err(Bar0Error::DeadLink { offset });
         }
@@ -282,7 +288,7 @@ impl Bar0Map {
     /// Return the total size of the mapped region in bytes.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.len
+        self.region.len()
     }
 
     /// Write a `u32` MMIO register at `offset` bytes from BAR0 base.
@@ -293,32 +299,12 @@ impl Bar0Map {
     pub fn w32(&self, offset: u32, val: u32) {
         assert!(offset % 4 == 0, "w32: offset {offset:#x} is not 4-byte aligned");
         assert!(
-            (offset as usize + 4) <= self.len,
+            (offset as usize + 4) <= self.region.len(),
             "w32 out-of-bounds: {offset:#x}"
         );
-        // SAFETY: bounds checked above; volatile prevents MMIO store coalescing.
-        unsafe { std::ptr::write_volatile(self.ptr.add(offset as usize).cast::<u32>(), val) }
+        self.region.write_u32(offset as usize, val);
     }
 }
-
-impl Drop for Bar0Map {
-    fn drop(&mut self) {
-        // SAFETY: `self.ptr` was returned by `mmap` with `self.len`.
-        if unsafe { munmap(self.ptr.cast(), self.len) }.is_err() {
-            log::warn!("Bar0Map munmap failed");
-        }
-    }
-}
-
-// SAFETY: Bar0Map holds a read-write mmap of a PCI BAR0 resource file.
-// Ownership transfer between threads is safe because:
-// 1. Writes go through volatile stores — no Rust-level data races.
-// 2. MMIO ordering is guaranteed by the hardware (PCIe posted writes
-//    are serialized by the device's BAR decoder).
-// 3. Drop calls munmap exactly once (RAII).
-// 4. Callers must ensure no concurrent kernel driver writes to the
-//    same BAR0 region (enforced by VFIO exclusion at the OS level).
-unsafe impl Send for Bar0Map {}
 
 // ── Domain-validated wrapper ─────────────────────────────────────────────────
 

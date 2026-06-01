@@ -11,6 +11,41 @@
 use std::fmt;
 use std::time::Duration;
 
+/// Errors from benchmark backend execution.
+#[derive(Debug)]
+pub enum BenchError {
+    /// GPU initialization or dispatch failure.
+    Gpu(String),
+    /// Invalid or unavailable benchmark configuration.
+    Config(String),
+    /// Runtime failure during benchmark execution.
+    Runtime(String),
+}
+
+impl fmt::Display for BenchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Gpu(msg) => write!(f, "GPU error: {msg}"),
+            Self::Config(msg) => write!(f, "config error: {msg}"),
+            Self::Runtime(msg) => write!(f, "runtime error: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for BenchError {}
+
+impl From<std::io::Error> for BenchError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Runtime(e.to_string())
+    }
+}
+
+impl From<String> for BenchError {
+    fn from(s: String) -> Self {
+        Self::Runtime(s)
+    }
+}
+
 /// Specification for a quenched SU(3) HMC benchmark run.
 #[derive(Clone, Debug)]
 pub struct BenchmarkSpec {
@@ -170,7 +205,7 @@ pub trait ComputeBackend {
     /// Whether this backend can run right now.
     fn available(&self) -> bool;
     /// Execute quenched HMC according to `spec` and return measurements.
-    fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, String>;
+    fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, BenchError>;
 }
 
 // Heterogeneous backend slice requires dynamic dispatch — this is a
@@ -181,7 +216,7 @@ pub trait ComputeBackend {
 pub fn compare_backends(
     backends: &[&dyn ComputeBackend],
     spec: &BenchmarkSpec,
-) -> Vec<Result<BenchmarkResult, String>> {
+) -> Vec<Result<BenchmarkResult, BenchError>> {
     let mut results = Vec::with_capacity(backends.len());
 
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -196,7 +231,10 @@ pub fn compare_backends(
     for backend in backends {
         if !backend.available() {
             println!("  {} — SKIPPED (not available)", backend.name());
-            results.push(Err(format!("{} not available", backend.name())));
+            results.push(Err(BenchError::Config(format!(
+                "{} not available",
+                backend.name()
+            ))));
             continue;
         }
 
@@ -251,7 +289,7 @@ impl ComputeBackend for BarraCudaCpuBackend {
         true
     }
 
-    fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, String> {
+    fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, BenchError> {
         use crate::lattice::hmc::{self, HmcConfig, IntegratorType};
         use crate::lattice::wilson::Lattice;
         use std::time::Instant;

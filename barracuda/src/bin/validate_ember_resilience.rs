@@ -422,7 +422,10 @@ fn phase6_dispatch(harness: &mut ValidationHarness, target_bdf: &str, glowplug: 
     let device_status = glowplug.get_device(target_bdf);
     match &device_status {
         Ok(info) => {
-            println!("  Device {target_bdf}: personality={}", info.personality);
+            println!(
+                "  Device {target_bdf}: personality={}",
+                info.personality.as_deref().unwrap_or("unknown")
+            );
             harness.check_bool("device reachable via glowplug after resurrection", true);
         }
         Err(e) => {
@@ -440,7 +443,7 @@ fn phase6_dispatch(harness: &mut ValidationHarness, target_bdf: &str, glowplug: 
             let gpu_ok = detail.has_vfio_fd;
             println!(
                 "  Device {target_bdf}: vfio_fd={gpu_ok}, personality={}",
-                detail.personality
+                detail.personality.as_deref().unwrap_or("unknown")
             );
             harness.check_bool("post-resurrection GPU path live (device.get ok)", true);
         }

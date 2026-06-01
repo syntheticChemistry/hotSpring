@@ -10,10 +10,9 @@ use super::dielectric_multicomponent::{
 };
 use crate::gpu::GpuF64;
 
+use barracuda::ops::physics::WGSL_DIELECTRIC_MULTICOMPONENT;
 use barracuda::shaders::precision::ShaderTemplate;
 use wgpu::util::DeviceExt;
-
-const WGSL_MULTICOMP: &str = include_str!("shaders/dielectric_multicomponent_f64.wgsl");
 
 /// Uniform parameter buffer (must match WGSL `MulticompParams`).
 #[repr(C)]
@@ -35,7 +34,7 @@ impl GpuMulticompPipeline {
     /// Compile multi-component dielectric shader.
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
-        let source = ShaderTemplate::with_math_f64_auto(WGSL_MULTICOMP);
+        let source = ShaderTemplate::with_math_f64_auto(WGSL_DIELECTRIC_MULTICOMPONENT);
         Self {
             pipeline: gpu.create_pipeline_f64_entry_precise(
                 &source,

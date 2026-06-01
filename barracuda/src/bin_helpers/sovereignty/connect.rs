@@ -125,6 +125,33 @@ pub fn require_glowplug(harness: &mut ValidationHarness) -> GlowplugClient {
     }
 }
 
+/// Check coralReef (shader compiler) liveness via NUCLEUS.
+pub fn check_coralreef_liveness() -> bool {
+    let nucleus = NucleusContext::detect();
+    match nucleus.call_by_capability("shader", "shader.compile.capabilities", serde_json::json!({}))
+    {
+        Ok(resp) => {
+            if let Some(result) = resp.get("result") {
+                eprintln!(
+                    "  coralReef: alive (capabilities: {})",
+                    result
+                        .get("formats")
+                        .and_then(|f| f.as_array())
+                        .map_or(0, |a| a.len())
+                );
+                true
+            } else {
+                eprintln!("  coralReef: responded but no result");
+                false
+            }
+        }
+        Err(e) => {
+            eprintln!("  coralReef: not reachable — {e}");
+            false
+        }
+    }
+}
+
 /// Extract a CLI argument value by flag name (e.g. `--bdf`).
 pub fn extract_arg(args: &[String], flag: &str) -> Option<String> {
     args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
@@ -133,4 +160,30 @@ pub fn extract_arg(args: &[String], flag: &str) -> Option<String> {
 /// Check if `--dry-run` was passed on the command line.
 pub fn is_dry_run(args: &[String]) -> bool {
     args.iter().any(|a| a == "--dry-run")
+}
+
+/// Resolve target PCI BDF for experiment binaries.
+///
+/// Precedence: `--bdf` CLI flag → `HOTSPRING_BARRACUDA_TARGET_BDF` env →
+/// legacy `HOTSPRING_BDF` env → fleet discovery (`device.list`) → empty.
+pub fn resolve_target_bdf(args: &[String], default_idx: usize) -> String {
+    if let Some(bdf) = extract_arg(args, "--bdf") {
+        return bdf;
+    }
+    if let Ok(bdf) = std::env::var("HOTSPRING_BARRACUDA_TARGET_BDF") {
+        return bdf;
+    }
+    if let Ok(bdf) = std::env::var("HOTSPRING_BDF") {
+        return bdf;
+    }
+    if let Some(client) = try_connect_glowplug() {
+        if let Ok(devices) = client.list_devices() {
+            if let Some(dev) = devices.get(default_idx) {
+                eprintln!("  Fleet discovery: using BDF {} from device.list", dev.bdf);
+                return dev.bdf.clone();
+            }
+        }
+    }
+    eprintln!("WARNING: no target BDF from CLI, env, or fleet — see --help");
+    String::new()
 }

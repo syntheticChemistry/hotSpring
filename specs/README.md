@@ -21,8 +21,8 @@
 | Phase I (Heterogeneous) | 68/68 (NPU quantization, beyond-SDK, pipeline, lattice NPU, hetero monitor) |
 | ToadStool Rewire v3 | CellListGpu fixed, lattice GPU shaders, **FFT f64** — Tier 3 unblocked |
 | ToadStool Rewire v4 | Spectral module fully leaning on upstream (41 KB deleted), `CsrMatrix` alias, `BatchIprGpu` available |
-| ToadStool S42+ Catch-Up | 612 shaders absorbed. Dirac+CG GPU absorbed. HFB+ESN absorbed. Remaining: pseudofermion HMC |
-| Phase J (Debt Reduction) | v0.6.14: 0 clippy (lib+bins), cross-primal discovery, β_c provenance, WGSL dedup |
+| ToadStool S42+ Catch-Up | 154 WGSL shaders in hotSpring crate (ecosystem-wide count higher). Dirac+CG GPU absorbed. HFB+ESN absorbed. Post-primordial: 40 physics+MD shaders absorbed to barraCuda upstream |
+| Phase J (Debt Reduction) | v0.6.32: 0 clippy (lib+bins), cross-primal discovery, β_c provenance, WGSL dedup, post-primordial QCD evolution complete |
 | Faculty | Murillo (CMSE, MSU — MSDS professor) |
 | Faculty extension | Bazavov (CMSE + Physics, MSU — master's professor) |
 | Faculty extension | Kachkovskiy (Math, MSU — spectral theory) |
@@ -130,6 +130,6 @@
 
 ## License
 
-**AGPL-3.0** — GNU Affero General Public License v3.0
+**AGPL-3.0-or-later** — GNU Affero General Public License v3.0 or later
 
 All hotSpring code, data, and documentation are aggressively open science. See `../LICENSE` for full text. Any derivative work, including network-accessible services using hotSpring code, must publish source under the same license.

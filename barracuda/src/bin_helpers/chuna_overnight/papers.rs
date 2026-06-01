@@ -451,7 +451,7 @@ pub fn paper_43_dynamical(
             let _ = std::fs::create_dir_all(parent);
         }
         if let Ok(mut writer) = RunHistoryWriter::open(&history_path) {
-            writer.write_summary(&RunSummary {
+            let _ = writer.write_summary(&RunSummary {
                 beta,
                 mass,
                 final_acceptance: last_acceptance,
@@ -460,7 +460,7 @@ pub fn paper_43_dynamical(
                 n_trajectories: total_traj,
                 converged: last_acceptance > 0.20,
             });
-            writer.flush();
+            let _ = writer.flush();
         }
     }
 

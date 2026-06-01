@@ -5,22 +5,18 @@
 use super::GpuF64;
 
 impl GpuF64 {
-    /// Create a storage buffer from f64 data (read-only)
+    /// Create a storage buffer from f64 data (read-only).
     #[must_use]
     pub fn create_f64_buffer(&self, data: &[f64], label: &str) -> wgpu::Buffer {
-        use wgpu::util::DeviceExt;
-        let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-        self.device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(label),
-                contents: &bytes,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            })
+        self.wgpu_device.create_buffer_f64_init(label, data)
     }
 
-    /// Create a writable storage buffer for f64 output
+    /// Create a writable storage buffer for f64 output.
     #[must_use]
     pub fn create_f64_output_buffer(&self, count: usize, label: &str) -> wgpu::Buffer {
+        if let Ok(buf) = self.wgpu_device.create_buffer_f64(count) {
+            return buf;
+        }
         self.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
             size: (count * 8) as u64,
@@ -60,16 +56,7 @@ impl GpuF64 {
     /// when the neighbor list is rebuilt on CPU.
     #[must_use]
     pub fn create_u32_buffer(&self, data: &[u32], label: &str) -> wgpu::Buffer {
-        use wgpu::util::DeviceExt;
-        let bytes: &[u8] = bytemuck::cast_slice(data);
-        self.device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(label),
-                contents: bytes,
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST,
-            })
+        self.wgpu_device.create_buffer_u32_init(label, data)
     }
 
     /// Upload f64 data to a GPU storage buffer (overwrites from offset 0).
@@ -250,34 +237,21 @@ impl GpuF64 {
     /// Create a storage buffer from f32 data (read-only).
     #[must_use]
     pub fn create_f32_buffer(&self, data: &[f32], label: &str) -> wgpu::Buffer {
-        use wgpu::util::DeviceExt;
-        let bytes: &[u8] = bytemuck::cast_slice(data);
-        self.device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(label),
-                contents: bytes,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            })
+        self.wgpu_device.create_buffer_f32_init(label, data)
     }
 
     /// Create a writable storage buffer for f32 output.
     #[must_use]
     pub fn create_f32_rw_buffer(&self, data: &[f32], label: &str) -> wgpu::Buffer {
-        use wgpu::util::DeviceExt;
-        let bytes: &[u8] = bytemuck::cast_slice(data);
-        self.device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(label),
-                contents: bytes,
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST,
-            })
+        self.wgpu_device.create_buffer_f32_init(label, data)
     }
 
     /// Create a zero-initialized f32 output buffer.
     #[must_use]
     pub fn create_f32_output_buffer(&self, count: usize, label: &str) -> wgpu::Buffer {
+        if let Ok(buf) = self.wgpu_device.create_f32_output_buffer(label, count) {
+            return buf;
+        }
         self.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
             size: (count * 4) as u64,
@@ -290,8 +264,7 @@ impl GpuF64 {
 
     /// Upload f32 data to a GPU storage buffer (overwrites from offset 0).
     pub fn upload_f32(&self, buffer: &wgpu::Buffer, data: &[f32]) {
-        let bytes: &[u8] = bytemuck::cast_slice(data);
-        self.queue().write_buffer(buffer, 0, bytes);
+        let _ = self.wgpu_device.write_buffer_f32(buffer, data);
     }
 
     /// Read back f32 data from a GPU buffer via staging copy.
@@ -305,43 +278,7 @@ impl GpuF64 {
         buffer: &wgpu::Buffer,
         count: usize,
     ) -> Result<Vec<f32>, crate::error::HotSpringError> {
-        let staging = self.create_staging_buffer(count * 4, "readback_f32");
-        let mut encoder = self
-            .device()
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("readback_f32"),
-            });
-        encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, (count * 4) as u64);
-        self.queue().submit(std::iter::once(encoder.finish()));
-
-        let slice = staging.slice(..);
-        let (sender, receiver) = std::sync::mpsc::channel();
-        slice.map_async(
-            wgpu::MapMode::Read,
-            move |result: Result<(), wgpu::BufferAsyncError>| {
-                let _ = sender.send(result);
-            },
-        );
-        let _ = self.device().poll(wgpu::PollType::Wait {
-            submission_index: None,
-            timeout: None,
-        });
-        receiver
-            .recv()
-            .map_err(|_| {
-                crate::error::HotSpringError::DeviceCreation(
-                    "GPU map callback f32: channel recv failed".into(),
-                )
-            })?
-            .map_err(|e| {
-                crate::error::HotSpringError::DeviceCreation(format!("GPU buffer mapping f32: {e}"))
-            })?;
-
-        let data = slice.get_mapped_range();
-        let result = mapped_bytes_to_f32(&data);
-        drop(data);
-        staging.unmap();
-        Ok(result)
+        self.wgpu_device.read_back_f32(buffer, count).map_err(Into::into)
     }
 }
 

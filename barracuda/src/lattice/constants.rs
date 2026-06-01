@@ -2,35 +2,15 @@
 
 //! Centralized constants for lattice field theory modules.
 //!
-//! Collects LCG PRNG parameters, SU(3) color constants, and numerical
-//! guards used across `su3.rs`, `wilson.rs`, `hmc.rs`, `dirac.rs`, and `cg.rs`.
+//! LCG PRNG parameters and numerical guards re-exported from barraCuda
+//! `ops/lattice/constants`. hotSpring-specific lattice dimensions and
+//! hot-start scale remain defined here.
 
 /// Number of colors in QCD (SU(3)).
 pub const N_COLORS: usize = 3;
 
 /// Number of spacetime dimensions.
 pub const N_DIM: usize = 4;
-
-/// LCG multiplier (Knuth MMIX).
-///
-/// Used for deterministic pseudo-random number generation in lattice
-/// initialization (hot start) and HMC momentum refresh.
-pub const LCG_MULTIPLIER: u64 = 6_364_136_223_846_793_005;
-
-/// LCG increment (Knuth MMIX).
-pub const LCG_INCREMENT: u64 = 1_442_695_040_888_963_407;
-
-/// Mantissa bits for LCG → uniform [0, 1) conversion.
-///
-/// `(seed >> 33) as f64 / (1u64 << 31) as f64` gives 31 bits of precision.
-/// For Box-Muller, `(seed >> 11) as f64 / (1u64 << 53) as f64` gives 53 bits.
-pub const LCG_53_DIVISOR: f64 = (1u64 << 53) as f64;
-
-/// Division guard for lattice CG/reunitarization.
-///
-/// Prevents division by zero in vector norms, inner products, and
-/// Gram-Schmidt orthonormalization. Well below any physical lattice scale.
-pub const LATTICE_DIVISION_GUARD: f64 = 1e-30;
 
 /// Hot-start perturbation scale for SU(3) link matrices.
 ///
@@ -39,6 +19,29 @@ pub const LATTICE_DIVISION_GUARD: f64 = 1e-30;
 /// initial configuration that thermalizes quickly.
 pub const HOT_START_EPSILON: f64 = 1.5;
 
+#[cfg(feature = "barracuda-local")]
+pub use barracuda::ops::lattice::constants::{
+    lcg_gaussian, lcg_step, lcg_uniform_f64, LCG_53_DIVISOR, LCG_INCREMENT,
+    LCG_MULTIPLIER, LATTICE_DIVISION_GUARD,
+};
+
+#[cfg(not(feature = "barracuda-local"))]
+/// LCG multiplier (Knuth MMIX).
+pub const LCG_MULTIPLIER: u64 = 6_364_136_223_846_793_005;
+
+#[cfg(not(feature = "barracuda-local"))]
+/// LCG increment (Knuth MMIX).
+pub const LCG_INCREMENT: u64 = 1_442_695_040_888_963_407;
+
+#[cfg(not(feature = "barracuda-local"))]
+/// Mantissa bits for LCG → uniform [0, 1) conversion.
+pub const LCG_53_DIVISOR: f64 = (1u64 << 53) as f64;
+
+#[cfg(not(feature = "barracuda-local"))]
+/// Division guard for lattice CG/reunitarization.
+pub const LATTICE_DIVISION_GUARD: f64 = 1e-30;
+
+#[cfg(not(feature = "barracuda-local"))]
 /// Advance the LCG state by one step.
 #[inline]
 pub const fn lcg_step(seed: &mut u64) {
@@ -47,6 +50,7 @@ pub const fn lcg_step(seed: &mut u64) {
         .wrapping_add(LCG_INCREMENT);
 }
 
+#[cfg(not(feature = "barracuda-local"))]
 /// Generate a uniform f64 in [0, 1) from 53 bits of LCG state.
 #[inline]
 pub fn lcg_uniform_f64(seed: &mut u64) -> f64 {
@@ -54,10 +58,8 @@ pub fn lcg_uniform_f64(seed: &mut u64) -> f64 {
     (*seed >> 11) as f64 / LCG_53_DIVISOR
 }
 
+#[cfg(not(feature = "barracuda-local"))]
 /// Box-Muller Gaussian deviate N(0, 1) from two LCG draws.
-///
-/// Uses the polar form: z = sqrt(-2 ln u1) cos(2π u2).
-/// The `ln` argument is clamped to `LATTICE_DIVISION_GUARD` to avoid ln(0).
 #[inline]
 pub fn lcg_gaussian(seed: &mut u64) -> f64 {
     let u1 = lcg_uniform_f64(seed);

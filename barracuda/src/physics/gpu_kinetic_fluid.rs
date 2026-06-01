@@ -14,10 +14,9 @@ use super::kinetic_fluid::{
 };
 use crate::gpu::GpuF64;
 
+use barracuda::ops::physics::WGSL_BGK_RELAXATION;
 use barracuda::shaders::precision::ShaderTemplate;
 use wgpu::util::DeviceExt;
-
-const WGSL_BGK: &str = include_str!("shaders/bgk_relaxation_f64.wgsl");
 
 /// Uniform parameter buffer (must match WGSL `BgkParams`).
 #[repr(C)]
@@ -40,7 +39,7 @@ impl GpuBgkPipeline {
     /// Compile BGK shaders.
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
-        let source = ShaderTemplate::with_math_f64_auto(WGSL_BGK);
+        let source = ShaderTemplate::with_math_f64_auto(WGSL_BGK_RELAXATION);
         Self {
             moments_pipeline: gpu.create_pipeline_f64_entry(
                 &source,

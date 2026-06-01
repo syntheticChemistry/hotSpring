@@ -18,6 +18,7 @@
 //! Uses the same buffer layout and uniform struct as `BarraCuda`'s
 //! `BatchedBisectionGpu`, so results are directly comparable.
 
+use barracuda::ops::physics::WGSL_BCS_BISECTION;
 use crate::gpu::GpuF64;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -82,7 +83,7 @@ impl<'a> BcsBisectionGpu<'a> {
     #[must_use]
     pub fn new(gpu: &'a GpuF64, max_iterations: u32, tolerance: f64) -> Self {
         let device = gpu.device();
-        let shader_body = include_str!("shaders/bcs_bisection_f64.wgsl");
+        let shader_body = WGSL_BCS_BISECTION;
         let shader = gpu
             .to_wgpu_device()
             .compile_shader_f64(shader_body, Some("hotSpring BCS Bisection f64"));

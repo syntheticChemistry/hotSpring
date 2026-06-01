@@ -172,6 +172,8 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     // Crypto (BearDog)
     ("crypto.sign_ed25519", "beardog"),
     ("crypto.verify_ed25519", "beardog"),
+    // Signal dispatch (toadStool — compute_dispatch + dag_provenance)
+    ("signal.dispatch", "toadstool"),
     // Compute dispatch (toadStool — operational)
     ("compute.dispatch.submit", "toadstool"),
     ("compute.dispatch.capabilities", "toadstool"),
@@ -214,7 +216,6 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("device.warm_catch", "toadstool"),
     // VFIO PBDMA dispatch (toadStool S258-S262)
     ("device.vfio.open", "toadstool"),
-    ("device.vfio.alloc", "toadstool"),
     ("device.vfio.roundtrip", "toadstool"),
     // GR context init (toadStool S262)
     ("device.gr.init", "toadstool"),
@@ -226,12 +227,30 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("mmio.pramin.read32", "toadstool"),
     ("mmio.bar0.probe", "toadstool"),
     ("mmio.falcon.status", "toadstool"),
-    // Ember lifecycle (toadStool Phase D)
+    // Ember lifecycle (toadStool Phase D — operational)
     ("ember.warm_cycle", "toadstool"),
     ("ember.adopt_device", "toadstool"),
     ("ember.fecs.state", "toadstool"),
     ("ember.device.health", "toadstool"),
     ("ember.device.recover", "toadstool"),
+    ("ember.prepare_dma", "toadstool"),
+    ("ember.cleanup_dma", "toadstool"),
+    ("ember.pramin.read", "toadstool"),
+    ("ember.pramin.write", "toadstool"),
+    // Falcon PIO (toadStool — operational)
+    ("ember.falcon.upload_imem", "toadstool"),
+    ("ember.falcon.upload_dmem", "toadstool"),
+    ("ember.falcon.start_cpu", "toadstool"),
+    ("ember.falcon.poll", "toadstool"),
+    // Device lifecycle (toadStool — operational)
+    ("device.get", "toadstool"),
+    ("device.reset", "toadstool"),
+    ("device.resurrect", "toadstool"),
+    ("device.experiment_lifecycle", "toadstool"),
+    // Sovereign introspection (toadStool — crash/lock protection)
+    ("sovereign.init", "toadstool"),
+    ("sovereign.defense_status", "toadstool"),
+    ("sovereign.watchdog_status", "toadstool"),
     // Semantic aliases (toadStool S255)
     ("ember.swap", "toadstool"),
     ("sovereign.boot", "toadstool"),
@@ -263,11 +282,14 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("dag.merkle.root", "rhizocrypt"),
     ("dag.merkle.verify", "rhizocrypt"),
     // Ledger (loamSpine)
+    ("ledger.record", "loamspine"),
     ("spine.create", "loamspine"),
     ("entry.append", "loamspine"),
     ("session.commit", "loamspine"),
     ("certificate.mint", "loamspine"),
     // Attribution (sweetGrass)
+    ("attribution.braid", "sweetgrass"),
+    ("attribution.query", "sweetgrass"),
     ("braid.create", "sweetgrass"),
     ("braid.commit", "sweetgrass"),
     ("provenance.graph", "sweetgrass"),

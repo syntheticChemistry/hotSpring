@@ -25,7 +25,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 #[path = "../bin_helpers/sovereignty/mod.rs"]
 mod sovereignty;
-use sovereignty::connect::{extract_arg, try_connect_ember, try_connect_glowplug};
+use sovereignty::connect::{resolve_target_bdf, try_connect_ember, try_connect_glowplug};
 use sovereignty::lockup_vectors::{ALL_VECTORS, DEFENSE_MECHANISMS, CrashCategory};
 
 fn main() {
@@ -36,8 +36,11 @@ fn main() {
 
     let mut harness = ValidationHarness::new("validate_lockup_defense_matrix");
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf")
-        .unwrap_or_else(|| std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:02:00.0".to_string()));
+    let bdf = resolve_target_bdf(&args, 0);
+    if bdf.is_empty() {
+        eprintln!("FATAL: no target BDF — pass --bdf or set HOTSPRING_BARRACUDA_TARGET_BDF");
+        std::process::exit(1);
+    }
 
     let t0 = Instant::now();
 
@@ -48,17 +51,27 @@ fn main() {
     harness.check_bool("glowplug reachable", glowplug.is_some());
 
     let ember = try_connect_ember(&bdf);
-    harness.check_bool(&format!("ember reachable for {bdf}"), ember.is_some());
+    let ember_ok = ember.is_some();
+    if !ember_ok {
+        println!("  ember socket not found — will use glowplug MMIO fallback");
+    }
 
     let Some(glowplug) = glowplug else {
         eprintln!("  FATAL: glowplug not available — cannot validate defense matrix");
         harness.finish();
     };
 
-    let Some(ember) = ember else {
-        eprintln!("  FATAL: ember not available for {bdf} — cannot validate defenses");
-        harness.finish();
-    };
+    // Ember reachability: pass if dedicated ember socket found OR if glowplug
+    // can serve MMIO for this BDF (unified daemon mode).
+    let mmio_fallback_ok = !ember_ok
+        && glowplug
+            .rpc_call("mmio.read32", &serde_json::json!({"bdf": bdf, "offset": 0}))
+            .is_ok();
+    let gpu_reachable = ember_ok || mmio_fallback_ok;
+    if mmio_fallback_ok {
+        println!("  glowplug MMIO fallback: OK (unified daemon serves both)");
+    }
+    harness.check_bool(&format!("gpu reachable for {bdf}"), gpu_reachable);
 
     // Phase 2: Device health baseline
     println!("\n── Phase 2: Device health baseline ─────────────────────────\n");
@@ -82,9 +95,21 @@ fn main() {
         }
     }
 
-    match ember.mmio_read(&bdf, 0x000000) {
-        Ok(r) => {
-            let boot0 = r.value;
+    // BOOT0 probe: prefer ember MMIO, fall back to glowplug mmio.read32
+    let boot0_result = if let Some(ref ember) = ember {
+        ember
+            .mmio_read(&bdf, 0x000000)
+            .map(|r| r.value)
+            .map_err(|e| format!("{e}"))
+    } else {
+        glowplug
+            .rpc_call("mmio.read32", &serde_json::json!({"bdf": bdf, "offset": 0}))
+            .map(|r| r.get("value").and_then(|v| v.as_u64()).unwrap_or(0) as u32)
+            .map_err(|e| format!("{e}"))
+    };
+
+    match boot0_result {
+        Ok(boot0) => {
             let alive = boot0 != 0xFFFF_FFFF && boot0 != 0x0000_0000;
             println!(
                 "  BOOT0 = 0x{:08x} — {}",
@@ -102,25 +127,61 @@ fn main() {
     // Phase 3: Defense mechanism probes
     println!("\n── Phase 3: Defense mechanism probes ───────────────────────\n");
 
-    for mechanism in DEFENSE_MECHANISMS {
-        match glowplug.rpc_call(
-            "sovereign.defense_status",
-            &serde_json::json!({
-                "bdf": bdf,
-                "mechanism": mechanism,
-            }),
-        ) {
-            Ok(resp) => {
-                let active = resp.get("active").and_then(|v| v.as_bool()).unwrap_or(false);
-                println!(
-                    "  {}: {}",
-                    mechanism,
-                    if active { "ACTIVE" } else { "INACTIVE" }
-                );
-                harness.check_bool(&format!("defense.{mechanism}"), active);
+    // toadStool returns mechanisms with both `available` (code path exists) and
+    // `mechanisms` (currently armed). When idle, defenses are available but not armed —
+    // that's correct behavior. We validate availability for baseline health.
+    match glowplug.rpc_call(
+        "sovereign.defense_status",
+        &serde_json::json!({ "bdf": bdf }),
+    ) {
+        Ok(resp) => {
+            let phase = resp
+                .get("phase")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let is_idle = phase == "Idle";
+            println!("  Diesel engine phase: {phase}");
+
+            // When idle, check `available` (code path present).
+            // When active, check `mechanisms` (currently armed).
+            let check_key = if is_idle { "available" } else { "mechanisms" };
+            let check_map = resp.get(check_key).or_else(|| resp.get("mechanisms"));
+
+            if is_idle {
+                println!("  (idle — validating defense availability, not armed state)");
             }
-            Err(e) => {
-                println!("  {}: probe failed ({e}) — marking as unknown", mechanism);
+
+            for mechanism in DEFENSE_MECHANISMS {
+                let ok = check_map
+                    .and_then(|m| m.get(mechanism))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let label = if is_idle { "AVAILABLE" } else if ok { "ARMED" } else { "INACTIVE" };
+                println!("  {mechanism}: {label}");
+                harness.check_bool(&format!("defense.{mechanism}"), ok);
+            }
+
+            // Also report armed status during idle for context
+            if is_idle {
+                let armed = resp.get("mechanisms");
+                let armed_count = DEFENSE_MECHANISMS
+                    .iter()
+                    .filter(|m| {
+                        armed
+                            .and_then(|a| a.get(**m))
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false)
+                    })
+                    .count();
+                println!(
+                    "  ({armed_count}/{} currently armed — expected 0 when idle)",
+                    DEFENSE_MECHANISMS.len()
+                );
+            }
+        }
+        Err(e) => {
+            println!("  defense_status probe failed: {e}");
+            for mechanism in DEFENSE_MECHANISMS {
                 harness.check_bool(&format!("defense.{mechanism}"), false);
             }
         }

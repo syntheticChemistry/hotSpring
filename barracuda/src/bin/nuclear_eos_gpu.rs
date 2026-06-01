@@ -12,6 +12,7 @@
 //!
 //! Run: cargo run --release --bin `nuclear_eos_gpu`
 
+use barracuda::ops::physics::{WGSL_CHI2_BATCH, WGSL_SEMF_BATCH, WGSL_SEMF_PURE_GPU};
 use hotspring_barracuda::bench::{BenchReport, HardwareInventory};
 use hotspring_barracuda::bin_helpers::nuclear_eos_gpu::{
     print_summary_table, run_l1_direct_sampler, run_l1_lhs_sweep, run_l1_semf_cpu_vs_gpu,
@@ -23,13 +24,13 @@ use hotspring_barracuda::gpu::GpuF64;
 use std::time::Instant;
 
 /// Batched SEMF: one thread per nucleus, evaluates Bethe-Weizsacker formula
-const SHADER_SEMF_BATCH: &str = include_str!("../physics/shaders/semf_batch_f64.wgsl");
+const SHADER_SEMF_BATCH: &str = WGSL_SEMF_BATCH;
 
 /// PURE-GPU SEMF: uses `math_f64` library — NO CPU precomputation needed
-const SHADER_SEMF_PURE_GPU: &str = include_str!("../physics/shaders/semf_pure_gpu_f64.wgsl");
+const SHADER_SEMF_PURE_GPU: &str = WGSL_SEMF_PURE_GPU;
 
 /// Batched chi2: per-nucleus squared residual
-const SHADER_CHI2: &str = include_str!("../physics/shaders/chi2_batch_f64.wgsl");
+const SHADER_CHI2: &str = WGSL_CHI2_BATCH;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");

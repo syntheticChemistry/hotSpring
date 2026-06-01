@@ -3,11 +3,12 @@
 //! Brain-mode CG: NPU residual streaming and interrupt support.
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
-use super::resident_cg_buffers::{GpuResidentCgBuffers, encode_cg_batch, encode_reduce_chain};
+use super::resident_cg_buffers::{
+    GpuResidentCgBuffers, encode_cg_batch, encode_reduce_chain, read_complex_dot_re,
+};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
 use super::streaming::{GpuDynHmcStreamingPipelines, make_ferm_prng_params};
-#[expect(deprecated, reason = "gpu_dot_re still used for final S_f = φ†x readback")]
-use super::{GpuF64, gpu_dirac_dispatch, gpu_dot_re, make_link_mom_params, make_prng_params};
+use super::{GpuF64, gpu_dirac_dispatch, make_link_mom_params, make_prng_params};
 use super::resident_observables::{
     ResidentObservableBuffers, gauge_ke_resident, plaquette_resident,
 };
@@ -179,8 +180,7 @@ pub fn gpu_cg_solve_brain(
     total_iters
 }
 
-/// Single `gpu_dot_re` for final S_f = φ†x — intentional, not per-iteration.
-#[expect(deprecated, reason = "transitional — migration to new API pending")]
+/// Final S_f = φ†x via one 8-byte readback (not per-iteration).
 fn gpu_fermion_action_brain_single(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -210,15 +210,20 @@ fn gpu_fermion_action_brain_single(
         cg_traj_idx,
     );
 
-    let vol = state.gauge.volume;
-    let n_pairs = vol * 3;
-    let dot_val = gpu_dot_re(
+    let n_pairs = state.gauge.volume * 3;
+    let dot_val = read_complex_dot_re(
         gpu,
         &dyn_pipelines.dot_pipeline,
+        &resident_pipelines.reduce_pipeline,
         &state.dot_buf,
+        &cg_bufs.scratch_a,
+        &cg_bufs.scratch_b,
+        &cg_bufs.rz_buf,
+        &cg_bufs.convergence_staging_a,
         phi_buf,
         &state.x_buf,
         n_pairs,
+        Some(&cg_bufs.reduce_to_rz),
     );
 
     (dot_val, iters)

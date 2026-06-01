@@ -112,17 +112,30 @@ impl GlowplugClient {
         let mut out = Vec::with_capacity(arr.len());
         for dev in arr {
             if let Some(bdf_str) = dev.as_str() {
-                out.push(GlowplugDeviceSummary {
-                    bdf: bdf_str.to_string(),
-                    vendor: String::new(),
-                    name: None,
-                    personality: "unknown".to_string(),
-                    protected: false,
-                    health: GlowplugDeviceHealthSummary {
-                        vram_alive: false,
-                        domains_faulted: 0,
-                    },
-                });
+                match self.get_device(bdf_str) {
+                    Ok(detail) => out.push(GlowplugDeviceSummary {
+                        bdf: detail.bdf,
+                        vendor: detail.vendor.unwrap_or_default(),
+                        name: detail.name,
+                        personality: detail.personality.unwrap_or_else(|| "unknown".into()),
+                        protected: detail.protected.unwrap_or(false),
+                        health: GlowplugDeviceHealthSummary {
+                            vram_alive: detail.vram_alive.unwrap_or(false),
+                            domains_faulted: detail.domains_faulted.unwrap_or(0),
+                        },
+                    }),
+                    Err(_) => out.push(GlowplugDeviceSummary {
+                        bdf: bdf_str.to_string(),
+                        vendor: String::new(),
+                        name: None,
+                        personality: "unknown".to_string(),
+                        protected: false,
+                        health: GlowplugDeviceHealthSummary {
+                            vram_alive: false,
+                            domains_faulted: 0,
+                        },
+                    }),
+                }
             } else {
                 let row: GlowplugListRow = serde_json::from_value(dev.clone())
                     .map_err(|e| GlowplugError::InvalidPayload(format!("device row: {e}")))?;
@@ -416,6 +429,32 @@ impl GlowplugClient {
         )?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("sovereign.boot: {e}")))
+    }
+
+    /// `sovereign.init` — staged sovereign GPU initialization pipeline.
+    ///
+    /// This is the correct entry for full sovereign boot (PMC ramp → DEVINIT →
+    /// SEC2 ACR → PMU → FECS), unlike `sovereign.boot` which was historically
+    /// misrouted to driver swap.
+    pub fn sovereign_init(
+        &self,
+        bdf: &str,
+        opts: &SovereignInitOptions,
+    ) -> Result<serde_json::Value, GlowplugError> {
+        let mut params = serde_json::json!({ "bdf": bdf });
+        if let Some(ref halt) = opts.halt_before {
+            params["halt_before"] = serde_json::Value::String(halt.clone());
+        }
+        if let Some(ref vbios) = opts.vbios_rom_path {
+            params["vbios_rom_path"] = serde_json::Value::String(vbios.clone());
+        }
+        if let Some(ref engine) = opts.engine_init_path {
+            params["engine_init_path"] = serde_json::Value::String(engine.clone());
+        }
+        if opts.skip_gr_init {
+            params["skip_gr_init"] = serde_json::Value::Bool(true);
+        }
+        self.call_with_nucleus_fallback("compute", "sovereign.init", &params)
     }
 
     /// Raw JSON-RPC to the compute/sovereign endpoint (NUCLEUS-routed when available).

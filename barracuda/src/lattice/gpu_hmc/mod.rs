@@ -120,7 +120,10 @@ pub use unidirectional_cortex::{
 };
 pub use unidirectional_rhmc::gpu_rhmc_trajectory_unidirectional;
 
-#[expect(deprecated, reason = "gpu_dot_re still used for fermion action and legacy CG")]
+#[expect(
+    deprecated,
+    reason = "gpu_dot_re re-export retained for legacy gpu_cg_solve_internal (streaming) and rhmc_shifted_cg validation"
+)]
 pub(super) use fermion_bridge::{gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch};
 pub use fp64_substrate::substrate_fp64_strategy;
 pub use gauge_layout::{build_neighbors, flatten_links, flatten_momenta, unflatten_links_into};
@@ -133,37 +136,43 @@ use crate::gpu::GpuF64;
 //   - Titan V, V100, A100, MI250 → native f64 (1:2 FP64:FP32)
 //   - RTX 3090, 4070, consumer → DF64 on FP32 cores (force + plaquette + KE)
 use barracuda::device::driver_profile::Fp64Strategy;
+use barracuda::ops::lattice::absorbed_shaders::{
+    WGSL_SU3_GAUGE_FORCE_DF64, WGSL_SU3_GAUGE_FORCE_F64, WGSL_SU3_KINETIC_ENERGY_DF64,
+    WGSL_SU3_KINETIC_ENERGY_F64, WGSL_SU3_LINK_UPDATE_F64, WGSL_SU3_MOMENTUM_UPDATE_F64,
+    WGSL_SU3_MATH_F64 as WGSL_SU3_MATH_F64_UPSTREAM,
+};
+use barracuda::ops::lattice::complex_f64::WGSL_COMPLEX64;
 
 /// WGSL shader: Wilson plaquette per site (6 planes, Re Tr P/3).
 pub const WGSL_WILSON_PLAQUETTE: &str = include_str!("../shaders/wilson_plaquette_f64.wgsl");
 
 /// WGSL shader: SU(3) gauge force (staple + traceless anti-Hermitian projection).
-pub const WGSL_GAUGE_FORCE: &str = include_str!("../shaders/su3_gauge_force_f64.wgsl");
+pub const WGSL_GAUGE_FORCE: &str = WGSL_SU3_GAUGE_FORCE_F64;
 
 /// WGSL shader: DF64 gauge force — staple computation on FP32 cores.
-pub const WGSL_GAUGE_FORCE_DF64: &str = include_str!("../shaders/su3_gauge_force_df64.wgsl");
+pub const WGSL_GAUGE_FORCE_DF64: &str = WGSL_SU3_GAUGE_FORCE_DF64;
 
 /// WGSL shader: momentum update P += dt * F.
-pub const WGSL_MOMENTUM_UPDATE: &str = include_str!("../shaders/su3_momentum_update_f64.wgsl");
+pub const WGSL_MOMENTUM_UPDATE: &str = WGSL_SU3_MOMENTUM_UPDATE_F64;
 
 /// WGSL shader: link update U = exp(dt·P) * U via Cayley + reunitarize.
-pub const WGSL_LINK_UPDATE: &str = include_str!("../shaders/su3_link_update_f64.wgsl");
+pub const WGSL_LINK_UPDATE: &str = WGSL_SU3_LINK_UPDATE_F64;
 
 /// WGSL shader: kinetic energy -½ Re Tr(P²) per link.
-pub const WGSL_KINETIC_ENERGY: &str = include_str!("../shaders/su3_kinetic_energy_f64.wgsl");
+pub const WGSL_KINETIC_ENERGY: &str = WGSL_SU3_KINETIC_ENERGY_F64;
 
 /// WGSL shader: DF64 plaquette — SU(3) products on FP32 cores (neighbor-buffer indexing).
 pub const WGSL_PLAQUETTE_DF64: &str = include_str!("../shaders/wilson_plaquette_df64.wgsl");
 
 /// WGSL shader: DF64 kinetic energy — P² on FP32 cores (toadStool S60).
-pub const WGSL_KINETIC_ENERGY_DF64: &str = include_str!("../shaders/su3_kinetic_energy_df64.wgsl");
+pub const WGSL_KINETIC_ENERGY_DF64: &str = WGSL_SU3_KINETIC_ENERGY_DF64;
 
 /// WGSL shader: GPU Polyakov loop — temporal Wilson line on GPU.
 pub const WGSL_POLYAKOV_LOOP: &str = include_str!("../shaders/polyakov_loop_f64.wgsl");
 
 /// WGSL shader preamble: `complex_f64` + `su3_math_f64` (safe for composition, no ptr I/O).
-const WGSL_COMPLEX_F64: &str = include_str!("../shaders/complex_f64.wgsl");
-const WGSL_SU3_MATH_F64: &str = include_str!("../shaders/su3_math_f64.wgsl");
+const WGSL_COMPLEX_F64: &str = WGSL_COMPLEX64;
+const WGSL_SU3_MATH_F64: &str = WGSL_SU3_MATH_F64_UPSTREAM;
 
 // ═══════════════════════════════════════════════════════════════════
 //  Pipeline compilation

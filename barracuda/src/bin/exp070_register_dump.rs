@@ -3,63 +3,33 @@
 //! Experiment 070: BAR0 register dump for sovereign reverse engineering.
 //!
 //! Reads named GPU registers and outputs structured JSON for automated diffing
-//! across backends.
-//!
-//! ## Access modes
-//!
-//! - **Direct mmap** (default, requires `low-level` feature + sudo):
-//!   Opens `/sys/bus/pci/devices/<bdf>/resource0` via `mmap`, wrapped in a
-//!   RAII [`Bar0View`] that bounds-checks every read and drops the mapping on
-//!   exit. Unsafe is confined to the two volatile-read lines inside `Bar0View`.
-//!
-//! - **Ember-routed** (`--via-ember`):
-//!   Routes all reads through `ember.mmio.read` IPC, using the fork-isolated,
-//!   circuit-breaker-protected MMIO path in toadstool-ember. No sudo required if
-//!   ember holds the VFIO fd. Validates that the ember MMIO pipeline produces
-//!   identical results to direct access.
+//! across backends. All MMIO access routes through toadStool ember
+//! (`mmio.read32`) — fork-isolated, circuit-breaker-protected. No direct
+//! BAR0 mmap or sudo required when ember holds the VFIO fd.
 //!
 //! Usage:
-//!   sudo cargo run --release --features low-level --bin exp070_register_dump -- <bdf> [output.json]
-//!   cargo run --release --bin exp070_register_dump -- --via-ember <bdf> [output.json]
+//!   cargo run --release --bin exp070_register_dump -- [--bdf <bdf>] [output.json]
+//!   cargo run --release --bin exp070_register_dump -- <bdf> [output.json]
+//!   cargo run --release --bin exp070_register_dump -- --bdf 0000:03:00.0 dump.json
 
 use std::fs::File;
 use std::io::Write as _;
 
 use hotspring_barracuda::register_maps::{RegisterDump, RegisterEntry, detect_register_map};
 
-#[cfg(feature = "low-level")]
-use hotspring_barracuda::low_level::Bar0View;
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{connect_ember, extract_arg, resolve_target_bdf};
 
-// ── Access mode enum ─────────────────────────────────────────────────────────
-
-enum AccessMode {
-    #[cfg(feature = "low-level")]
-    DirectMmap(Bar0View),
-    EmberIpc {
-        client: hotspring_barracuda::fleet_client::EmberClient,
-        bdf: String,
-    },
-}
-
-impl AccessMode {
-    fn read_register(&self, offset: u32) -> Result<u32, String> {
-        match self {
-            #[cfg(feature = "low-level")]
-            AccessMode::DirectMmap(view) => view.read_u32(offset),
-            AccessMode::EmberIpc { client, bdf } => {
-                let result = client.mmio_read(bdf, offset).map_err(|e| e.to_string())?;
-                Ok(result.value)
-            }
-        }
-    }
-
-    fn mode_label(&self) -> &str {
-        match self {
-            #[cfg(feature = "low-level")]
-            AccessMode::DirectMmap(_) => "direct-mmap",
-            AccessMode::EmberIpc { .. } => "ember-ipc",
-        }
-    }
+fn read_register(
+    client: &hotspring_barracuda::fleet_client::EmberClient,
+    bdf: &str,
+    offset: u32,
+) -> Result<u32, String> {
+    client
+        .mmio_read(bdf, offset)
+        .map(|r| r.value)
+        .map_err(|e| e.to_string())
 }
 
 fn read_vendor_id(bdf: &str) -> u16 {
@@ -76,44 +46,34 @@ fn read_device_id(bdf: &str) -> u16 {
         .unwrap_or(0)
 }
 
-fn resolve_ember_socket(bdf: &str) -> std::path::PathBuf {
-    use hotspring_barracuda::fleet_client::{FleetDiscovery, discover_diesel_ember_socket};
-
-    if let Some(sock) = discover_diesel_ember_socket(bdf) {
-        return sock;
-    }
-    if let Ok(disc) = FleetDiscovery::load_default() {
-        if let Some(sock) = disc.file().routes.get(bdf) {
-            return std::path::PathBuf::from(sock);
-        }
-    }
-    let slug = bdf.replace(':', "-");
-    let fleet_sock = std::path::PathBuf::from(format!("/run/toadstool/fleet/ember-{slug}.sock"));
-    if fleet_sock.exists() {
-        return fleet_sock;
-    }
-    let per_device = std::path::PathBuf::from(format!("/run/toadstool/ember-{slug}.sock"));
-    if per_device.exists() {
-        return per_device;
-    }
-    per_device
-}
-
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    let via_ember = args.iter().any(|a| a == "--via-ember");
     let positional: Vec<&str> = args[1..]
         .iter()
         .filter(|a| !a.starts_with("--"))
         .map(String::as_str)
         .collect();
 
-    let bdf = positional.first().map_or_else(
-        || std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string()),
-        std::string::ToString::to_string,
-    );
-    let output_path = positional.get(1).copied();
+    let bdf = if let Some(p) = positional.first() {
+        (*p).to_string()
+    } else {
+        resolve_target_bdf(&args, 0)
+    };
+    if bdf.is_empty() {
+        eprintln!("ERROR: no target BDF — pass --bdf, positional <bdf>, or set HOTSPRING_BDF");
+        std::process::exit(1);
+    }
+
+    let output_flag = extract_arg(&args, "--output");
+    let output_path = positional
+        .get(1)
+        .copied()
+        .or(output_flag.as_deref());
+    let ember_socket = extract_arg(&args, "--ember-socket");
+
+    let ember = connect_ember(&bdf, ember_socket.as_deref());
+    eprintln!("Mode: ember-ipc (mmio.read32)");
 
     let vendor_id = read_vendor_id(&bdf);
     let device_id = read_device_id(&bdf);
@@ -124,37 +84,6 @@ fn main() {
         std::process::exit(1);
     };
 
-    let access = if via_ember {
-        let socket = resolve_ember_socket(&bdf);
-        eprintln!("Mode: ember-ipc via {}", socket.display());
-        AccessMode::EmberIpc {
-            client: hotspring_barracuda::fleet_client::EmberClient::connect(&socket),
-            bdf: bdf.clone(),
-        }
-    } else {
-        #[cfg(feature = "low-level")]
-        {
-            match Bar0View::open(&bdf) {
-                Ok(view) => {
-                    eprintln!("Mode: direct-mmap via /sys/bus/pci/devices/{bdf}/resource0");
-                    AccessMode::DirectMmap(view)
-                }
-                Err(e) => {
-                    eprintln!("ERROR: {e}");
-                    eprintln!(
-                        "  Hint: run with sudo/pkexec, or use --via-ember for ember-routed access"
-                    );
-                    std::process::exit(1);
-                }
-            }
-        }
-        #[cfg(not(feature = "low-level"))]
-        {
-            eprintln!("ERROR: direct mmap requires --features low-level; use --via-ember instead");
-            std::process::exit(1);
-        }
-    };
-
     eprintln!(
         "Detected: {vendor} {arch} (PCI {vendor_id:#06x}:{device_id:#06x})",
         vendor = reg_map.vendor(),
@@ -162,12 +91,10 @@ fn main() {
     );
 
     let regs = reg_map.registers();
-    let boot0 = access
-        .read_register(regs.first().map_or(0, |r| r.offset))
-        .unwrap_or(0);
+    let boot0 = read_register(&ember, &bdf, regs.first().map_or(0, |r| r.offset)).unwrap_or(0);
 
     let temp_str = if let Some(offset) = reg_map.thermal_offset() {
-        let raw = access.read_register(offset).unwrap_or(0);
+        let raw = read_register(&ember, &bdf, offset).unwrap_or(0);
         match reg_map.decode_temp_c(raw) {
             Some(c) => format!("{c}°C"),
             None => format!("raw={raw:#010x}"),
@@ -180,10 +107,9 @@ fn main() {
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!(
-        "║  Exp 070: {vendor} {arch} Register Dump — {bdf} ({mode})",
+        "║  Exp 070: {vendor} {arch} Register Dump — {bdf} (ember-ipc)",
         vendor = reg_map.vendor(),
         arch = reg_map.arch(),
-        mode = access.mode_label(),
     );
     println!("║  ID: {boot_id}  TEMP: {temp_str}");
     println!("╠══════════════════════════════════════════════════════════════════╣");
@@ -191,7 +117,7 @@ fn main() {
     let mut entries = Vec::new();
 
     for reg in regs {
-        let val = access.read_register(reg.offset);
+        let val = read_register(&ember, &bdf, reg.offset);
         let (val_u32, val_str) = match val {
             Ok(v) => (v, format!("{v:#010x}")),
             Err(_) => (0, "ERROR".to_string()),
@@ -215,8 +141,6 @@ fn main() {
     }
 
     println!("╚══════════════════════════════════════════════════════════════════╝");
-
-    // `access` is dropped here — Bar0View::drop() calls munmap automatically.
 
     let dump = RegisterDump {
         vendor: reg_map.vendor().to_string(),

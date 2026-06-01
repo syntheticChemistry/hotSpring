@@ -2,8 +2,26 @@
 
 //! Low-level hardware abstractions (requires `low-level` feature).
 //!
-//! Contains safe RAII wrappers around unsafe OS primitives (mmap, MMIO) so
-//! the unsafe surface is audited in one place and callers use safe APIs.
+//! # Deprecated — use toadStool RPCs instead
+//!
+//! This module duplicates MMIO functionality that now lives in toadStool
+//! (`toadstool_cylinder::vfio::sysfs_bar0`, `nv::registers::falcon`).
+//! Experiment binaries and validation tools should route GPU access through
+//! ember/glowplug JSON-RPC rather than direct BAR0 mmap:
+//!
+//! | Operation        | RPC method                 |
+//! |------------------|----------------------------|
+//! | Register read    | `mmio.read32`              |
+//! | Register write   | `mmio.write32`             |
+//! | Batch MMIO       | `mmio.batch`               |
+//! | Falcon IMEM/DMEM | `ember.falcon.upload_*`    |
+//! | Falcon poll      | `ember.falcon.poll`        |
+//!
+//! Use [`crate::bin_helpers::sovereignty::connect`] (`connect_ember`,
+//! `connect_glowplug`) from experiment binaries.
+//!
+//! Files in this module are retained as legacy reference behind the
+//! `low-level` feature gate (not enabled by default).
 
 pub mod bar0;
 pub mod falcon;
