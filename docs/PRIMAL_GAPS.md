@@ -2137,6 +2137,38 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
 
 ---
 
+### GAP-HS-115: ReduceScalarPipeline zero readback on RTX 5060 Blackwell (SM120)
+
+- **Severity**: P2 — functional on Volta/Ampere, broken on Blackwell
+- **Upstream**: barraCuda `pipeline::ReduceScalarPipeline`
+- **Symptom**: `sum_f64()` returns 0.0 instead of correct sum (1024.0) on RTX 5060.
+  Pipeline construction succeeds, shader compiles, dispatch runs, but buffer readback
+  contains all zeros. Works correctly on Titan V (SM70) and RTX 3090 (SM86).
+- **Root cause**: Unknown — likely wgpu backend or nvidia-580 driver issue with f64
+  buffer mapping on Blackwell. Could also be a naga SPIR-V codegen issue for SM120.
+- **Workaround**: Use DF64 (double-float f32-pair) reduction path on Blackwell, or
+  route through coralReef→toadStool compute trio instead of local wgpu pipeline.
+- **Status**: OPEN — filed June 1, 2026. Requires barraCuda upstream investigation.
+
+### GAP-HS-116: coralReef opt_copy_prop panic on subgroup shaders
+
+- **Severity**: P1 — blocks coralReef compilation of subgroup-accelerated shaders
+- **Upstream**: coralReef compiler `opt_copy_prop` pass
+- **Symptom**: `assertion failed: entry_ssa.comps() == 1` when compiling
+  `sum_reduce_subgroup_f64.wgsl`. Shader uses `subgroupAdd` built-in.
+- **Workaround**: Use shared-memory-only `sum_reduce_f64.wgsl` when compiling via
+  coralReef. Subgroup variant works through wgpu/naga path.
+- **Status**: OPEN — filed June 1, 2026.
+
+### GAP-HS-117: coralReef WGSL parse error on f64 pow()
+
+- **Severity**: P2 — `deformed_wavefunction_f64.wgsl` failed coralReef compilation
+- **Upstream**: coralReef WGSL frontend
+- **Symptom**: `pow(x, alpha)` with f64 arguments rejected (pow is f32-only in WGSL spec)
+- **Fix applied**: Replaced with integer-power loop (alpha is always integer |Λ|).
+  Shader now compiles through both coralReef and wgpu.
+- **Status**: RESOLVED locally — upstream may want to add f64 pow() extension.
+
 ## Handback Protocol
 
 1. Document gap in this file with severity and upstream reference.

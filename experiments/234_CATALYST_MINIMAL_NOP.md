@@ -282,3 +282,52 @@ Remaining failures are upstream: coralReef compiler bugs (2 shaders), songbird
 capability advertisement gap, barracuda ReduceScalarPipeline readback on Blackwell.
 
 Status: PAUSED — Run #6 cleared, reboot required to clear stuck nvsov module.
+
+### Run #6 — Hard Lockup at rm_trigger (June 1, 2026)
+
+Post-reboot to clear Run #5 nvsov. Clean slate: no nvidia/vfio modules, both Titan Vs
+on vfio-pci, VRAM alive. Ember healthy (3 GPUs, all Alive).
+
+**Kill point: `rm_trigger` chardev open (17:04:08.868)**
+
+Timeline:
+1. 17:04:07 — `sovereign.warm_handoff` RPC received (strategy: nvidia_catalyst_minimal_nop_titanv)
+2. 17:04:07 — RACE: second RPC received 500ms later — both trigger anchor release
+3. 17:04:07 — First RPC fails fast (success:false, total_ms:0). Second continues.
+4. 17:04:07 — GPU COLD (PMC popcount=4). SBR unsuppressed for 02:00.0.
+5. 17:04:08 — nvsov.ko patched: 21/21 patches applied (nvidia-470.256.02 correct)
+6. 17:04:08 — **PCI disable I/O error** — config space already bad before insmod
+7. 17:04:08 — nvsov insmod: 400ms, module loads, probes 02:00.0
+8. 17:04:08 — `rm_trigger` spawned (major=507, channel=true, bdf=02:00.0)
+9. SILENCE — hard lockup. No kernel or userspace output after rm_trigger spawn.
+10. Forced reboot to recover. FAT-fs volumes not properly unmounted.
+
+**Root cause analysis — what got past the clutch:**
+
+1. **rm_trigger enters kernel RM init**: chardev open triggers `nv_open → rm_init_adapter
+   → rm_init_private_state`. This runs inside nvidia's closed-source kernel blob. The
+   lockup is a hard kernel deadlock or infinite loop inside RM GPU initialization.
+   The 450s catalyst watchdog is powerless — it runs in userspace and gets frozen by
+   the kernel lockup.
+
+2. **Double RPC race**: Two warm_handoff RPCs 500ms apart both trigger anchor release
+   (SBR unsuppression, no_bus_reset cycling). The first fails fast but may have left
+   PCI bus state inconsistent. Evidence: `enable` sysfs I/O error at 17:04:08.305.
+
+3. **GPU was COLD**: PMC popcount=4 means only basic engines alive. RM must do full
+   cold init (VBIOS, falcon boot, HBM2 training, RM channel tree). Something in this
+   full init path hangs the PCIe bus.
+
+4. **Lock debugging disabled**: Kernel tainting by nvsov disables lockdep, so no
+   deadlock detection available.
+
+**Evolution targets for toadStool:**
+
+- [ ] Mutex/gate `sovereign.warm_handoff` — reject concurrent RPCs for same BDF
+- [ ] Pre-rm_trigger PCI health check — abort if config space returns I/O errors
+- [ ] rm_trigger timeout: spawn in cgroup with hardware watchdog NMI as backstop
+- [ ] Investigate: can we skip rm_trigger entirely and use Tier 1 (MMIO-only) path?
+- [ ] NMI watchdog capture: enable `nmi_watchdog=1` + `softlockup_panic=1` to get
+  a stack trace on next lockup instead of silent hang
+- [ ] Consider: warm the GPU via nouveau HBM2 training BEFORE loading nvsov
+  (cold GPU init is the suspected kill vector)

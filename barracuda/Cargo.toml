@@ -1021,6 +1021,11 @@ name = "validate_node_atomic"
 path = "src/bin/validate_node_atomic.rs"
 required-features = ["sovereign-dispatch"]
 
+# Exp 234: Safe sovereign warm handoff with lockup defenses (Run #6 forensics)
+[[bin]]
+name = "exp234_sovereign_warm_handoff"
+path = "src/bin/exp234_sovereign_warm_handoff.rs"
+
 # Compute trio E2E: barraCuda → coralReef → toadStool → hardware → physics parity
 [[bin]]
 name = "validate_compute_trio_pipeline"

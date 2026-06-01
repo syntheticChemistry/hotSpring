@@ -11,6 +11,11 @@
 // when the enable directive is present, causing all subgroup ops to return 0.
 // wgpu's SUBGROUP device feature is sufficient; the directive is redundant.
 // Diagnosed via diagnose_subgroup_f64 on NVIDIA RTX 3090 + AMD RX 6950 XT.
+//
+// CORALREEF: This shader triggers an opt_copy_prop panic in coralReef
+// (assertion: entry_ssa.comps() == 1 on SubgroupBallotResult). Use wgpu path
+// or sum_reduce_f64.wgsl (shared-memory-only) when compiling via coralReef.
+// Filed upstream as coralReef P1 bug.
 
 struct ReduceParams {
     size: u32,

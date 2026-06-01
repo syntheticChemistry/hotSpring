@@ -153,7 +153,14 @@ fn evaluate_wavefunctions(
     let norm_rho = sqrt(n_fact / (PI * params.b_perp * params.b_perp * gamma_val));
 
     let lag = laguerre(n_perp_val, alpha, eta);
-    let phi_rho = norm_rho * pow(rho / params.b_perp, alpha) * exp(-eta / f64(2.0)) * lag;
+    // pow() is not defined for f64 in WGSL — use integer-power loop instead
+    // (abs_lambda is always an integer, so this is exact)
+    let rho_ratio = rho / params.b_perp;
+    var rho_pow_alpha = f64(1.0);
+    for (var p = 0u; p < abs_lambda; p++) {
+        rho_pow_alpha = rho_pow_alpha * rho_ratio;
+    }
+    let phi_rho = norm_rho * rho_pow_alpha * exp(-eta / f64(2.0)) * lag;
 
     let psi = phi_z * phi_rho;
 
