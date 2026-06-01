@@ -21,6 +21,9 @@
 //! hotSpring ← compute.dispatch.result → verify output
 //! hotSpring → rhizoCrypt: kind:"hash" witness (blake3 of output)
 //! ```
+//!
+//! Cross-gate dispatch (Wave 67): [`cross_gate`] extends this with
+//! `capability.call` routing to remote gates via Songbird mesh.
 
 use crate::dag_provenance::{DagEvent, DagSession, blake3_hex};
 
@@ -628,6 +631,9 @@ pub fn dispatch_cpu_fallback(
         _ => None,
     }
 }
+
+/// Cross-gate compute dispatch via biomeOS `capability.call` + Songbird mesh.
+pub mod cross_gate;
 
 mod fused;
 
