@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 struct Df64 { hi: f32, lo: f32, }
 
 fn two_sum(a: f32, b: f32) -> Df64 {

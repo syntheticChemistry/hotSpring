@@ -1,13 +1,13 @@
 # hotSpring — Paper Review Queue
 
-> Current state: v0.6.32, 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders. Paper reproduction
+> Current state: v0.6.32, 596 / 1,045 lib tests (IPC-first default / barracuda-local), 155 binaries, 154 WGSL shaders. Paper reproduction
 > priorities and status are still authoritative.
 
 **Last Updated**: May 26, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
-**Crate**: hotspring-barracuda v0.6.32 — 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128+ WGSL shaders
+**Crate**: hotspring-barracuda v0.6.32 — 596 / 1,045 lib tests (IPC-first default / barracuda-local), 155 binaries, 154+ WGSL shaders
 **Current Goal**: Foundation seeding + NUCLEUS workload validation → Tier 4 WDM reproduction → Chuna collaboration → **Sovereign CompChem MD (Papers 50-58)**
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge

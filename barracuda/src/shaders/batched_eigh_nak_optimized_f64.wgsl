@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // NAK-Optimized Batched Symmetric Eigensolve (f64)
 //
 // Workarounds for 5 NAK shader compiler deficiencies identified in
@@ -18,7 +18,7 @@
 // Neutral on proprietary (it already applies these optimizations).
 //
 // Provenance: hotSpring → toadstool handoff, Feb 19 2026
-// License: AGPL-3.0-only
+// License: AGPL-3.0-or-later
 
 const WARP_SIZE: u32 = 32u;
 

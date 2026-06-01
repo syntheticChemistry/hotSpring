@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // SU(3) matvec stencil — TMU textureLoad path
 // Gauge links stored in Rgba32Float texture: 5 texels per SU(3) matrix (18 floats / 4 = 4.5, pad to 5)
 // Texture layout: width = n_links * 5, height = 1

@@ -35,7 +35,7 @@ struct Suite {
     tier: Tier,
 }
 
-// 65 suites total: 38 smoke, 7 nucleus, 20 silicon
+// 65 suites total: 35 smoke, 7 nucleus, 23 silicon
 const SUITES: &[Suite] = &[
     // ── Smoke tier (no primals, no GPU) ────────────────────────────────
     Suite {

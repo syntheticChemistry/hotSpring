@@ -214,7 +214,7 @@ pub mod profiles {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, reason = "expect is acceptable in test assertions")]
+#[expect(clippy::expect_used, reason = "test assertions use expect for clear failure messages")]
 mod tests {
     use super::profiles;
     use super::*;

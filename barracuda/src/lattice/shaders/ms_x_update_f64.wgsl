@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Multi-shift CG: x_σ += α_σ * p_σ (shifted solution update).
 // The scalar α_σ is read from a GPU buffer at index [shift_idx].

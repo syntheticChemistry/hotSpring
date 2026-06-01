@@ -16,7 +16,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 /// Friedel / KK anchor: Re W(0) for the plasma dispersion function.
 const BGK_W0_REAL: BaselineProvenance = BaselineProvenance {
     label: "Plasma dispersion W(0): Re W = 1 (Paper 44 analytic limit)",
-    script: "control/plasma/dielectric_bgk.py",
+    script: "N/A (control/plasma/dielectric_bgk.py absorbed into barracuda/src/physics/dielectric.rs)",
     commit: "10.1103/PhysRevE.111.035206 (Chuna & Murillo 2024)",
     date: "2024-01-01",
     command: "N/A (checked in validate_dielectric against library)",
@@ -28,7 +28,7 @@ const BGK_W0_REAL: BaselineProvenance = BaselineProvenance {
 /// f-sum rule scale (−π ω_p² / 2) used in Debye/Mermin completed checks.
 const BGK_F_SUM_ANCHOR: BaselineProvenance = BaselineProvenance {
     label: "f-sum rule integral scale (−π ω_p²/2) — Mermin / completed Mermin",
-    script: "control/plasma/dielectric_bgk.py",
+    script: "N/A (control/plasma/dielectric_bgk.py absorbed into barracuda/src/physics/dielectric.rs)",
     commit: "10.1103/PhysRevE.111.035206 (Chuna & Murillo 2024)",
     date: "2024-01-01",
     command: "N/A (quadrature vs analytic target in validate_dielectric)",
@@ -48,8 +48,17 @@ fn main() {
 
     // ── Plasma dispersion function ──
     let w0 = plasma_dispersion_w(Complex::ZERO);
-    harness.check_abs("W(0) real part = 1", w0.re, 1.0, 1e-14);
-    harness.check_upper("W(0) imaginary part ≈ 0", w0.im.abs(), 1e-14);
+    harness.check_abs(
+        "W(0) real part = 1",
+        w0.re,
+        1.0,
+        tolerances::DIELECTRIC_PLASMA_DISPERSION_W0_ABS,
+    );
+    harness.check_upper(
+        "W(0) imaginary part ≈ 0",
+        w0.im.abs(),
+        tolerances::DIELECTRIC_PLASMA_DISPERSION_W0_ABS,
+    );
 
     let w_large = plasma_dispersion_w(Complex::new(20.0, 0.0));
     harness.check_upper(
@@ -72,12 +81,22 @@ fn main() {
 
         // Debye screening
         let (eps_s, eps_d) = debye_screening(1.0, &params);
-        harness.check_rel(&format!("Debye_ε_{label}"), eps_s, eps_d, 1e-12);
+        harness.check_rel(
+            &format!("Debye_ε_{label}"),
+            eps_s,
+            eps_d,
+            tolerances::DIELECTRIC_DEBYE_SCREENING_REL,
+        );
 
         // DC conductivity
         let dc = conductivity_dc(nu, &params);
         let dc_exp = params.omega_p.powi(2) / (4.0 * std::f64::consts::PI * nu);
-        harness.check_rel(&format!("Drude_σ_{label}"), dc, dc_exp, 1e-13);
+        harness.check_rel(
+            &format!("Drude_σ_{label}"),
+            dc,
+            dc_exp,
+            tolerances::DIELECTRIC_DRUDE_CONDUCTIVITY_REL,
+        );
 
         // High-frequency limit
         let eps_high = epsilon_mermin(1.0, 100.0 * params.omega_p, nu, &params);

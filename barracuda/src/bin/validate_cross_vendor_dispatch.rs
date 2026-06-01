@@ -6,7 +6,6 @@
 //! No direct device access or privileges required — all work flows through
 //! toadStool's `device.dispatch` / `compute.dispatch.submit` RPC.
 
-use std::path::Path;
 use std::time::Instant;
 
 use hotspring_barracuda::glowplug_client::{GlowplugClient, GlowplugDispatchOptions};
@@ -15,14 +14,15 @@ use hotspring_barracuda::tolerances;
 const N: usize = 1 << 12; // 4K f32 elements — fits RPC line limit comfortably
 const ALPHA: f32 = 2.5;
 
-fn glowplug_socket() -> String {
-    if let Ok(p) = std::env::var("TOADSTOOL_SOCKET") {
-        return p;
+fn connect_glowplug() -> GlowplugClient {
+    let nucleus = hotspring_barracuda::primal_bridge::NucleusContext::detect();
+    match hotspring_barracuda::glowplug_client::GlowplugClient::from_nucleus(&nucleus) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("NUCLEUS discovery failed: {e} — cross-vendor dispatch requires live toadStool");
+            std::process::exit(1);
+        }
     }
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-        .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().into_owned());
-    let family = std::env::var("FAMILY_ID").unwrap_or_else(|_| "default".into());
-    format!("{runtime_dir}/biomeos/compute-{family}.sock")
 }
 
 /// Build PTX for SAXPY: `out[i] = alpha*x[i] + y[i]`
@@ -81,16 +81,13 @@ fn main() {
     println!("=== Cross-Vendor Dispatch Validation ===");
     println!("Kernel: SAXPY out[i] = {ALPHA}*x[i] + y[i], N={N}\n");
 
-    let client = GlowplugClient::from_socket(Path::new(&glowplug_socket()));
+    let client = connect_glowplug();
 
     let devices = match client.list_devices() {
         Ok(d) => d,
         Err(e) => {
             eprintln!("device.list failed: {e}");
-            eprintln!(
-                "Is toadstool-ember running?  systemctl status toadstool-ember  (socket: {})",
-                glowplug_socket()
-            );
+            eprintln!("Is toadstool-ember running?  systemctl status toadstool-ember");
             std::process::exit(1);
         }
     };

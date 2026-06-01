@@ -7,7 +7,7 @@
 **Date**: May 2026 (v0.6.32 — hotSpring-guideStone-v0.7.0)
 **Author**: Kevin Mok (mokkevin@msu.edu)
 **Hardware**: biomeGate — Threadripper 3970X, 2× Titan V (GV100, 12 GB HBM2), RTX 5060 (Blackwell). Previous: RTX 3090 (retired), RX 6950 XT.
-**License**: AGPL-3.0
+**License**: AGPL-3.0-or-later
 
 ---
 
@@ -188,7 +188,7 @@ families (Experiment 046).
 5. DSF vs MD cross-validation — against Murillo Group open plasma database
 6. Precision stability audit — stable at f32/DF64/f64
 7. NPU steering with Akida AKD1000 — adaptive parameter control with learned trust thresholds
-8. **Cross-spring shader evolution**: barraCuda's 128 WGSL shaders (164+ ecosystem) include
+8. **Cross-spring shader evolution**: barraCuda's 154 WGSL shaders (164+ ecosystem) include
    contributions from all 5 springs — hotSpring precision/physics, wetSpring bio-stats,
    neuralSpring ML ops, groundSpring validation, airSpring hydrology — all
    available to hotSpring through a single `barracuda` dependency

@@ -59,14 +59,14 @@ Requires the [barraCuda](../../barraCuda/) primal at `../../barraCuda/crates/bar
 
 ## Architecture
 
-### Zero Unsafe Code
+### Unsafe Policy
 
-The entire crate has zero `unsafe` blocks. `#![deny(clippy::expect_used, clippy::unwrap_used)]`
+Unsafe is confined to the feature-gated `low_level` module (`bar0.rs` MMIO). `#![deny(clippy::expect_used, clippy::unwrap_used)]`
 enforced crate-wide — all fallible operations use `?` propagation via `HotSpringError`.
 
 ### Dependency on barraCuda
 
-hotspring-barracuda depends on the standalone `barracuda` crate (v0.3.11 via git pin `b95e9c59`) for:
+hotspring-barracuda depends on the standalone `barracuda` crate (v0.4.0 via path dependency) for:
 
 | Primitive | Usage |
 |-----------|-------|
@@ -156,10 +156,10 @@ pattern in the overnight binary is the reference for multi-GPU + profiling adopt
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 Current: **v0.6.32** (April 11, 2026)
-- 1002 lib tests, 166 binaries, 128 WGSL shaders, 0 clippy warnings (lib)
+- 1002 lib tests, 155 binaries, 154 WGSL shaders, 0 clippy warnings (lib)
 - NUCLEUS composition validation, science probes, Squirrel wired
 - Three-tier validation: Python → Rust → NUCLEUS IPC
-- barraCuda v0.3.5 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31
+- barraCuda v0.4.0 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31
 - Chuna Papers 43-45: 44/44 overnight checks pass
 - coralReef sovereign compile: **45/46** shaders to native SM70/SM86 SASS
 - 12/12 NVVM bypass patterns compile (all 3 poisoning patterns × 6 targets)

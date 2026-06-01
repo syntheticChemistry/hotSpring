@@ -8,6 +8,7 @@
 //! kinetic-fluid. GPU parity itself requires hardware; this scenario
 //! proves the reference values are stable and deterministic.
 
+use crate::tolerances;
 use crate::validation::ValidationHarness;
 use crate::validation::scenarios::registry::{Scenario, ScenarioMeta, Tier, Track};
 
@@ -115,7 +116,10 @@ fn check_bgk(v: &mut ValidationHarness) {
     bgk_relaxation_step(&mut species, &velocities, dv, 0.01);
 
     let mass_after: f64 = species[0].f.iter().sum::<f64>() * dv;
-    v.check_bool("parity:bgk_mass_conserved", (mass_before - mass_after).abs() < 1e-8);
+    v.check_bool(
+        "parity:bgk_mass_conserved",
+        (mass_before - mass_after).abs() < tolerances::KINETIC_FLUID_BGK_MASS_REL,
+    );
     v.check_bool("parity:bgk_all_positive", species[0].f.iter().all(|&fi| fi >= 0.0));
 }
 
@@ -123,7 +127,10 @@ fn check_euler(v: &mut ValidationHarness) {
     use crate::physics::kinetic_fluid::run_sod_shock_tube;
 
     let r = run_sod_shock_tube(50, 0.01);
-    v.check_bool("parity:euler_mass_conserved", r.mass_err < 1e-8);
+    v.check_bool(
+        "parity:euler_mass_conserved",
+        r.mass_err < tolerances::KINETIC_FLUID_BGK_MASS_REL,
+    );
     v.check_bool("parity:euler_rho_physical", r.rho_min > 0.0 && r.rho_max < 2.0);
 }
 

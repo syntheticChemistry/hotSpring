@@ -50,7 +50,7 @@ fn binding_energy_l2_medium_nucleus_uses_hfb() {
 }
 
 #[test]
-#[allow(
+#[expect(
     clippy::assertions_on_constants,
     reason = "intentional constant assertions verify tolerance ordering invariants"
 )]

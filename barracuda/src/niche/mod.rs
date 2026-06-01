@@ -85,7 +85,10 @@ pub fn socket_dirs() -> Vec<std::path::PathBuf> {
         dirs.push(PathBuf::from(xdg).join(ECOSYSTEM_SOCKET_DIR));
     }
 
-    let toadstool_sys = PathBuf::from("/run/toadstool").join(ECOSYSTEM_SOCKET_DIR);
+    let toadstool_base = std::env::var("TOADSTOOL_RUN_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/run/toadstool"));
+    let toadstool_sys = toadstool_base.join(ECOSYSTEM_SOCKET_DIR);
     if !dirs.contains(&toadstool_sys) {
         dirs.push(toadstool_sys);
     }

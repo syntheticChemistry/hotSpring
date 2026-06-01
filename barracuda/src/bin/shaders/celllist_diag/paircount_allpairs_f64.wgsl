@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 @group(0) @binding(0) var<storage, read> positions: array<f64>;
 @group(0) @binding(1) var<storage, read_write> counts: array<f64>;

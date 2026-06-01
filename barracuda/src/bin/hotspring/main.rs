@@ -33,6 +33,15 @@ fn main() {
             format == "json",
         ),
         cli::Commands::Status => cmd_status(),
+        cli::Commands::Serve { socket, family_id } => {
+            if let Err(e) = hotspring_barracuda::serve::run_server(
+                socket.as_deref(),
+                family_id.as_deref(),
+            ) {
+                eprintln!("serve error: {e}");
+                std::process::exit(1);
+            }
+        }
         cli::Commands::Version => cmd_version(),
     }
 }

@@ -23,7 +23,7 @@ the sporePrint auto-refresh CI pipeline.
 
 ## What goes here
 
-- `validation-summary.md` — hotSpring's headline validation results (700/596/1,045 tests, 225 experiments, guideStone Level 6)
+- `validation-summary.md` — hotSpring's headline validation results (720/596/1,045 tests, 234 experiments, guideStone Level 6)
 - Additional `.md` pages with Zola-compatible front matter
 - Results, benchmarks, or experiment summaries you want visible on primals.eco
 

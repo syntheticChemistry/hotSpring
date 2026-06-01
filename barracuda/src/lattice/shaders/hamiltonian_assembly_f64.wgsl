@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // GPU-resident Hamiltonian assembly: H = beta*(6V - plaq_sum) + T + S_f.
 // Single-thread kernel. Eliminates CPU readback + assembly (B2 bottleneck).

@@ -34,15 +34,19 @@ residue_filter = []
 tool = "plumed"
 find_paths = ["plumed/*.dat", "replica_*/plumed.dat"]
 
+# NOTE: scripts/compute_binding_fe.py and scripts/check_convergence.py were never
+# committed — use plumed sum_hills (same pattern as metadynamics_canonical.toml)
+# until nest-validate binding FE derivation ships.
+
 [[derivation.contract]]
 inputs = "replica_*/COLVAR"
 outputs = "analysis/binding_fes.dat"
-command = "python3 scripts/compute_binding_fe.py"
+command = "plumed sum_hills --hills replica_*/HILLS --mintozero --outfile analysis/binding_fes.dat"
 
 [[derivation.contract]]
 inputs = "replica_*/Kernels.data"
 outputs = "analysis/convergence.dat"
-command = "python3 scripts/check_convergence.py"
+command = "plumed sum_hills --hills replica_*/HILLS --mintozero --stride 1000 --outfile analysis/convergence.dat"
 
 [figures]
 enabled = true

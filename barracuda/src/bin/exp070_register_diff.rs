@@ -25,13 +25,17 @@ fn main() {
     let warm_path = &args[2];
     let output_path = args.get(3).map(String::as_str);
 
-    let baseline: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(baseline_path).expect("read baseline"))
-            .expect("parse baseline JSON");
+    let baseline: serde_json::Value = {
+        let file = fs::File::open(baseline_path).expect("read baseline");
+        let reader = std::io::BufReader::new(file);
+        serde_json::from_reader(reader).expect("parse baseline JSON")
+    };
 
-    let warm: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(warm_path).expect("read warm"))
-            .expect("parse warm JSON");
+    let warm: serde_json::Value = {
+        let file = fs::File::open(warm_path).expect("read warm");
+        let reader = std::io::BufReader::new(file);
+        serde_json::from_reader(reader).expect("parse warm JSON")
+    };
 
     let base_regs = extract_registers(&baseline);
     let warm_regs = extract_registers(&warm);

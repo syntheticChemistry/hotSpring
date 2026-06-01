@@ -16,6 +16,7 @@ use hotspring_barracuda::md::reservoir::{
     EchoStateNetwork, EsnConfig, ExportedWeights, HeadGroupDisagreement, MultiHeadNpu, heads,
 };
 use std::collections::BTreeMap;
+use std::io::BufRead;
 use std::time::Instant;
 
 #[derive(serde::Deserialize)]
@@ -46,17 +47,18 @@ struct BetaSummary {
 }
 
 fn load_and_aggregate(path: &str) -> Vec<BetaSummary> {
-    let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
+    let file = match std::fs::File::open(path) {
+        Ok(f) => f,
         Err(e) => {
             eprintln!("  Warning: cannot read {path}: {e}");
             return Vec::new();
         }
     };
-
-    let records: Vec<TrajRecord> = content
+    let reader = std::io::BufReader::new(file);
+    let records: Vec<TrajRecord> = reader
         .lines()
-        .filter_map(|line| serde_json::from_str(line).ok())
+        .filter_map(|line| line.ok())
+        .filter_map(|line| serde_json::from_str(&line).ok())
         .collect();
 
     let meas: Vec<&TrajRecord> = records

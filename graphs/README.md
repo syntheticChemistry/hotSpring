@@ -13,6 +13,12 @@ Deploy graphs consumed by biomeOS for NUCLEUS composition deployment.
 | 5 | `hotspring_nuclear_eos_deploy.toml` | SEMF/HFB binding energies |
 | 6 | `hotspring_spectral_deploy.toml` | Anderson, Hofstadter, Lanczos |
 | 7 | `hotspring_sovereign_gpu_deploy.toml` | Sovereign GPU WGSL-to-SASS |
+| 8 | `compchem_tower.toml` | CompChem Explorer — secure transport foundation (bearDog + songbird) |
+| 9 | `compchem_node.toml` | CompChem Explorer — compute node (barraCuda FES + toadStool dispatch) |
+| 10 | `compchem_viz.toml` | CompChem Explorer — interactive molecular visualization |
+| 11 | `compchem_nest.toml` | CompChem Explorer — NEST orchestration + PLUMED metadynamics |
+| 12 | `compchem_provenance.toml` | CompChem Explorer — sealed provenance and audit trail |
+| 13 | `compchem_full.toml` | CompChem Explorer — full NUCLEUS composition (all primals + AI) |
 
 ## Deploy Graph vs Proto-Nucleate
 
@@ -50,7 +56,7 @@ in the proto-nucleate graph alongside primals. `hotspring_unibin certify` is the
 eukaryotic UniBin entry point — it validates all 6 properties (including
 Property 3 BLAKE3 CHECKSUMS via `primalspring::checksums::verify_manifest()` —
 15 validation-critical source files hashed) then probes NUCLEUS IPC when primals
-are deployed. **Bare mode: 30/30 checks pass** (primalSpring v0.9.25).
+are deployed. **Bare mode: 30/30 checks pass** (primalSpring v0.9.27).
 `validation/CHECKSUMS` holds the BLAKE3 manifest. See
 `primalSpring/wateringHole/GUIDESTONE_COMPOSITION_STANDARD.md` for the standard.
 

@@ -28,12 +28,7 @@ use std::io::Write as _;
 use hotspring_barracuda::register_maps::{RegisterDump, RegisterEntry, detect_register_map};
 
 #[cfg(feature = "low-level")]
-#[allow(unsafe_code)]
-#[path = "../low_level/bar0.rs"]
-mod bar0_mmio;
-
-#[cfg(feature = "low-level")]
-use bar0_mmio::Bar0View;
+use hotspring_barracuda::low_level::Bar0View;
 
 // ── Access mode enum ─────────────────────────────────────────────────────────
 

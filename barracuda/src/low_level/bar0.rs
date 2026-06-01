@@ -2,7 +2,7 @@
 
 // Suppress dead-code warnings when included via `#[path]` by experiment binaries
 // that only use a subset of Bar0View / Bar0Map / SafeBar0.
-#![allow(dead_code)]
+#![expect(dead_code, reason = "experiment binaries include via #[path] and use subsets of Bar0View/Bar0Map/SafeBar0")]
 
 //! Safe RAII wrappers for PCI BAR0 MMIO via Linux `sysfs` resource files.
 //!
@@ -337,59 +337,19 @@ pub struct DenyEntry {
     pub reason: &'static str,
 }
 
-/// Validates MMIO offsets against a set of allowed register domains before
-/// forwarding to the underlying [`Bar0Map`].
+/// Validates MMIO offsets against allowed register domains and a write deny-list.
 ///
-/// Prevents accidental out-of-range MMIO from experiments that probe
-/// GPU engines. Callers declare which domains they intend to touch at
-/// construction time; any access outside those domains is rejected.
-///
-/// Optionally enforces a **deny-list** of absolute offsets where writes
-/// are always rejected (e.g. `ENGCTL` registers that irreversibly destroy
-/// falcon security state).
-pub struct SafeBar0 {
-    inner: Bar0Map,
+/// Used by [`SafeBar0`] before forwarding to the underlying [`Bar0Map`], and
+/// directly in unit tests that exercise domain/deny logic without hardware.
+pub struct OffsetValidator {
     domains: Vec<Bar0Domain>,
     deny_list: Vec<DenyEntry>,
 }
 
-impl SafeBar0 {
-    /// Wrap an existing [`Bar0Map`] with domain validation.
-    pub fn new(inner: Bar0Map, domains: Vec<Bar0Domain>) -> Self {
-        Self { inner, domains, deny_list: Vec::new() }
-    }
-
-    /// Wrap an existing [`Bar0Map`] with domain validation and a write deny-list.
-    pub fn with_deny_list(
-        inner: Bar0Map,
-        domains: Vec<Bar0Domain>,
-        deny_list: Vec<DenyEntry>,
-    ) -> Self {
-        Self { inner, domains, deny_list }
-    }
-
-    /// Open a BAR0 mapping for a BDF with domain validation.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `io::Error` if the underlying mmap fails.
-    pub fn open(bdf: &str, domains: Vec<Bar0Domain>) -> io::Result<Self> {
-        let inner = Bar0Map::open_bdf(bdf)?;
-        Ok(Self { inner, domains, deny_list: Vec::new() })
-    }
-
-    /// Open a BAR0 mapping for a BDF with domain validation and a deny-list.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `io::Error` if the underlying mmap fails.
-    pub fn open_with_deny_list(
-        bdf: &str,
-        domains: Vec<Bar0Domain>,
-        deny_list: Vec<DenyEntry>,
-    ) -> io::Result<Self> {
-        let inner = Bar0Map::open_bdf(bdf)?;
-        Ok(Self { inner, domains, deny_list })
+impl OffsetValidator {
+    /// Build a validator for the given domains and optional write deny-list.
+    pub fn new(domains: Vec<Bar0Domain>, deny_list: Vec<DenyEntry>) -> Self {
+        Self { domains, deny_list }
     }
 
     /// Check that `offset..offset+width` falls within at least one domain.
@@ -408,13 +368,79 @@ impl SafeBar0 {
     }
 
     /// Check whether `offset` is on the write deny-list.
-    fn check_deny_list(&self, offset: u32) -> Result<(), Bar0Error> {
+    pub fn check_deny_list(&self, offset: u32) -> Result<(), Bar0Error> {
         for entry in &self.deny_list {
             if offset == entry.offset {
                 return Err(Bar0Error::DenyListed { offset, reason: entry.reason });
             }
         }
         Ok(())
+    }
+}
+
+/// Validates MMIO offsets against a set of allowed register domains before
+/// forwarding to the underlying [`Bar0Map`].
+///
+/// Prevents accidental out-of-range MMIO from experiments that probe
+/// GPU engines. Callers declare which domains they intend to touch at
+/// construction time; any access outside those domains is rejected.
+///
+/// Optionally enforces a **deny-list** of absolute offsets where writes
+/// are always rejected (e.g. `ENGCTL` registers that irreversibly destroy
+/// falcon security state).
+pub struct SafeBar0 {
+    inner: Bar0Map,
+    validator: OffsetValidator,
+}
+
+impl SafeBar0 {
+    /// Wrap an existing [`Bar0Map`] with domain validation.
+    pub fn new(inner: Bar0Map, domains: Vec<Bar0Domain>) -> Self {
+        Self {
+            inner,
+            validator: OffsetValidator::new(domains, Vec::new()),
+        }
+    }
+
+    /// Wrap an existing [`Bar0Map`] with domain validation and a write deny-list.
+    pub fn with_deny_list(
+        inner: Bar0Map,
+        domains: Vec<Bar0Domain>,
+        deny_list: Vec<DenyEntry>,
+    ) -> Self {
+        Self {
+            inner,
+            validator: OffsetValidator::new(domains, deny_list),
+        }
+    }
+
+    /// Open a BAR0 mapping for a BDF with domain validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `io::Error` if the underlying mmap fails.
+    pub fn open(bdf: &str, domains: Vec<Bar0Domain>) -> io::Result<Self> {
+        let inner = Bar0Map::open_bdf(bdf)?;
+        Ok(Self::new(inner, domains))
+    }
+
+    /// Open a BAR0 mapping for a BDF with domain validation and a deny-list.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `io::Error` if the underlying mmap fails.
+    pub fn open_with_deny_list(
+        bdf: &str,
+        domains: Vec<Bar0Domain>,
+        deny_list: Vec<DenyEntry>,
+    ) -> io::Result<Self> {
+        let inner = Bar0Map::open_bdf(bdf)?;
+        Ok(Self::with_deny_list(inner, domains, deny_list))
+    }
+
+    /// Check that `offset..offset+width` falls within at least one domain.
+    pub fn check_offset(&self, offset: u32, width: u32) -> Result<(), Bar0Error> {
+        self.validator.check_offset(offset, width)
     }
 
     /// Read a `u32` register, validating the offset is within an allowed domain.
@@ -445,7 +471,7 @@ impl SafeBar0 {
     /// misaligned, or on the write deny-list.
     pub fn w32(&self, offset: u32, val: u32) -> Result<(), Bar0Error> {
         self.check_offset(offset, 4)?;
-        self.check_deny_list(offset)?;
+        self.validator.check_deny_list(offset)?;
         self.inner.w32(offset, val);
         Ok(())
     }
@@ -476,56 +502,49 @@ mod tests {
         ]
     }
 
-    fn make_safe(domains: Vec<Bar0Domain>, deny_list: Vec<DenyEntry>) -> SafeBar0 {
-        // SafeBar0 with a dummy Bar0Map — only tests check_offset / check_deny_list
-        // which don't touch the mmap at all. We construct directly to avoid needing
-        // actual hardware.
-        SafeBar0 {
-            inner: unsafe { std::mem::zeroed() },
-            domains,
-            deny_list,
-        }
+    fn make_validator(domains: Vec<Bar0Domain>, deny_list: Vec<DenyEntry>) -> OffsetValidator {
+        OffsetValidator::new(domains, deny_list)
     }
 
     #[test]
     fn check_offset_in_domain_passes() {
-        let s = make_safe(test_domains(), vec![]);
-        assert!(s.check_offset(0x0200, 4).is_ok());
-        assert!(s.check_offset(0x0000, 4).is_ok());
-        assert!(s.check_offset(0x0FFC, 4).is_ok());
-        assert!(s.check_offset(0x10_A000, 4).is_ok());
-        assert!(s.check_offset(0x10_A3C0, 4).is_ok());
+        let v = make_validator(test_domains(), vec![]);
+        assert!(v.check_offset(0x0200, 4).is_ok());
+        assert!(v.check_offset(0x0000, 4).is_ok());
+        assert!(v.check_offset(0x0FFC, 4).is_ok());
+        assert!(v.check_offset(0x10_A000, 4).is_ok());
+        assert!(v.check_offset(0x10_A3C0, 4).is_ok());
     }
 
     #[test]
     fn check_offset_spanning_boundary_fails() {
-        let s = make_safe(test_domains(), vec![]);
+        let v = make_validator(test_domains(), vec![]);
         // PMC domain ends at 0x1000; offset 0x0FFC + 8 = 0x1004 spans past end
-        let err = s.check_offset(0x0FFC, 8);
+        let err = v.check_offset(0x0FFC, 8);
         assert!(matches!(err, Err(Bar0Error::OutOfDomain { .. })));
     }
 
     #[test]
     fn check_offset_overflow_fails() {
-        let s = make_safe(test_domains(), vec![]);
-        let err = s.check_offset(0xFFFF_FFFC, 8);
+        let v = make_validator(test_domains(), vec![]);
+        let err = v.check_offset(0xFFFF_FFFC, 8);
         assert!(matches!(err, Err(Bar0Error::Overflow { .. })));
     }
 
     #[test]
     fn check_offset_empty_domains_reject() {
-        let s = make_safe(vec![], vec![]);
-        let err = s.check_offset(0x0200, 4);
+        let v = make_validator(vec![], vec![]);
+        let err = v.check_offset(0x0200, 4);
         assert!(matches!(err, Err(Bar0Error::OutOfDomain { .. })));
     }
 
     #[test]
     fn alignment_rejection() {
-        let s = make_safe(test_domains(), vec![]);
-        let err = s.check_offset(0x0201, 4);
+        let v = make_validator(test_domains(), vec![]);
+        let err = v.check_offset(0x0201, 4);
         assert!(matches!(err, Err(Bar0Error::Unaligned { offset: 0x0201 })));
 
-        let err = s.check_offset(0x0202, 4);
+        let err = v.check_offset(0x0202, 4);
         assert!(matches!(err, Err(Bar0Error::Unaligned { offset: 0x0202 })));
     }
 
@@ -535,12 +554,12 @@ mod tests {
             offset: 0x10_A3C0,
             reason: "ENGCTL destroys falcon security state",
         }];
-        let s = make_safe(test_domains(), deny);
-        let err = s.check_deny_list(0x10_A3C0);
+        let v = make_validator(test_domains(), deny);
+        let err = v.check_deny_list(0x10_A3C0);
         assert!(matches!(err, Err(Bar0Error::DenyListed { offset: 0x10_A3C0, .. })));
 
         // Other offsets pass
-        assert!(s.check_deny_list(0x10_A100).is_ok());
+        assert!(v.check_deny_list(0x10_A100).is_ok());
     }
 
     #[test]

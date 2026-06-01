@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Pure GPU HMC validation: all lattice QCD math on GPU via fp64 WGSL.
 //!

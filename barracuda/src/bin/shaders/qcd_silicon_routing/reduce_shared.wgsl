@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Tree reduce via workgroup shared memory (current production path)
 var<workgroup> wg_data: array<f32, 256>;
 @group(0) @binding(0) var<storage, read> input: array<f32>;

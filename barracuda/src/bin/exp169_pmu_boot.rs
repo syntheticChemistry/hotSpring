@@ -47,10 +47,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-#[allow(unsafe_code)]
-#[path = "../low_level/bar0.rs"]
-mod bar0_mmio;
-use bar0_mmio::Bar0Map;
+use hotspring_barracuda::low_level::Bar0Map;
 
 // ── BAR0 / PCI register offsets ──────────────────────────────────────────────
 
@@ -61,11 +58,11 @@ const PMU_BASE: u32 = 0x010A_000;
 const PMU_CPUCTL: u32 = PMU_BASE + 0x100;
 const PMU_BOOTVEC: u32 = PMU_BASE + 0x104;
 const PMU_HWCFG: u32 = PMU_BASE + 0x108;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMU_HWCFG1: u32 = PMU_BASE + 0x10C;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMU_ITFEN: u32 = PMU_BASE + 0x048;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMU_DMACTL: u32 = PMU_BASE + 0x10C;
 const PMU_SCTL: u32 = PMU_BASE + 0x240;
 const PMU_MB0: u32 = PMU_BASE + 0x040;
@@ -104,7 +101,11 @@ fn main() {
     });
     let fw_path = extract_arg(&args, "--firmware")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/tmp/gv100_pmu_70k_B.bin"));
+        .unwrap_or_else(|| {
+            let data_root = hotspring_barracuda::discovery::try_discover_data_root()
+                .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
+            data_root.join("firmware").join("gv100_pmu_70k_B.bin")
+        });
     let dry_run = args.iter().any(|a| a == "--dry-run");
 
     println!("╔══════════════════════════════════════════════════════════════╗");

@@ -30,8 +30,9 @@
 //! ## Firmware Source
 //!
 //! Extracted from nouveau.ko (`gk110_gr_fecs_ucode` / `gk110_gr_gpccs_ucode`
-//! .data symbols) and saved to `wateringHole/gk110/`. See the extraction
-//! script in scripts/extract_nouveau_gk110_fw.py.
+//! .data symbols) and saved to `wateringHole/gk110/`.
+//! NOTE: extract_nouveau_gk110_fw.py has been superseded by toadstool device
+//! firmware extraction.
 //!
 //! ## Prerequisites
 //!
@@ -48,18 +49,13 @@
 //!      [--fw-dir ../wateringHole/gk110]
 //! ```
 
-#[cfg(feature = "low-level")]
-#[allow(unsafe_code)]
-#[path = "../low_level/bar0.rs"]
-mod bar0_mmio;
-
 #[cfg(not(feature = "low-level"))]
 compile_error!("exp183 requires --features low-level");
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use bar0_mmio::Bar0Map;
+use hotspring_barracuda::low_level::Bar0Map;
 
 // ── PMC / MC registers ─────────────────────────────────────────────────────
 const BOOT0: u32 = 0x000000;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-#![allow(dead_code)]
+#![expect(dead_code, reason = "PMU ACR catalyst registers retained for sovereign boot replay")]
 
 //! Experiment 224: PMU ACR Catalyst — Sovereign Falcon Boot via CPUCTL_ALIAS
 //!

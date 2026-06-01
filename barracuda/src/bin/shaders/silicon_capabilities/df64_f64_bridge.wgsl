@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 fn df64_from_f64(v: f64) -> Df64 {
     let hi = f32(v);
     let lo = f32(v - f64(hi));

@@ -264,7 +264,12 @@ fn toadstool_compute_socket() -> PathBuf {
     }
     dirs.first()
         .map(|d| d.join("compute.sock"))
-        .unwrap_or_else(|| PathBuf::from("/run/toadstool/biomeos/compute.sock"))
+        .unwrap_or_else(|| {
+            let base = std::env::var("TOADSTOOL_RUN_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::from("/run/toadstool/biomeos"));
+            base.join("compute.sock")
+        })
 }
 
 /// Resolve the toadStool runtime directory for ember sockets.
@@ -282,7 +287,9 @@ fn toadstool_run_dir() -> PathBuf {
             }
         }
     }
-    PathBuf::from("/run/toadstool")
+    std::env::var("TOADSTOOL_RUN_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/run/toadstool"))
 }
 
 /// Candidate ember socket paths for a given PCI BDF, in priority order.

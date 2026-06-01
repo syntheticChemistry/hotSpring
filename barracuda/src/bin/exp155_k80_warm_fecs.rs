@@ -23,7 +23,7 @@
 //!
 //! Requires running toadstool-ember daemon.
 
-use std::path::Path;
+
 use std::time::Duration;
 
 use hotspring_barracuda::ember_types::MmioBatchOp;
@@ -420,35 +420,22 @@ fn phase6_fecs_state(harness: &mut ValidationHarness, ember: &EmberClient, bdf: 
 
 fn connect_glowplug() -> Option<GlowplugClient> {
     let nucleus = NucleusContext::detect();
-    if let Ok(g) = GlowplugClient::from_nucleus(&nucleus) {
-        Some(g)
-    } else {
-        let sock = Path::new("/run/toadstool/biomeos/compute.sock");
-        if sock.exists() {
-            Some(GlowplugClient::from_socket(sock))
-        } else {
-            None
-        }
-    }
+    GlowplugClient::from_nucleus(&nucleus).ok()
 }
 
 fn connect_ember(bdf: &str) -> Option<EmberClient> {
+    if let Some(sock) = hotspring_barracuda::fleet_client::discover_diesel_ember_socket(bdf) {
+        return Some(EmberClient::connect(sock.to_string_lossy().as_ref()));
+    }
     if let Ok(disc) = FleetDiscovery::load_default() {
         if let Some(sock) = disc.file().routes.get(bdf) {
             return Some(EmberClient::connect(sock));
         }
     }
-    if let Some(sock) = hotspring_barracuda::fleet_client::discover_diesel_ember_socket(bdf) {
-        return Some(EmberClient::connect(sock.to_string_lossy().as_ref()));
-    }
-    let slug = bdf.replace(':', "-");
-    let fleet_sock = format!("/run/toadstool/fleet/ember-{slug}.sock");
-    if Path::new(&fleet_sock).exists() {
-        return Some(EmberClient::connect(&fleet_sock));
-    }
-    let per_device = format!("/run/toadstool/ember-{slug}.sock");
-    if Path::new(&per_device).exists() {
-        return Some(EmberClient::connect(&per_device));
+    for candidate in hotspring_barracuda::fleet_client::ember_socket_candidates(bdf) {
+        if candidate.exists() {
+            return Some(EmberClient::connect(candidate.to_string_lossy().as_ref()));
+        }
     }
     None
 }

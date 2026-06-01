@@ -1,10 +1,10 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** April 18, 2026 (refreshed May 14, 2026)
-**Version:** v0.6.32 — synced to barraCuda **v0.3.11**, toadStool **S261**, coralReef **Sprint 9**
-**License:** AGPL-3.0-only
+**Version:** v0.6.32 — synced to barraCuda **v0.4.0**, toadStool **S261**, coralReef **Sprint 9**
+**License:** AGPL-3.0-or-later
 
-**barraCuda v0.3.11 alignment:** `plaquette_variance` is delegated to `barracuda::stats::correlation::variance`. **20+ new tolerance constants** were added for validation parity (see `tolerances/`). **Squirrel client** module: `squirrel_client.rs`. **Capability-based routing** via `call_by_capability()` in `primal_bridge.rs`.
+**barraCuda v0.4.0 alignment:** `plaquette_variance` is delegated to `barracuda::stats::correlation::variance`. **20+ new tolerance constants** were added for validation parity (see `tolerances/`). **Squirrel client** module: `squirrel_client.rs`. **Capability-based routing** via `call_by_capability()` in `primal_bridge.rs`.
 
 ---
 
@@ -412,4 +412,4 @@ For each absorption candidate:
 
 ## Workspace test coverage (April 10, 2026 audit)
 
-**1002** library tests · **166** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.
+**1002** library tests · **155** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.

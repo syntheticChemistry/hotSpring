@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 var<workgroup> wg_data: array<f32, 1024>;
 
 @group(0) @binding(0) var<storage, read_write> out: array<f32>;

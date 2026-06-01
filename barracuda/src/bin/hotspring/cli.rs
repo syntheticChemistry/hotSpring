@@ -48,6 +48,15 @@ pub enum Commands {
     },
     /// Show composition health and capability discovery status.
     Status,
+    /// Start JSON-RPC server for NUCLEUS deploy graph integration.
+    Serve {
+        /// Override socket path (default: auto-discovered via niche).
+        #[arg(long)]
+        socket: Option<String>,
+        /// Family ID for multi-instance disambiguation.
+        #[arg(long)]
+        family_id: Option<String>,
+    },
     /// Show version information.
     Version,
 }

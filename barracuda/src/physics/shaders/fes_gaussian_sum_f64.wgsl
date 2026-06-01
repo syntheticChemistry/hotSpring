@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // FES Gaussian Summation (f64) — GPU-Parallel
 //
 // Reconstructs a 2D Free Energy Surface from metadynamics HILLS data.

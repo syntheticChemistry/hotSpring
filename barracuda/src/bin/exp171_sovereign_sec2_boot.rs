@@ -51,10 +51,7 @@ use std::io::{self, Write as IoWrite};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-#[allow(unsafe_code)]
-#[path = "../low_level/bar0.rs"]
-mod bar0_mmio;
-use bar0_mmio::Bar0Map;
+use hotspring_barracuda::low_level::Bar0Map;
 
 // ── Register Map ──────────────────────────────────────────────────────────────
 
@@ -63,26 +60,26 @@ const BOOT0: u32 = 0x000000;
 
 // Power management
 const PMC_ENABLE: u32 = 0x000200;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMC_INTR_0: u32 = 0x000160;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMC_INTR_1: u32 = 0x000164;
 
 // PTIMER
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PTIMER_NUM: u32 = 0x009410;
 const PTIMER_DEN: u32 = 0x009400;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PTIMER_CTRL: u32 = 0x009140;
 
 // PRIV_RING (CORRECT addresses from trace analysis)
 const PRIV_RING_INFO_0: u32 = 0x120058; // ring size
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PRIV_RING_INFO_1: u32 = 0x12005c;
 const PRIV_RING_MASTER0: u32 = 0x120070; // master control
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PRIV_RING_MASTER1: u32 = 0x120074;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PRIV_RING_MASTER2: u32 = 0x120078;
 const PRIV_RING_DEV_INFO: u32 = 0x122120; // device info base
 const PRIV_RING_CMD: u32 = 0x12004c; // CMD: write 2 = ENUM_DEVICES
@@ -126,9 +123,9 @@ const SEC2_MODE: u32 = SEC2_BASE + 0x058; // Mode (bit1 = ACR mode)
 const SEC2_FBIF: u32 = SEC2_BASE + 0x604; // FBIF / context config
 const SEC2_ACR_STATUS: u32 = SEC2_BASE + 0xa34; // ACR queue status
 const SEC2_ACR_CTL: u32 = SEC2_BASE + 0xa30; // ACR queue control
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const SEC2_ACR_CMD: u32 = SEC2_BASE + 0xac0; // ACR command register
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const SEC2_ACR_DATA: u32 = SEC2_BASE + 0xac4; // ACR data register
 
 // IMEMC fields

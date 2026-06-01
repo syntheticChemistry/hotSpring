@@ -106,7 +106,7 @@ fn screened_coulomb_script_path_has_no_control_prefix() {
 }
 
 #[test]
-#[allow(
+#[expect(
     clippy::assertions_on_constants,
     reason = "intentional constant assertions verify tolerance ordering invariants"
 )]

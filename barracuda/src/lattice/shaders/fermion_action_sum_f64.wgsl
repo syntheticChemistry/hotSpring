@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // GPU-resident fermion action assembly for one RHMC sector:
 //   S_f = alpha_0 * dots[0] + sum_s( alpha[s] * dots[s+1] )

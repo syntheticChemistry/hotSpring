@@ -1,6 +1,6 @@
 +++
 title = "hotSpring Validation Summary"
-description = "Computational physics on consumer GPU — 700/596/1,045 tests, 225 experiments, guideStone Level 6, 25 papers reproduced, $0.30 total science cost"
+description = "Computational physics on consumer GPU — 720/596/1,045 tests, 234 experiments, guideStone Level 6, 25 papers reproduced, $0.30 total science cost"
 date = 2026-05-23
 
 [taxonomies]
@@ -10,11 +10,11 @@ springs = ["hotspring"]
 
 ## Status
 
-- **700 (cylinder) / 596 / 1,045 tests** passing (IPC-first default / barracuda-local), 0 failed, 6 GPU-heavy ignored
-- **225 experiments** across 12 physics categories + sovereign GPU
+- **720 (cylinder) / 596 / 1,045 tests** passing (IPC-first default / barracuda-local), 0 failed, 6 GPU-heavy ignored
+- **234 experiments** across 12 physics categories + sovereign GPU
 - **25 papers** reproduced (25/25 CPU, 20/25 GPU)
 - **guideStone Level 6 CERTIFIED** — NUCLEUS Deployment Validation
-- **167 binaries**, **65 validation suites** (smoke/nucleus/silicon), **128 WGSL shaders**, **7 deploy graphs**
+- **155 binaries**, **65 validation suites** (smoke/nucleus/silicon), **154 WGSL shaders**, **7 deploy graphs**
 - **$0.30** total science cost on consumer hardware
 - **Tier 4 IPC-first** — `primal-proof` feature, `barracuda` optional
 - **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** — Tier 1 sovereign infrastructure validated
@@ -37,7 +37,7 @@ springs = ["hotspring"]
 |---|----------|-------|
 | 01 | Composition Validation | Deploy graphs (7), guideStone Level 6, capability routing, atomic types |
 | 02 | Benchmark Comparison | Python vs Rust (44.8x–2274x), GPU vs CPU (44–72x), DF64 3.24 TFLOPS |
-| 03 | Experiment Evidence | 225 experiments, science ladder milestones, evolution timeline |
+| 03 | Experiment Evidence | 234 experiments, science ladder milestones, evolution timeline |
 | 04 | Cross-Spring Connections | 10 primals consumed, 5 patterns handed back, ecosystem flows |
 | 05 | Physics Deep Dive | Nuclear EOS, lattice QCD, sovereign GPU pipeline, code safety |
 

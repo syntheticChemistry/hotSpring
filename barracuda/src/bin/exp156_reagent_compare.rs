@@ -25,6 +25,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io::BufRead;
 
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -141,9 +142,10 @@ fn main() {
 }
 
 fn load_register_dump(path: &str, source: &str) -> Result<RegMap, String> {
-    let content = fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
+    let file = fs::File::open(path).map_err(|e| format!("read {path}: {e}"))?;
+    let reader = std::io::BufReader::new(file);
     let parsed: serde_json::Value =
-        serde_json::from_str(&content).map_err(|e| format!("parse {path}: {e}"))?;
+        serde_json::from_reader(reader).map_err(|e| format!("parse {path}: {e}"))?;
 
     let registers = parsed
         .get("registers")
@@ -204,11 +206,13 @@ fn load_register_dump_or_mmiotrace(path: &str, source: &str) -> Result<RegMap, S
 /// Kernel mmiotrace lines: `R/W <width> <timestamp> <cpu> <phys_addr> <value> <pc> <unk>`
 /// We auto-detect the BAR0 base from the first entry and convert to BAR0 offsets.
 fn load_mmiotrace(path: &str, source: &str) -> Result<RegMap, String> {
-    let content = fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
+    let file = fs::File::open(path).map_err(|e| format!("read {path}: {e}"))?;
+    let reader = std::io::BufReader::new(file);
     let mut map = RegMap::new();
     let mut bar0_base: Option<u64> = None;
 
-    for line in content.lines() {
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("line read error in {path}: {e}"))?;
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() < 6 || (parts[0] != "W" && parts[0] != "R") {
             continue;

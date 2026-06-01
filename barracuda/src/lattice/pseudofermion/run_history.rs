@@ -21,7 +21,7 @@
 //!  "final_plaquette":0.53,"final_dt":0.004,"n_trajectories":65,"converged":true}
 //! ```
 
-use std::io::Write;
+use std::io::{BufRead, Write};
 
 /// A single HMC trajectory record.
 #[derive(Clone, Debug)]
@@ -135,6 +135,7 @@ impl RunHistoryWriter {
 }
 
 /// JSONL reader for loading trajectory history into NPU training.
+#[derive(Default)]
 pub struct RunHistoryReader {
     /// All trajectory records loaded from the file.
     pub trajectories: Vec<TrajectoryRecord>,
@@ -149,8 +150,21 @@ impl RunHistoryReader {
     /// malformed lines (skipped with a warning).
     #[must_use]
     pub fn from_file(path: &std::path::Path) -> Self {
-        let contents = std::fs::read_to_string(path).unwrap_or_default();
-        Self::parse_content(&contents)
+        let file = match std::fs::File::open(path) {
+            Ok(f) => f,
+            Err(_) => return Self::default(),
+        };
+        let reader = std::io::BufReader::new(file);
+        let mut trajectories = Vec::new();
+        let mut summaries = Vec::new();
+        for line in reader.lines() {
+            let Ok(line) = line else { continue };
+            parse_jsonl_line(&line, &mut trajectories, &mut summaries);
+        }
+        Self {
+            trajectories,
+            summaries,
+        }
     }
 
     /// Parse JSONL content from a string.
@@ -158,21 +172,9 @@ impl RunHistoryReader {
     pub fn parse_content(contents: &str) -> Self {
         let mut trajectories = Vec::new();
         let mut summaries = Vec::new();
-
         for line in contents.lines() {
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-            if line.contains("\"type\":\"summary\"") {
-                if let Some(s) = parse_summary(line) {
-                    summaries.push(s);
-                }
-            } else if let Some(t) = parse_trajectory(line) {
-                trajectories.push(t);
-            }
+            parse_jsonl_line(line, &mut trajectories, &mut summaries);
         }
-
         Self {
             trajectories,
             summaries,
@@ -225,6 +227,24 @@ impl RunHistoryReader {
     #[must_use]
     pub fn n_summaries(&self) -> usize {
         self.summaries.len()
+    }
+}
+
+fn parse_jsonl_line(
+    line: &str,
+    trajectories: &mut Vec<TrajectoryRecord>,
+    summaries: &mut Vec<RunSummary>,
+) {
+    let line = line.trim();
+    if line.is_empty() {
+        return;
+    }
+    if line.contains("\"type\":\"summary\"") {
+        if let Some(s) = parse_summary(line) {
+            summaries.push(s);
+        }
+    } else if let Some(t) = parse_trajectory(line) {
+        trajectories.push(t);
     }
 }
 

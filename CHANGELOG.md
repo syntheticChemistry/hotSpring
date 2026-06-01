@@ -7,6 +7,66 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Catalyst Minimal NOP + Sprint 1+2 Evolution — Exp 234 (May 30 – June 1, 2026)
+
+### Added
+- **Experiment 234**: Catalyst Minimal NOP — `nvidia_catalyst_minimal_nop` patch set
+  (21 targets) to restore RM cap infrastructure blocked by the catalyst_handoff
+  NOP set. Adds `Ret0AtEntry` patch strategy for functions returning `int` where
+  0 = success. FECS ACR catalyst dispatch path exercised through full DEVINIT
+  (23 engines, firmware captured).
+- **Sprint 1+2 evolution (26 workstreams):** lint migrations (`#[expect]` over
+  `#[allow]`), SPDX alignment across `.rs`/`.wgsl`, LOC refactoring (files
+  under 1000L), tolerance centralization in `barracuda/src/tolerances/`, serve
+  port configuration, capability-based discovery hardening, and
+  `OffsetValidator` safe BAR0 access pattern in `low_level/bar0.rs`.
+
+### Fixed
+- **`cleanup_module` NOP regression** — RetAtEntry on `cleanup_module` left the PCI
+  driver registered after module free; `driver_override` writes hung in D-state
+  waiting on `device_lock`. Reverted: let `nvidia_exit_module` unregister the
+  PCI driver.
+- **`nv_close_device` usage_count leak** — RetAtEntry prevented `usage_count`
+  decrement when `rm_trigger` closed `/dev/nvidia0`; `nv_pci_remove` busy-waited
+  331s for `usage_count == 0`. Un-NOP'd `nv_close_device` (dangerous teardown
+  calls remain separately NOP'd).
+- **Fire-and-poll `device_lock` race** — `sysfs_unbind_fire_and_poll` detected
+  driver symlink removal before `nv_pci_remove` completed; parent wrote
+  `driver_override` while child still held `device_lock`. Fixed: poll `waitpid`
+  on child after symlink clears.
+
+### Changed
+- GPU sovereignty work **PAUSED** at Exp 234 — teardown/rebind path still
+  locks system despite three sequential bug fixes. Run #6 pending clean reboot.
+- Patch count trajectory: catalyst_handoff 20 → minimal_nop 21 targets
+  (cap subsystem partially restored, procfs collisions stubbed with Ret0AtEntry).
+
+## Hybrid RM Dispatch + Science Pipeline Hardening — Exp 233 (May 29–30, 2026)
+
+### Added
+- **Experiment 233**: Hybrid RM Dispatch — retry RM compute channel creation
+  (`--channel` mode) under diesel engine crash protections (Exp 232 defense
+  matrix). Characterized `device_alloc` status=0x22 (NV_ERR_OBJECT_NOT_FOUND)
+  root cause: catalyst NOP set blocks RM GPU manager device registration.
+- **Nuclear EOS L2 hetero pipeline** — RBF surrogate (GPU cdist shader) +
+  Nelder-Mead optimization in `nuclear_eos_l2_hetero.rs`; three-tier
+  pre-screening cascade before expensive HFB evaluation.
+- **Production dynamical campaign extensions** — expanded mixed-precision
+  dynamical HMC scan orchestration in the production pipeline.
+- **Brain persistence refinements** — Sarkas harness brain save/load paths
+  tightened for concurrent pipeline runs.
+
+### Fixed
+- **Validation harness hardening** — `ValidationHarness` exit-code semantics,
+  provenance printing, and skip-aware composition checks consolidated across
+  validation binaries.
+
+### Changed
+- Exp 233 Run #1: Tier 2 WarmCompute confirmed (PMC_ENABLE 23 engines,
+  catalyst capture 63,310 registers) but RM channel not established
+  (`channel_id: null`, `steps_completed: 3/18`). Diesel protections validated:
+  kernel sentinel caught A6 oops, watchdog detected zombie (B2), no system loss.
+
 ## Crash Vector Reprofile + Diesel Engine Defense Matrix — Exp 232 (May 28, 2026)
 
 ### Added

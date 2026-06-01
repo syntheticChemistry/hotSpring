@@ -43,18 +43,13 @@
 //! Run warm handoff:
 //!   toadstool device warm-catch 0000:4c:00.0 --memory-type gddr5
 
-#[cfg(feature = "low-level")]
-#[allow(unsafe_code)]
-#[path = "../low_level/bar0.rs"]
-mod bar0_mmio;
-
 #[cfg(not(feature = "low-level"))]
 compile_error!("exp182_k80_fecs_pio_boot requires --features low-level");
 
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use bar0_mmio::Bar0Map;
+use hotspring_barracuda::low_level::Bar0Map;
 
 // ── PMC registers ──────────────────────────────────────────────────────────
 const BOOT0: u32 = 0x000000;

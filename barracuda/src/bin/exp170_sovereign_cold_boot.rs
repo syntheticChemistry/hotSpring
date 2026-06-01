@@ -51,19 +51,16 @@ use std::io::{self, Write as IoWrite};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-#[allow(unsafe_code)]
-#[path = "../low_level/bar0.rs"]
-mod bar0_mmio;
-use bar0_mmio::Bar0Map;
+use hotspring_barracuda::low_level::Bar0Map;
 
 // ── Registers ────────────────────────────────────────────────────────────────
 
 // Power management
 const PMC_INTR_EN_SET_0: u32 = 0x000180;
 const PMC_INTR_EN_SET_1: u32 = 0x000184;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMC_INTR_0: u32 = 0x000160;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMC_INTR_1: u32 = 0x000164;
 const PMC_ENABLE: u32 = 0x000200;
 
@@ -86,7 +83,7 @@ const BF_FBIF: u32 = BF_BASE + 0x624; // FBIF config
 // Main PMU (post-DEVINIT)
 const PMU_BASE: u32 = 0x10a000;
 const PMU_CPUCTL: u32 = PMU_BASE + 0x10c;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMU_IRQSTAT: u32 = PMU_BASE + 0x008;
 const PMU_MB0: u32 = PMU_BASE + 0x450;
 
@@ -100,12 +97,12 @@ const PRIV_RING_MASTER_CONFIG: u32 = 0x012004c;
 
 // PTIMER
 const PTIMER_TIME_HI: u32 = 0x009400;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PTIMER_TIME_LO: u32 = 0x009410;
 
 // FB / PRAMIN
 const FB_NISO: u32 = 0x100c10;
-#[allow(dead_code)]
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PRAMIN_WIN: u32 = 0x001700;
 
 // ROM access

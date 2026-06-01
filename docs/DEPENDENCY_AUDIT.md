@@ -32,6 +32,6 @@
 ## Compliance Summary
 
 - **Default build**: Zero C dependencies (blake3 pure-Rust, no `cc` invocation)
-- **`#![forbid(unsafe_code)]`** on library root and uniBin
+- **`#![deny(unsafe_code)]`** on library root (with `#[expect]` for feature-gated `low_level` module); **`#![forbid(unsafe_code)]`** on uniBin and guideStone
 - Feature-gated deps (`cudarc`, `rustix`) are explicitly opt-in for hardware experiments
 - wgpu and tokio are ecosystem boundaries documented as acceptable

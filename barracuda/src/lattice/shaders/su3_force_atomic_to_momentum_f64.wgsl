@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Convert ROP atomic force accumulation (i32 fixed-point) back to f64
 // and add to momentum buffer.

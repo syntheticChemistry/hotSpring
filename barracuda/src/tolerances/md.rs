@@ -51,6 +51,12 @@ pub const CELLLIST_PE_TOLERANCE: f64 = 1e-6;
 /// is `O(N * eps * F_avg)`.
 pub const CELLLIST_NETFORCE_TOLERANCE: f64 = 1e-4;
 
+/// Cell-list force diagnostic threshold for per-particle RMS relative error.
+///
+/// Stricter than PE tolerance — RMS force parity is a stronger indicator
+/// of cell-list correctness than aggregate PE agreement.
+pub const CELLLIST_FORCE_DIAG_THRESHOLD: f64 = 1e-8;
+
 // ═══════════════════════════════════════════════════════════════════
 // MD observable tolerances (METHODOLOGY.md acceptance criteria)
 // ═══════════════════════════════════════════════════════════════════

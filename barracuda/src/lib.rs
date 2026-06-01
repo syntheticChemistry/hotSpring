@@ -109,7 +109,7 @@ pub mod lattice;
 /// Contains `unsafe` blocks for mmap/`read_volatile`/`write_volatile`.
 /// Gated behind `low-level` feature; callers use safe public APIs.
 #[cfg(feature = "low-level")]
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "MMIO mmap requires unsafe; audited surface confined to bar0.rs")]
 pub mod low_level;
 
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.
@@ -150,6 +150,8 @@ pub mod precision_routing;
 pub mod prescreen;
 /// NUCLEUS primal discovery — runtime detection of available primals.
 pub mod primal_bridge;
+/// JSON-RPC server for NUCLEUS deploy graph integration.
+pub mod serve;
 /// Shared types and infrastructure for production lattice QCD binaries.
 #[cfg(feature = "barracuda-local")]
 pub mod production;

@@ -11,6 +11,9 @@ use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_flow::{GpuFlowPipelines, GpuFlowState, gpu_gradient_flow};
 use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0, run_flow};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::tolerances::{
+    GRADIENT_FLOW_SCALE_SETTING_REL, GRADIENT_FLOW_SHORT_PLAQUETTE_ABS,
+};
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -76,7 +79,11 @@ fn main() {
         println!("  CPU plaquette: {:.10}", cpu_last.plaquette);
         println!("  GPU plaquette: {:.10}", gpu_last.plaquette);
         println!("  Δ = {diff:.2e}");
-        harness.check_upper("euler_plaquette_parity", diff, 1e-8);
+        harness.check_upper(
+            "euler_plaquette_parity",
+            diff,
+            GRADIENT_FLOW_SHORT_PLAQUETTE_ABS,
+        );
     }
 
     // ── RK3 Lüscher (LSCFRK3W6): GPU vs CPU ──
@@ -106,7 +113,11 @@ fn main() {
         println!("  GPU plaquette: {:.10}", gpu_last.plaquette);
         println!("  Δ = {diff:.2e}");
         println!("  GPU wall time: {:.3}s", gpu_r.wall_seconds);
-        harness.check_upper("rk3_luscher_plaquette_parity", diff, 1e-8);
+        harness.check_upper(
+            "rk3_luscher_plaquette_parity",
+            diff,
+            GRADIENT_FLOW_SHORT_PLAQUETTE_ABS,
+        );
     }
 
     // ── LSCFRK3W7 (Chuna): GPU vs CPU ──
@@ -136,7 +147,11 @@ fn main() {
         println!("  GPU plaquette: {:.10}", gpu_last.plaquette);
         println!("  Δ = {diff:.2e}");
         println!("  GPU wall time: {:.3}s", gpu_r.wall_seconds);
-        harness.check_upper("lscfrk3w7_plaquette_parity", diff, 1e-8);
+        harness.check_upper(
+            "lscfrk3w7_plaquette_parity",
+            diff,
+            GRADIENT_FLOW_SHORT_PLAQUETTE_ABS,
+        );
     }
 
     // ── LSCFRK4CK (Carpenter-Kennedy): GPU vs CPU ──
@@ -166,7 +181,11 @@ fn main() {
         println!("  GPU plaquette: {:.10}", gpu_last.plaquette);
         println!("  Δ = {diff:.2e}");
         println!("  GPU wall time: {:.3}s", gpu_r.wall_seconds);
-        harness.check_upper("lscfrk4ck_plaquette_parity", diff, 1e-8);
+        harness.check_upper(
+            "lscfrk4ck_plaquette_parity",
+            diff,
+            GRADIENT_FLOW_SHORT_PLAQUETTE_ABS,
+        );
     }
 
     // ── t₀ scale: GPU vs CPU ──
@@ -196,7 +215,7 @@ fn main() {
                 println!("  CPU t₀ = {c:.6}");
                 println!("  GPU t₀ = {g:.6}");
                 println!("  Δ = {diff:.2e}");
-                harness.check_upper("t0_scale_parity", diff, 1e-4);
+                harness.check_upper("t0_scale_parity", diff, GRADIENT_FLOW_SCALE_SETTING_REL);
             }
             (None, None) => {
                 println!("  Both CPU and GPU failed to find t₀ crossing (4⁴ too small)");
@@ -204,7 +223,7 @@ fn main() {
             }
             _ => {
                 println!("  MISMATCH: cpu={cpu_t0:?}, gpu={gpu_t0:?}");
-                harness.check_upper("t0_scale_parity", 1.0, 1e-4);
+                harness.check_upper("t0_scale_parity", 1.0, GRADIENT_FLOW_SCALE_SETTING_REL);
             }
         }
     }
@@ -236,7 +255,7 @@ fn main() {
                 println!("  CPU w₀ = {c:.6}");
                 println!("  GPU w₀ = {g:.6}");
                 println!("  Δ = {diff:.2e}");
-                harness.check_upper("w0_scale_parity", diff, 1e-4);
+                harness.check_upper("w0_scale_parity", diff, GRADIENT_FLOW_SCALE_SETTING_REL);
             }
             (None, None) => {
                 println!("  Both CPU and GPU failed to find w₀ crossing (4⁴ too small)");
@@ -244,7 +263,7 @@ fn main() {
             }
             _ => {
                 println!("  MISMATCH: cpu={cpu_w0:?}, gpu={gpu_w0:?}");
-                harness.check_upper("w0_scale_parity", 1.0, 1e-4);
+                harness.check_upper("w0_scale_parity", 1.0, GRADIENT_FLOW_SCALE_SETTING_REL);
             }
         }
     }

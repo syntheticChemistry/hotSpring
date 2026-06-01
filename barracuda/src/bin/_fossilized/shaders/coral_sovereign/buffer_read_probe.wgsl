@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 @group(0) @binding(0) var<storage> input: array<u32>;
 @group(0) @binding(1) var<storage, read_write> output: array<u32>;
 

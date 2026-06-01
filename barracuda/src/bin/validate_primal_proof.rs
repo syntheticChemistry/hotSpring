@@ -188,7 +188,11 @@ fn main() {
                             .zip(expected.iter())
                             .map(|(a, b)| (a - b).abs())
                             .fold(0.0_f64, f64::max);
-                        harness.check_upper("tensor.matmul I*I parity", max_err, 1e-15);
+                        harness.check_upper(
+                            "tensor.matmul I*I parity",
+                            max_err,
+                            tolerances::SOVEREIGN_ROUNTRIP_GPU_PARITY_ABS,
+                        );
                         println!("  I*I max_err: {max_err:.2e}");
                     } else {
                         harness.check_bool("tensor.matmul output shape", false);
@@ -237,7 +241,11 @@ fn main() {
                         .zip(expected.iter())
                         .map(|(a, b)| (a - b).abs())
                         .fold(0.0_f64, f64::max);
-                    harness.check_upper("tensor.add element-wise parity", max_err, 1e-15);
+                    harness.check_upper(
+                        "tensor.add element-wise parity",
+                        max_err,
+                        tolerances::SOVEREIGN_ROUNTRIP_GPU_PARITY_ABS,
+                    );
                     println!("  [1,2,3,4]+[10,20,30,40] max_err: {max_err:.2e}");
                 } else {
                     harness.check_bool("tensor.add result format", false);

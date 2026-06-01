@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // GPU-resident SU(3) algebra momentum generation — TMU-accelerated Box-Muller.
 //
 // Same physics as su3_random_momenta_f64.wgsl, but offloads the expensive

@@ -705,3 +705,18 @@ pub const RHMC_POLE_INCREMENT: usize = 2;
 /// Upper bound on auto-increased pole count. Beyond 24 poles, the
 /// marginal error reduction is negligible and CG cost per pole dominates.
 pub const RHMC_MAX_POLES: usize = 24;
+
+/// Short-flow gradient flow plaquette CPU-GPU parity gate.
+///
+/// Tighter than `GRADIENT_FLOW_GPU_CPU_PLAQUETTE_ABS` (1e-9) because short-flow
+/// accumulates fewer rounding operations. Used in `validate_gpu_gradient_flow`.
+pub const GRADIENT_FLOW_SHORT_PLAQUETTE_ABS: f64 = 1e-8;
+
+/// Gradient flow scale-setting (t₀, w₀) CPU-GPU parity gate.
+///
+/// Scale setting depends on derivative estimation which amplifies rounding;
+/// 1e-4 relative tolerance accommodates this.
+pub const GRADIENT_FLOW_SCALE_SETTING_REL: f64 = 1e-4;
+
+/// SpMV maximum absolute error (spectral validation).
+pub const SPECTRAL_SPMV_MAX_ABS: f64 = 1e-12;

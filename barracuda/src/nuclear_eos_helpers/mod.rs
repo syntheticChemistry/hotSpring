@@ -13,6 +13,7 @@
 
 pub mod analysis;
 pub mod objectives;
+pub mod persistence;
 pub mod reporting;
 
 pub use analysis::{
@@ -23,6 +24,7 @@ pub use objectives::{
     l1_chi2_cpu_nuclei, l1_objective_nmp, l1_objective_nmp_nuclei, l2_objective_nmp_exp_data,
     make_l1_objective_nmp,
 };
+pub use persistence::save_results;
 pub use reporting::{
     print_accuracy_by_region, print_accuracy_distributions, print_accuracy_metrics_box,
     print_best_parameters, print_comparison_summary, print_nmp_with_pulls,

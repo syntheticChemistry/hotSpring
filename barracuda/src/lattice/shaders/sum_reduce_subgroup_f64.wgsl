@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Subgroup-accelerated tree reduction: uses subgroupAdd for warp/wavefront-level
 // reduction, then shared memory for cross-subgroup accumulation.

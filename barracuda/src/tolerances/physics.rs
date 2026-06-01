@@ -107,6 +107,12 @@ pub const FPEOS_THERMO_CONSISTENCY_MAX: f64 = 2.0;
 /// Kinetic-fluid BGK: species mass conservation relative error.
 pub const KINETIC_FLUID_BGK_MASS_REL: f64 = 1e-8;
 
+/// BGK mass conservation absolute error gate.
+///
+/// Relaxation conserves mass exactly in theory; 1e-3 accommodates
+/// finite-grid discretization error in the GPU implementation.
+pub const BGK_MASS_CONSERVATION_ABS: f64 = 1e-3;
+
 /// Kinetic-fluid BGK: total momentum conservation relative error.
 pub const KINETIC_FLUID_BGK_MOMENTUM_REL: f64 = 1e-10;
 

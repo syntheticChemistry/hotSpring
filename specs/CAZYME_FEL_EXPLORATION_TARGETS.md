@@ -2,7 +2,7 @@
 
 **Status:** Active — ready for Alistaire review and prioritization
 **Last Updated:** 2026-05-26
-**Prerequisite:** pseudoSpore v1.6.1 GuideStone validated (8 modules, 12/12 audit PASS, May 27 2026)
+**Prerequisite:** pseudoSpore v1.7.0 GuideStone validated (8 modules, 12/12 audit PASS, May 27 2026)
 **Pipeline:** `nest-validate guidestone run` (Rust-orchestrated, fully automated)
 **Reference paper:** Iglesias-Fernández, Raich, Ardèvol, Rovira (2015) DOI: 10.1039/C4SC02240H
 

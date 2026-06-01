@@ -20,7 +20,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase E (Paper-Parity Long Run + Toadstool Rewire)**: 9-case Yukawa OCP sweep at N=10,000, 80k production steps — matching the Dense Plasma Properties Database exactly. **✅ 9/9 cases pass, 0.000-0.002% energy drift, 3.66 hours total, $0.044 electricity. Cell-list 4.1× faster than all-pairs. Toadstool GPU ops (BatchedEighGpu, SsfGpu, PppmGpu) wired into hotSpring.**
 
-- **Phase F (Kokkos-CUDA Parity + Verlet Neighbor List)**: Runtime-adaptive algorithm selection (AllPairs/CellList/VerletList) with DF64 precision on consumer GPUs. **✅ 9/9 cases pass, ≤0.004% drift. Verlet achieves 992 steps/s (κ=3) — gap vs Kokkos-CUDA closed from 27× to 3.7×. barraCuda v0.6.32.**
+- **Phase F (Kokkos-CUDA Parity + Verlet Neighbor List)**: Runtime-adaptive algorithm selection (AllPairs/CellList/VerletList) with DF64 precision on consumer GPUs. **✅ 9/9 cases pass, ≤0.004% drift. Verlet achieves 992 steps/s (κ=3) — gap vs Kokkos-CUDA closed from 27× to 3.7×. hotspring-barracuda crate v0.6.32 (barraCuda primal v0.4.0).**
 
 - **Phase G (Universal Substrate Deployment)**: guideStone-certified artifact deployable on any OS, any architecture, any filesystem. **✅ 59/59 checks x 5 substrates. Cross-architecture parity (x86_64 + aarch64, bit-identical). OCI container image. Windows WSL2/Docker + macOS Docker launchers. exFAT tmpdir fallback. `./hotspring` unified ecoBin entry point. benchScale 5-substrate validation (40/40 cross-substrate parity).**
 
@@ -140,9 +140,9 @@ Deploy: `biomeos deploy --graph graphs/<name>.toml`
 
 ## Current Status (2026-06-01)
 
-> **234 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **720 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 65 validation suites (3 tiers: smoke/nucleus/silicon), 129 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **24 RPC methods** (`sovereign.catalyst_diff`, `sovereign.catalyst_boot` added) | **zero `dyn` dispatch, `#[deny(unsafe_code)]` on lib with `#[allow(unsafe_code)]` on `low_level` module (unsafe confined to BAR0 MMIO + falcon PIO), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** — RTX 5060 dispatch PROVEN (8/8), **Titan V VFIO Tier 1 sovereign** (Exp 209-217: anchor-fd adoption, CE runlist discovery, PBDMA pipeline validated, PMU path closed, binary-patch warm handoff proven, sovereign driver rotation codified, pipeline consolidated, TPC wall confirmed firmware-dependent Exp 217) | **Sovereignty Tier Model** — Tier 0 (cold/vendor wall), Tier 1 (warm infrastructure — **HW validated**, `classify_tier` confirmed on both Titan Vs: `tpc_alive=false`, `tpc_status=0xBADF5040`), Tier 1+ (PRI recovery — **validated** Exp 221), Tier 2 (warm compute — **NOT achieved**: TPC PRI stations require GPCCS firmware execution, HS fuse-locked on GV100; `compute_ready` is init health check, not dispatch readiness; Exp 225 identified `vfio-pci` reset-on-release as catalyst pipeline blocker — **diesel engine FLR-first fix applied**), Tier 3 (full sovereign — research target) | **Vendor-atheistic target**: sovereign compute across generations (Volta GV100 → Blackwell SM120) — not just agnostic to vendor, but independent of vendor entirely | **Warm-catch pipeline in pure Rust** (`toadstool device warm-catch <BDF>` — ELF patcher + ember orchestrator) | **Vendor-agnostic `BootPipeline` trait** (KeplerInit + VoltaInit + VegaInit) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: toadStool boot-time GPU management via plasmidBin ecoBin** | **Compile-then-dispatch pipeline (coralReef→toadStool) wired** | **Circuit-breaker discovery + TOML-driven capability aliases** | **PLX D3cold keepalive VALIDATED** (PlxKeepalive + PlxGuardian) | **VBIOS interpreter live HW validated** (Exp 204) | **PowerSafetyProfile** (K80 fire post-mortem → generation-aware PMC_ENABLE staging) | **Sovereign Boot Abstraction** — `SovereignBootState` enum (unified warm/cold model), `WarmKeepalive` facade, `sovereign.profile` RPC with µs-precision timing + register snapshots, twin-card profiling experiments on dual Titan V (Exp 207) | **Hardware Line Codified** — cold boot = power-on reset = boot ROM trains HBM2 = same wall vendor faces; warm keepalive systemd fd store prevents transitions back to cold | **Warm Keepalive PROVEN** (Exp 208) — **183ms warm pipeline** (76× faster than cold), falcon warm preservation eliminates 3.7s ACR re-boot, fd store end-to-end validated, GPUs stay warm across `systemctl restart`, cold early-exit 200ms | **GPC Boundary Analysis** (Exp 210) — PTOP_DEVICE_INFO_V2 parser fixed, CE runlist discovered, sovereignty tier model codified, all engine domains power-gated after nouveau unbind
+> **234 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **720 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 155 binaries, 65 validation suites (3 tiers: smoke/nucleus/silicon), 154 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **27 RPC methods** (`sovereign.catalyst_diff`, `sovereign.catalyst_boot` added) | **zero `dyn` dispatch, `#[deny(unsafe_code)]` on lib with `#[allow(unsafe_code)]` on `low_level` module (unsafe confined to BAR0 MMIO + falcon PIO), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** — RTX 5060 dispatch PROVEN (8/8), **Titan V VFIO Tier 1 sovereign** (Exp 209-217: anchor-fd adoption, CE runlist discovery, PBDMA pipeline validated, PMU path closed, binary-patch warm handoff proven, sovereign driver rotation codified, pipeline consolidated, TPC wall confirmed firmware-dependent Exp 217) | **Sovereignty Tier Model** — Tier 0 (cold/vendor wall), Tier 1 (warm infrastructure — **HW validated**, `classify_tier` confirmed on both Titan Vs: `tpc_alive=false`, `tpc_status=0xBADF5040`), Tier 1+ (PRI recovery — **validated** Exp 221), Tier 2 (warm compute — **HW VALIDATED Exp 227**: TPC PRI stations alive on both Titan Vs via catalyst pipeline, `tpc_alive=true`, `tpc_status=0x10`; three breakthroughs: TPC probe register fix, pre-PRI-recovery FECS INIT_CTXSW, external rm_trigger helper), Tier 2.5 (dispatch mechanics — **Exp 228**: pipeline proven, FECS ACR blocks execution), Tier 3 (full sovereign — research target) | **Vendor-atheistic target**: sovereign compute across generations (Volta GV100 → Blackwell SM120) — not just agnostic to vendor, but independent of vendor entirely | **Warm-catch pipeline in pure Rust** (`toadstool device warm-catch <BDF>` — ELF patcher + ember orchestrator) | **Vendor-agnostic `BootPipeline` trait** (KeplerInit + VoltaInit + VegaInit) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: toadStool boot-time GPU management via plasmidBin ecoBin** | **Compile-then-dispatch pipeline (coralReef→toadStool) wired** | **Circuit-breaker discovery + TOML-driven capability aliases** | **PLX D3cold keepalive VALIDATED** (PlxKeepalive + PlxGuardian) | **VBIOS interpreter live HW validated** (Exp 204) | **PowerSafetyProfile** (K80 fire post-mortem → generation-aware PMC_ENABLE staging) | **Sovereign Boot Abstraction** — `SovereignBootState` enum (unified warm/cold model), `WarmKeepalive` facade, `sovereign.profile` RPC with µs-precision timing + register snapshots, twin-card profiling experiments on dual Titan V (Exp 207) | **Hardware Line Codified** — cold boot = power-on reset = boot ROM trains HBM2 = same wall vendor faces; warm keepalive systemd fd store prevents transitions back to cold | **Warm Keepalive PROVEN** (Exp 208) — **183ms warm pipeline** (76× faster than cold), falcon warm preservation eliminates 3.7s ACR re-boot, fd store end-to-end validated, GPUs stay warm across `systemctl restart`, cold early-exit 200ms | **GPC Boundary Analysis** (Exp 210) — PTOP_DEVICE_INFO_V2 parser fixed, CE runlist discovered, sovereignty tier model codified, all engine domains power-gated after nouveau unbind
 >
-> **Catalyst Driver Pattern for TPC Sovereignty (Exp 219, HW validated 2026-05-24):** Proprietary nvidia-470 treated as chemical catalyst — loaded once to initialize GPU state, BAR0 golden state captured (83,623 alive registers across 22 Volta domains in 897ms via domain-scoped scan), driver removed, state available for replay. **26s total pipeline** (was 7+ min timeout before profiling). Surgical `NopCallAt` patches for `nv_pci_remove` (4 offsets) allow PCI resource cleanup while preserving GPU warm state. Fire-and-poll unbind keeps toadstool-ember responsive during 7s RM teardown. SBR bridge reset recovers dirty GPU state without reboot. Tier 1 (WarmInfrastructure) confirmed on live Titan V. 3-layer preservation operational: recipe JSON + frozen .ko (41MB) + replay sequence (83K writes). Three RPCs: `sovereign.catalyst_diff` (twin-card diff), `sovereign.catalyst_boot` (catalyst-free replay), `sovereign.warm_handoff nvidia_catalyst_titanv`. 3-layer catalyst preservation: recipe TOML (`infra/catalysts/recipes/`), frozen `.ko` binary (`infra/catalysts/frozen/`), product JSONs (`infra/catalysts/products/`). `engine_init_path` wired into `sovereign.init_ember` for golden state replay. **All 63 tests pass.**
+> **Catalyst Driver Pattern for TPC Sovereignty (Exp 219, HW validated 2026-05-24):** Proprietary nvidia-470 treated as chemical catalyst — loaded once to initialize GPU state, BAR0 golden state captured (83,623 alive registers across 22 Volta domains in 897ms via domain-scoped scan), driver removed, state available for replay. **26s total pipeline** (was 7+ min timeout before profiling). Surgical `NopCallAt` patches for `nv_pci_remove` (4 offsets) allow PCI resource cleanup while preserving GPU warm state. Fire-and-poll unbind keeps toadstool-ember responsive during 7s RM teardown. SBR bridge reset recovers dirty GPU state without reboot. Tier 1 (WarmInfrastructure) confirmed on live Titan V. 3-layer preservation operational: recipe JSON + frozen .ko (41MB) + replay sequence (83K writes). Three RPCs: `sovereign.catalyst_diff` (twin-card diff), `sovereign.catalyst_boot` (catalyst-free replay), `sovereign.warm_handoff nvidia_catalyst_titanv`. 3-layer catalyst preservation: recipe TOML (`infra/catalysts/recipes/`), frozen `.ko` binary (`infra/catalysts/frozen/`), product JSONs (`infra/catalysts/products/`). `engine_init_path` wired into `sovereign.init_ember` for golden state replay.
 >
 > **UEFI Model GPU Sovereignty (Exp 221, HW validated 2026-05-25):** Tested the "Firmware as Boot Service" hypothesis — treat nvidia RM as UEFI boot services, then transition to sovereign control. **PRI ring recovery PROVEN:** PGRAPH re-enable (PMC_ENABLE bit 12) + PRI ring master enumerate restores PRI routing after kernel PCI framework destroys it during unbind. Falcon registers (FECS/GPCCS/PMU) accessible post-recovery. **Falcon security boundary MAPPED:** FECS/GPCCS are fuse-enforced HS (high-security) mode on GV100 — direct host IMEM PIO upload blocked by hardware, IMEM wiped during unbind, ACR boot requires WPR (not configured pre-GSP). RetAtEntry on `nv_pci_remove` eliminated (leaks iomem without preserving PRI ring). **Architecture pivot:** Tier 2 (WarmCompute) requires nvidia as persistent Runtime Service, not exitable boot service. `nvidia_boot_services` patch set now delegates to `nvidia_catalyst_handoff` (clean unbind + post-swap recovery). PriRingAnchor health correctly classified as Degraded (PGRAPH on, falcons accessible, TPC sub-ring down). Both Titan V cards validated, zero D-state, zero iomem leaks.
 >
@@ -195,13 +195,13 @@ Deploy: `biomeos deploy --graph graphs/<name>.toml`
 | **Self-Tuning RHMC** | ✅ Complete | Zero hand-tuned parameters — spectral + acceptance-driven |
 | **Spectral Theory** (Kachkovskiy) | ✅ 45/45 | Anderson 1D/2D/3D, Hofstadter, GPU Lanczos |
 | **NPU** (AKD1000 hardware) | ✅ 34/35 | 10 SDK assumptions overturned, physics pipeline, phase detection |
-| **Sovereign GPU** (toadStool + coralReef compile) | ✅ **Tier 1+ HW Validated** | **Evolution: agnostic → atheistic (infra HW proven) → atheistic (compute boundary mapped) → deistic.** RTX 5060 dispatch live via DRM (12/12 QCD/HMC/MD on SM120). **Dual Titan V** VFIO sovereign Tier 1 proven (Exp 210-217): PFIFO, PBDMA, FECS, topology, CE channel — all working. **Catalyst Driver Pattern** (Exp 219, HW validated May 24): 26s pipeline, 83K alive regs, domain-scoped capture 897ms. **UEFI Model** (Exp 221, HW validated May 25): PRI ring recovery proven (PGRAPH re-enable + enumerate), falcon HS fuse boundary mapped (IMEM wiped, host PIO blocked), Tier 2 requires Runtime Services model. 24 RPC methods. coralReef: SM70 + SM120 + GFX10.3. **183ms warm pipeline** (Exp 208). See `SILICON_DEISM.md` for the full abstraction elimination thesis. |
+| **Sovereign GPU** (toadStool + coralReef compile) | ✅ **Tier 1+ HW Validated** | **Evolution: agnostic → atheistic (infra HW proven) → atheistic (compute boundary mapped) → deistic.** RTX 5060 dispatch live via DRM (12/12 QCD/HMC/MD on SM120). **Dual Titan V** VFIO sovereign Tier 1 proven (Exp 210-217): PFIFO, PBDMA, FECS, topology, CE channel — all working. **Catalyst Driver Pattern** (Exp 219, HW validated May 24): 26s pipeline, 83K alive regs, domain-scoped capture 897ms. **UEFI Model** (Exp 221, HW validated May 25): PRI ring recovery proven (PGRAPH re-enable + enumerate), falcon HS fuse boundary mapped (IMEM wiped, host PIO blocked), Tier 2 requires Runtime Services model. 27 RPC methods. coralReef: SM70 + SM120 + GFX10.3. **183ms warm pipeline** (Exp 208). See `SILICON_DEISM.md` for the full abstraction elimination thesis. |
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
 | **CompChem FEL (ABG 50-58)** | ✅ **pseudoSpore v1.7.0** | 22 modules, 185/187 checks. Epimer survey (lyxose/glucose/mannose/galactose), GH10 subsites (-2/+1), GH11 inverting xylanase mechanistic comparison. ~420 ns simulation. FES Gaussian sum shader (11-14×). |
 
-Full validation table (225 rows) with per-experiment details: [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md)
+Full validation table (234 rows) with per-experiment details: [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md)
 
 ### Science Ladder
 
@@ -251,7 +251,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.32, synced to barraCuda v0.3.11 + toadStool S261 + coralReef Sprint 9+, wgpu 28, pollster 0.4, bytemuck 1.25, tokio 1.50):
+**Already leaning on upstream** (v0.6.32, synced to barraCuda v0.4.0 + toadStool S261 + coralReef Sprint 9+, wgpu 28, pollster 0.4, bytemuck 1.25, tokio 1.50):
 
 toadStool **S261** adds `health.drain`, Kepler dispatch, VFIO IPC surface. coralReef **Sprint 9** adds HMMA GEMM codegen, subgroup ops, `health.version` RPC. barraCuda **Sprint 23** landed the f64 precision fix (production numerical parity on mixed pipelines). **Composition wired via compile-then-dispatch**: coralReef compiles WGSL → toadStool dispatches binary.
 
@@ -278,7 +278,7 @@ toadStool **S261** adds `health.drain`, Kepler dispatch, VFIO IPC surface. coral
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **596 / 1,045 tests** (lib; **IPC-first default** / **barracuda-local**), **167 binaries**, **65 validation suites** (3 tiers: `smoke`/`nucleus`/`silicon` via `validate_all --tier`), **128 WGSL shaders** (all AGPL-3.0-only),
+- **596 / 1,045 tests** (lib; **IPC-first default** / **barracuda-local**), **155 binaries**, **65 validation suites** (3 tiers: `smoke`/`nucleus`/`silicon` via `validate_all --tier`), **154 WGSL shaders** (all AGPL-3.0-or-later),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -286,8 +286,8 @@ environment, physics implementations, and GPU compute. Key architectural propert
   and NPU beyond-SDK hardware capability validation. Test coverage: **74.9% region /
   83.8% function** (spectral tests upstream in barracuda; GPU modules require hardware
   for higher coverage). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all `.rs` files and all 128 `.wgsl` shaders have
-  `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
+- **AGPL-3.0-or-later** — all `.rs` files and all 154 `.wgsl` shaders have
+  `SPDX-License-Identifier: AGPL-3.0-or-later` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
   exact command). `AnalyticalProvenance` references (DOIs, textbook citations)
@@ -308,7 +308,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
   Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  56 of 167 binaries use it (validation targets). Remaining binaries are optimization
+  56 of 155 binaries use it (validation targets). Remaining binaries are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
@@ -477,7 +477,7 @@ hotSpring/
 ├── niches/                             # biomeOS niche definitions (BYOB product descriptions)
 │   └── compchem-explorer.yaml         # CompChem Explorer niche (organisms, interactions, degradation)
 │
-├── docs/                               # Active documentation (8 files)
+├── docs/                               # Active documentation (9 files)
 │   ├── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
 │   ├── PRIMAL_PROOF_IPC_MAPPING.md   # Level 6: domain science → primal IPC method mapping
 │   ├── PRIMAL_ELEVATION_READINESS.md # GAP-HS-111 bonded force field readiness
@@ -485,9 +485,10 @@ hotSpring/
 │   ├── CROSS_TIER_PARITY.md          # Cross-tier validation parity (default vs barracuda-local)
 │   ├── DOWNSTREAM_PATTERNS.md        # Downstream repo patterns (projectNUCLEUS, foundation)
 │   ├── DEPENDENCY_AUDIT.md           # Dependency audit and pin tracking
-│   └── BASELINE_PROVENANCE_CATALOG.md # Provenance baseline catalog
+│   ├── BASELINE_PROVENANCE_CATALOG.md # Provenance baseline catalog
+│   └── exp229-lockup-analysis.md     # Exp 229 catalyst handoff lockup forensics
 │
-├── barracuda/                          # BarraCuda Rust crate (596 / 1,045 lib tests, 167 binaries, 128 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate (596 / 1,045 lib tests, 155 binaries, 154 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history
 │   ├── ABSORPTION_MANIFEST.md         # Write → Absorb → Lean tracking
@@ -497,10 +498,10 @@ hotSpring/
 │       ├── compute_dispatch/          # GPU dispatch (mod.rs: core, fused.rs: FusedPipeline)
 │       ├── glowplug_client/           # toadStool RPC client (mod.rs: impl, types.rs: protocol types)
 │       ├── mcp_tools.rs              # MCP tool schemas for AI/LLM integration
-│       └── bin/                       # 167 binaries (validation, production, benchmarks, composition, guideStone)
+│       └── bin/                       # 155 binaries (validation, production, benchmarks, composition, guideStone)
 │           └── _fossilized/          # hotspring_primal.rs (superseded by hotspring_unibin)
 │
-├── experiments/                        # 226 experiment journals (fossil record); 001-190 archived under experiments/archive/
+├── experiments/                        # 234 experiment journals (fossil record); 001-190 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-190 (archived journals + FOSSIL_RECORD summaries)
 │   └── 191-226: active experiments (toadStool PBDMA, HW validation, PLX keepalive, cold/warm boot, driver lab, warm swap, diesel engine, power safety, CG sweep, surface rewire, warm/cold convergence, VBIOS live validation, dual Titan V, Falcon ACR DMA, sovereign boot abstraction + profiling, reboot-efficient sovereign evolution, VFIO dispatch bridge, GPC boundary, PMU mailbox Tier 2, sovereignty consolidation, live HW warm handoff, D-state hardening, TPC wall identification, kernel health preflight, TPC PRI station creation, nvidia-470 nvsov dual-load, catalyst driver pattern, CAZyme FEL biomolecular MD, UEFI model PRI ring recovery, reagent pipeline, ACR sovereign boot catalyst, sovereignty audit checkpoint, catalyst TPC persistence test, SBR bus reset suppression)
 │
@@ -554,6 +555,7 @@ hotSpring/
 | [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md) | NUCLEUS composition gaps — handback to primalSpring |
 | [`docs/DOWNSTREAM_PATTERNS.md`](docs/DOWNSTREAM_PATTERNS.md) | Downstream repository adoption patterns |
 | [`docs/PRIMAL_PROOF_IPC_MAPPING.md`](docs/PRIMAL_PROOF_IPC_MAPPING.md) | Level 6 — CERTIFIED primal proof — domain science → IPC method mapping |
+| [`docs/exp229-lockup-analysis.md`](docs/exp229-lockup-analysis.md) | Exp 229 catalyst handoff lockup forensics — 5 lockup vectors, 9 runs |
 | [`scripts/validate-primal-proof.sh`](scripts/validate-primal-proof.sh) | Primal proof validation — bare + NUCLEUS modes, pre-flight integration |
 | [`specs/COMPCHEM_SPOREGARDEN_PRODUCT.md`](specs/COMPCHEM_SPOREGARDEN_PRODUCT.md) | sporeGarden CompChem Explorer — product identity, composition contract, deploy graphs, evolution roadmap |
 | [`niches/compchem-explorer.yaml`](niches/compchem-explorer.yaml) | biomeOS niche definition — organisms, interactions, degradation tiers |
@@ -567,7 +569,7 @@ hotSpring/
 
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0).
+This project is licensed under the **GNU Affero General Public License v3.0 or later** (AGPL-3.0-or-later).
 See [LICENSE](LICENSE) for the full text.
 
 Sovereign science: all source code, data processing scripts, and validation results are
@@ -576,7 +578,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*229 experiments, 705 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 167 binaries, 129 WGSL shaders, ~$0.30 total science cost.
+*234 experiments, 720 (cylinder) / 596 (barracuda default) / 1,045 (barracuda-local) lib tests, 155 binaries, 154 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** —
@@ -586,7 +588,7 @@ preservation, fd store, 76× faster than cold). RTX 5060 full dispatch LIVE
 firmware-dependent (Exp 217). **Catalyst Driver Pattern** (Exp 219, HW validated
 May 24) — 26s pipeline, 83K alive regs captured via domain-scoped scan (897ms),
 surgical NopCallAt patches, SBR bridge reset recovery. 3-layer preservation
-operational. 24 RPC methods.
+operational. 27 RPC methods.
 **Vendor-atheistic target**: not just agnostic to vendor, but independent of
 vendor entirely — solving sovereign compute across Volta, Blackwell,
 and AMD RDNA2. Three-tier validation: Python validates Rust. Rust validates NUCLEUS.

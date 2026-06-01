@@ -153,19 +153,35 @@ fn dispatch_simple(
 
 // ── Test generators ─────────────────────────────────────────────────────────
 
+const WGSL_U32_ADD: &str = include_str!("shaders/precision_matrix/u32_add.wgsl");
+const WGSL_U32_MUL_WRAP: &str = include_str!("shaders/precision_matrix/u32_mul_wrap.wgsl");
+const WGSL_I32_SIGNED_ARITH: &str = include_str!("shaders/precision_matrix/i32_signed_arith.wgsl");
+const WGSL_U32_BITWISE_PACK: &str = include_str!("shaders/precision_matrix/u32_bitwise_pack.wgsl");
+const WGSL_U32_BIT_EXTRACT: &str = include_str!("shaders/precision_matrix/u32_bit_extract.wgsl");
+const WGSL_FP32_FMA: &str = include_str!("shaders/precision_matrix/fp32_fma.wgsl");
+const WGSL_FP32_PI_PI: &str = include_str!("shaders/precision_matrix/fp32_pi_pi.wgsl");
+const WGSL_FP32_KAHAN_SUM: &str = include_str!("shaders/precision_matrix/fp32_kahan_sum.wgsl");
+const WGSL_FP32_WG_REDUCE: &str = include_str!("shaders/precision_matrix/fp32_wg_reduce.wgsl");
+const WGSL_DF64_PREAMBLE: &str = include_str!("shaders/precision_matrix/df64_preamble.wgsl");
+const WGSL_DF64_ADD: &str = include_str!("shaders/precision_matrix/df64_add.wgsl");
+const WGSL_DF64_PI_PI: &str = include_str!("shaders/precision_matrix/df64_pi_pi.wgsl");
+const WGSL_DF64_WG_REDUCE: &str = include_str!("shaders/precision_matrix/df64_wg_reduce.wgsl");
+const WGSL_FP64_PI_PI: &str = include_str!("shaders/precision_matrix/fp64_pi_pi.wgsl");
+const WGSL_FP64_KAHAN_SUM: &str = include_str!("shaders/precision_matrix/fp64_kahan_sum.wgsl");
+const WGSL_FP64_WG_REDUCE: &str = include_str!("shaders/precision_matrix/fp64_wg_reduce.wgsl");
+const WGSL_DF128_ADD: &str = include_str!("shaders/precision_matrix/df128_add.wgsl");
+const WGSL_DF128_PI_PI: &str = include_str!("shaders/precision_matrix/df128_pi_pi.wgsl");
+
+fn df64_shader(body: &str) -> String {
+    format!("{WGSL_DF64_PREAMBLE}{body}")
+}
+
 fn tests_u32() -> Vec<PrecisionTest> {
     vec![
         PrecisionTest {
             name: "u32 add",
             tier: "u32",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<u32>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    out[0] = 2147483647u + 1u;
-}
-"
-            .into(),
+            wgsl: WGSL_U32_ADD.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -177,16 +193,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "u32 mul wrap",
             tier: "u32",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<u32>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let a: u32 = 12345u;
-    let b: u32 = 6789u;
-    out[0] = a * b;
-}
-"
-            .into(),
+            wgsl: WGSL_U32_MUL_WRAP.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -198,17 +205,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         PrecisionTest {
             name: "i32 signed arith",
             tier: "i32",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<u32>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    let a: i32 = -1000000;
-    let b: i32 = 999999;
-    let c: i32 = a + b;
-    out[0] = bitcast<u32>(c);
-}
-"
-            .into(),
+            wgsl: WGSL_I32_SIGNED_ARITH.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -220,21 +217,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "u32 bitwise pack/unpack (int8 sim)",
             tier: "int8",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<u32>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    let a: u32 = 0xDEu;
-    let b: u32 = 0xADu;
-    let c: u32 = 0xBEu;
-    let d: u32 = 0xEFu;
-    let packed = (d << 24u) | (c << 16u) | (b << 8u) | a;
-    let unpacked_a = packed & 0xFFu;
-    let unpacked_d = (packed >> 24u) & 0xFFu;
-    out[0] = unpacked_a + (unpacked_d << 8u);
-}
-"
-            .into(),
+            wgsl: WGSL_U32_BITWISE_PACK.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -246,20 +229,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "u32 bit extract (int2/int4 sim)",
             tier: "int2",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<u32>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    let packed: u32 = 0xB4E4B4E4u;
-    let int2_at_0  = packed & 3u;
-    let int2_at_2  = (packed >> 2u) & 3u;
-    let int2_at_4  = (packed >> 4u) & 3u;
-    let int4_at_0  = packed & 15u;
-    let int4_at_4  = (packed >> 4u) & 15u;
-    out[0] = int2_at_0 + int2_at_2 + int2_at_4 + int4_at_0 + int4_at_4;
-}
-"
-            .into(),
+            wgsl: WGSL_U32_BIT_EXTRACT.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -284,14 +254,7 @@ fn tests_fp32() -> Vec<PrecisionTest> {
         PrecisionTest {
             name: "fp32 fma",
             tier: "fp32",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    out[0] = fma(3.0, 2.0, 1.0);
-}
-"
-            .into(),
+            wgsl: WGSL_FP32_FMA.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -303,15 +266,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "fp32 pi*pi",
             tier: "fp32",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    let pi: f32 = 3.14159274;
-    out[0] = pi * pi;
-}
-"
-            .into(),
+            wgsl: WGSL_FP32_PI_PI.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -323,22 +278,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "fp32 Kahan sum 1024",
             tier: "fp32",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    var sum: f32 = 0.0;
-    var c: f32 = 0.0;
-    for (var i = 0u; i < 1024u; i = i + 1u) {
-        let y = 1.0 - c;
-        let t = sum + y;
-        c = (t - sum) - y;
-        sum = t;
-    }
-    out[0] = sum;
-}
-"
-            .into(),
+            wgsl: WGSL_FP32_KAHAN_SUM.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -350,21 +290,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "fp32 wg reduce 256",
             tier: "fp32",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<f32>;
-var<workgroup> wg_data: array<f32, 256>;
-@compute @workgroup_size(256)
-fn main(@builtin(local_invocation_id) lid: vec3<u32>, @builtin(workgroup_id) wid: vec3<u32>) {
-    wg_data[lid.x] = 1.0;
-    workgroupBarrier();
-    for (var s = 128u; s > 0u; s = s >> 1u) {
-        if lid.x < s { wg_data[lid.x] = wg_data[lid.x] + wg_data[lid.x + s]; }
-        workgroupBarrier();
-    }
-    if lid.x == 0u { out[wid.x] = wg_data[0]; }
-}
-"
-            .into(),
+            wgsl: WGSL_FP32_WG_REDUCE.into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -377,43 +303,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>, @builtin(workgroup_id) wid
 }
 
 fn tests_df64() -> Vec<PrecisionTest> {
-    let df64_preamble = r"
-struct Df64 { hi: f32, lo: f32, }
-fn two_sum(a: f32, b: f32) -> Df64 {
-    let s = a + b; let v = s - a;
-    return Df64(s, (a - (s - v)) + (b - v));
-}
-fn two_prod(a: f32, b: f32) -> Df64 {
-    let p = a * b; let e = fma(a, b, -p);
-    return Df64(p, e);
-}
-fn df64_add(a: Df64, b: Df64) -> Df64 {
-    let s = two_sum(a.hi, b.hi);
-    return two_sum(s.hi, s.lo + a.lo + b.lo);
-}
-fn df64_mul(a: Df64, b: Df64) -> Df64 {
-    let p = two_prod(a.hi, b.hi);
-    return two_sum(p.hi, p.lo + a.hi * b.lo + a.lo * b.hi);
-}
-fn df64_from_f64(v: f64) -> Df64 {
-    let hi = f32(v); return Df64(hi, f32(v - f64(hi)));
-}
-fn df64_to_f64(v: Df64) -> f64 { return f64(v.hi) + f64(v.lo); }
-";
-
     vec![
         PrecisionTest {
             name: "df64 add(1,1)",
             tier: "df64",
-            wgsl: format!(
-                "{df64_preamble}
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {{
-    out[0] = df64_to_f64(df64_add(Df64(1.0, 0.0), Df64(1.0, 0.0)));
-}}
-"
-            ),
+            wgsl: df64_shader(WGSL_DF64_ADD),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -425,16 +319,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {{
         PrecisionTest {
             name: "df64 pi*pi",
             tier: "df64",
-            wgsl: format!(
-                "{df64_preamble}
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {{
-    let pi = Df64(3.14159274, -8.74227766e-8);
-    out[0] = df64_to_f64(df64_mul(pi, pi));
-}}
-"
-            ),
+            wgsl: df64_shader(WGSL_DF64_PI_PI),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -446,28 +331,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {{
         PrecisionTest {
             name: "df64 wg reduce 256",
             tier: "df64",
-            wgsl: format!(
-                "{df64_preamble}
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-var<workgroup> wg_hi: array<f32, 256>;
-var<workgroup> wg_lo: array<f32, 256>;
-@compute @workgroup_size(256)
-fn main(@builtin(local_invocation_id) lid: vec3<u32>) {{
-    wg_hi[lid.x] = 1.0; wg_lo[lid.x] = 0.0;
-    workgroupBarrier();
-    for (var s = 128u; s > 0u; s = s >> 1u) {{
-        if lid.x < s {{
-            let a = Df64(wg_hi[lid.x], wg_lo[lid.x]);
-            let b = Df64(wg_hi[lid.x + s], wg_lo[lid.x + s]);
-            let r = df64_add(a, b);
-            wg_hi[lid.x] = r.hi; wg_lo[lid.x] = r.lo;
-        }}
-        workgroupBarrier();
-    }}
-    if lid.x == 0u {{ out[0] = df64_to_f64(Df64(wg_hi[0], wg_lo[0])); }}
-}}
-"
-            ),
+            wgsl: df64_shader(WGSL_DF64_WG_REDUCE),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -484,15 +348,7 @@ fn tests_fp64() -> Vec<PrecisionTest> {
         PrecisionTest {
             name: "fp64 pi*pi",
             tier: "fp64",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    let pi: f64 = 3.14159265358979323846lf;
-    out[0] = pi * pi;
-}
-"
-            .into(),
+            wgsl: WGSL_FP64_PI_PI.into(),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -504,22 +360,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "fp64 Kahan sum 1024",
             tier: "fp64",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    var sum: f64 = 0.0lf;
-    var c: f64 = 0.0lf;
-    for (var i = 0u; i < 1024u; i = i + 1u) {
-        let y = 1.0lf - c;
-        let t = sum + y;
-        c = (t - sum) - y;
-        sum = t;
-    }
-    out[0] = sum;
-}
-"
-            .into(),
+            wgsl: WGSL_FP64_KAHAN_SUM.into(),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -531,19 +372,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "fp64 wg reduce 4",
             tier: "fp64",
-            wgsl: r"
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-var<workgroup> wg_data: array<f64, 4>;
-@compute @workgroup_size(4)
-fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
-    wg_data[lid.x] = f64(lid.x + 1u);
-    workgroupBarrier();
-    if lid.x == 0u {
-        out[0] = wg_data[0] + wg_data[1] + wg_data[2] + wg_data[3];
-    }
-}
-"
-            .into(),
+            wgsl: WGSL_FP64_WG_REDUCE.into(),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -560,28 +389,7 @@ fn tests_df128() -> Vec<PrecisionTest> {
         PrecisionTest {
             name: "df128 add (f64-pair)",
             tier: "df128",
-            wgsl: r"
-struct Df128 { hi: f64, lo: f64, }
-fn two_sum_64(a: f64, b: f64) -> Df128 {
-    let s = a + b;
-    let v = s - a;
-    return Df128(s, (a - (s - v)) + (b - v));
-}
-fn df128_add(a: Df128, b: Df128) -> Df128 {
-    let s = two_sum_64(a.hi, b.hi);
-    return two_sum_64(s.hi, s.lo + a.lo + b.lo);
-}
-
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    let one = Df128(1.0lf, 0.0lf);
-    let two = df128_add(one, one);
-    out[0] = two.hi;
-    out[1] = two.lo;
-}
-"
-            .into(),
+            wgsl: WGSL_DF128_ADD.into(),
             entry_point: "main",
             output_bytes: 16,
             workgroups: 1,
@@ -593,33 +401,7 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
         PrecisionTest {
             name: "df128 pi*pi (f64-pair)",
             tier: "df128",
-            wgsl: r"
-struct Df128 { hi: f64, lo: f64, }
-fn two_sum_64(a: f64, b: f64) -> Df128 {
-    let s = a + b;
-    let v = s - a;
-    return Df128(s, (a - (s - v)) + (b - v));
-}
-fn two_prod_64(a: f64, b: f64) -> Df128 {
-    let p = a * b;
-    let e = fma(a, b, -p);
-    return Df128(p, e);
-}
-fn df128_mul(a: Df128, b: Df128) -> Df128 {
-    let p = two_prod_64(a.hi, b.hi);
-    return two_sum_64(p.hi, p.lo + a.hi * b.lo + a.lo * b.hi);
-}
-
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
-    let pi = Df128(3.14159265358979323846lf, 1.2246467991473532e-16lf);
-    let r = df128_mul(pi, pi);
-    out[0] = r.hi;
-    out[1] = r.lo;
-}
-"
-            .into(),
+            wgsl: WGSL_DF128_PI_PI.into(),
             entry_point: "main",
             output_bytes: 16,
             workgroups: 1,

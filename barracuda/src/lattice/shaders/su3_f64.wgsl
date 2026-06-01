@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // SU(3) WGSL library: buffer I/O + math operations for lattice QCD.
 // Depends on complex_f64.wgsl (prepend before this file).
 //

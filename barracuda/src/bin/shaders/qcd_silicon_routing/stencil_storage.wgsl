@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // SU(3) matvec stencil — storage buffer path (current production)
 // Proxy: each thread reads 8 neighbor SU(3) matrices (18 f32 each) + 8 color vectors (6 f32)
 @group(0) @binding(0) var<storage, read> links: array<f32>;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // SU(3) gauge force proxy — pure ALU FMA chain
 // Proxy for staple sum: 6 directions × 3 matmuls × 3×3 complex = heavy FMA
 @group(0) @binding(0) var<storage, read_write> out: array<f32>;

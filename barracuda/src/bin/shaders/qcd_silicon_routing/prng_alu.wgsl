@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Box-Muller via ALU: software log/cos/sqrt (the current production path)
 @group(0) @binding(0) var<storage, read_write> out: array<f32>;
 struct Params { volume: u32, seed: u32, }

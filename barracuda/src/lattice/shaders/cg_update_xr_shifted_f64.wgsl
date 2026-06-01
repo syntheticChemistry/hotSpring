@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Shifted CG vector update: x += alpha * p, r -= alpha * (ap + sigma * p).
 // Alpha and sigma read from GPU buffers. Fuses the shift correction into

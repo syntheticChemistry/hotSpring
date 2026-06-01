@@ -8,6 +8,7 @@
 use super::heads;
 use super::{Activation, EchoStateNetwork, EsnConfig};
 use std::collections::HashMap;
+use std::io::BufRead;
 
 /// Critical β for phase classification (SU(3) deconfinement).
 pub const KNOWN_BETA_C: f64 = 5.69;
@@ -65,11 +66,12 @@ pub fn load_jsonl_files(results_dir: &str) -> Vec<AggPoint> {
         let exp = stem.split('_').next().unwrap_or(stem).to_string();
         let lattice = infer_lattice_from_filename(stem);
 
-        let Ok(content) = std::fs::read_to_string(&path) else {
+        let Ok(file) = std::fs::File::open(&path) else {
             continue;
         };
+        let reader = std::io::BufReader::new(file);
 
-        if let Ok(root) = serde_json::from_str::<serde_json::Value>(&content)
+        if let Ok(root) = serde_json::from_reader::<_, serde_json::Value>(reader)
             && let Some(pts) = root.get("points").and_then(|p| p.as_array())
         {
             let file_lattice = root
@@ -137,8 +139,13 @@ pub fn load_jsonl_files(results_dir: &str) -> Vec<AggPoint> {
             continue;
         }
 
-        for line in content.lines() {
-            let Ok(val) = serde_json::from_str::<serde_json::Value>(line) else {
+        let Ok(file) = std::fs::File::open(&path) else {
+            continue;
+        };
+        let reader = std::io::BufReader::new(file);
+        for line in reader.lines() {
+            let Ok(line) = line else { continue };
+            let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) else {
                 continue;
             };
             if val.get("phase").and_then(|p| p.as_str()) != Some("measurement") {

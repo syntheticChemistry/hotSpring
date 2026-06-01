@@ -13,6 +13,7 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::fes_gpu::FesGaussianSumGpu;
 use hotspring_barracuda::validation::ValidationHarness;
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -213,12 +214,14 @@ struct Hills2D {
 }
 
 fn parse_hills_1d(path: &Path) -> Option<Hills1D> {
-    let content = std::fs::read_to_string(path).ok()?;
+    let file = std::fs::File::open(path).ok()?;
+    let reader = std::io::BufReader::new(file);
     let mut centers = Vec::new();
     let mut sigmas = Vec::new();
     let mut heights = Vec::new();
 
-    for line in content.lines() {
+    for line in reader.lines() {
+        let line = line.ok()?;
         let line = line.trim();
         if line.starts_with('#') || line.is_empty() { continue; }
         let parts: Vec<&str> = line.split_whitespace().collect();
@@ -238,14 +241,16 @@ fn parse_hills_1d(path: &Path) -> Option<Hills1D> {
 }
 
 fn parse_hills_2d(path: &Path) -> Option<Hills2D> {
-    let content = std::fs::read_to_string(path).ok()?;
+    let file = std::fs::File::open(path).ok()?;
+    let reader = std::io::BufReader::new(file);
     let mut cx = Vec::new();
     let mut cy = Vec::new();
     let mut sx = Vec::new();
     let mut sy = Vec::new();
     let mut heights = Vec::new();
 
-    for line in content.lines() {
+    for line in reader.lines() {
+        let line = line.ok()?;
         let line = line.trim();
         if line.starts_with('#') || line.is_empty() { continue; }
         let parts: Vec<&str> = line.split_whitespace().collect();

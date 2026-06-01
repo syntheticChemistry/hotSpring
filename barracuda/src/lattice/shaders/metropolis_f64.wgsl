@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // GPU-resident Metropolis accept/reject test (B3 bottleneck elimination).
 //

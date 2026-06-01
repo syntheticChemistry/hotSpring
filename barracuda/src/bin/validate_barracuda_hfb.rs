@@ -49,7 +49,7 @@ fn cpu_find_fermi_bcs(eigenvalues: &[f64], n_target: f64, delta: f64) -> f64 {
         } else {
             hi = mid;
         }
-        if (hi - lo) < 1e-12 {
+        if (hi - lo) < tolerances::BISECT_CONVERGENCE_TOL {
             break;
         }
     }
@@ -120,7 +120,7 @@ async fn main() {
     // ── Phase 1: BCS Bisection (GPU vs CPU) ──
     println!("── Phase 1: GPU BCS Bisection ─────────────────────────");
     {
-        let bisect = BcsBisectionGpu::new(&gpu, 100, 1e-12);
+        let bisect = BcsBisectionGpu::new(&gpu, 100, tolerances::BISECT_CONVERGENCE_TOL);
 
         // Test case: 8 HFB-like problems with different level counts
         // Simulating a batch of nuclei with varying shell structures
@@ -303,7 +303,7 @@ async fn main() {
         // "0u", "1u" etc. instead of bare ints, so WGSL type-checks pass.
         println!("\n  Single-dispatch eigensolve (all rotations in one shader):");
         let (sd_vals, sd_vecs) =
-            BatchedEighGpu::execute_single_dispatch(device, &packed, ns, batch_size, 30, 1e-12)
+            BatchedEighGpu::execute_single_dispatch(device, &packed, ns, batch_size, 30, tolerances::BISECT_CONVERGENCE_TOL)
                 .expect("single-dispatch eigensolve failed");
 
         let mut max_sd_err: f64 = 0.0;
@@ -359,7 +359,7 @@ async fn main() {
     // ── Phase 3: BCS with degeneracy (nuclear physics) ──
     println!("\n── Phase 3: GPU BCS with Degeneracy ───────────────────");
     {
-        let bisect = BcsBisectionGpu::new(&gpu, 100, 1e-12);
+        let bisect = BcsBisectionGpu::new(&gpu, 100, tolerances::BISECT_CONVERGENCE_TOL);
 
         // Simulating proton levels for O-16 (Z=8): 1s1/2, 1p3/2, 1p1/2
         // Degeneracies: 2j+1 = 2, 4, 2

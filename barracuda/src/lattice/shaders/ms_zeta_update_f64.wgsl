@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Multi-shift CG: ζ recurrence + shifted scalar computation.
 // Jegerlehner (hep-lat/9612014) Algorithm 1.

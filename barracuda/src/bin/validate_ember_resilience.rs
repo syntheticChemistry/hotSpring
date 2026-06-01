@@ -161,11 +161,13 @@ fn phase1_baseline(
     let glowplug = {
         use hotspring_barracuda::primal_bridge::NucleusContext;
         let nucleus = NucleusContext::detect();
-        if let Ok(g) = GlowplugClient::from_nucleus(&nucleus) {
-            g
-        } else {
-            println!("  Nucleus discovery failed — trying default socket");
-            GlowplugClient::from_socket(std::path::Path::new("/run/toadstool/biomeos/compute.sock"))
+        match GlowplugClient::from_nucleus(&nucleus) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("  Nucleus discovery failed: {e}");
+                eprintln!("  No fallback available — ember resilience test requires live toadStool");
+                std::process::exit(1);
+            }
         }
     };
 

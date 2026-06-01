@@ -14,6 +14,9 @@
 //!   - Spectral: GPU SpMV vs CPU on Anderson 2D
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::tolerances::{
+    BGK_MASS_CONSERVATION_ABS, EXACT_F64, GPU_STREAMING_PLAQUETTE_PARITY, SPECTRAL_SPMV_MAX_ABS,
+};
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 use std::time::Instant;
 
@@ -203,7 +206,7 @@ fn validate_bgk(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut Telem
         gpu_r.result.energy_err, cpu_r.energy_err, energy_diff
     );
 
-    harness.check_upper("bgk_mass_diff", mass_diff, 1e-3);
+    harness.check_upper("bgk_mass_diff", mass_diff, BGK_MASS_CONSERVATION_ABS);
     harness.check_upper("bgk_energy_diff", energy_diff, 0.1);
     harness.check_bool("bgk_gpu_entropy", gpu_r.result.entropy_monotonic);
     harness.check_bool("bgk_cpu_entropy", cpu_r.entropy_monotonic);
@@ -400,8 +403,8 @@ fn validate_nuclear_eos(
     println!("    Max relative error: {max_rel:.4e}");
     println!("    Mean relative error: {mean_rel:.4e}");
 
-    harness.check_upper("nuclear_eos_max_rel", max_rel, 1e-10);
-    harness.check_upper("nuclear_eos_mean_rel", mean_rel, 1e-10);
+    harness.check_upper("nuclear_eos_max_rel", max_rel, EXACT_F64);
+    harness.check_upper("nuclear_eos_mean_rel", mean_rel, EXACT_F64);
 
     telem.log_map(
         "nuclear_eos",
@@ -505,8 +508,8 @@ fn validate_spectral(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut 
     println!("    L2 norm error: {l2:.4e}");
     println!("    Matrix: {n}×{n} ({nnz} nnz)");
 
-    harness.check_upper("spectral_spmv_max_err", max_err, 1e-12);
-    harness.check_upper("spectral_spmv_l2", l2, 1e-10);
+    harness.check_upper("spectral_spmv_max_err", max_err, SPECTRAL_SPMV_MAX_ABS);
+    harness.check_upper("spectral_spmv_l2", l2, GPU_STREAMING_PLAQUETTE_PARITY);
 
     telem.log_map(
         "spectral",

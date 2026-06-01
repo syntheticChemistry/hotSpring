@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Shifted CG scalar: alpha = rz / (pAp + sigma * pp).
 // Single-thread GPU kernel for shifted CG systems (D†D + σ)x = b.

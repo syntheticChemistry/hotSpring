@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Scenario: Lattice Plaquette — absorbed from validate_pure_gauge.
 
+use crate::tolerances;
 use crate::validation::ValidationHarness;
 use crate::validation::scenarios::registry::{Scenario, ScenarioMeta, Tier, Track};
 
@@ -22,6 +23,9 @@ pub fn run(v: &mut ValidationHarness) {
     let gauge = Lattice::cold_start([4, 4, 4, 4], 6.0);
     let plaq = gauge.average_plaquette();
 
-    v.check_bool("lattice:cold_start_plaq_unity", (plaq - 1.0).abs() < 1e-12);
+    v.check_bool(
+        "lattice:cold_start_plaq_unity",
+        (plaq - 1.0).abs() < tolerances::LATTICE_COLD_PLAQUETTE_ABS,
+    );
     v.check_bool("lattice:plaquette_finite", plaq.is_finite());
 }

@@ -588,6 +588,10 @@ pub fn dispatch_cpu_fallback(
                 "n_nuclei": pairs.len(),
             }))
         }
+        "spmv" => {
+            log::warn!("spmv dispatch not yet implemented — GAP-HS-027");
+            None
+        }
         _ => None,
     }
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Compound kernel: SU(3) force (ALU) + Box-Muller PRNG (TMU) in same thread
 // Demonstrates multi-unit composition — ALU and TMU run in parallel
 @group(0) @binding(0) var<storage, read_write> out: array<f32>;
