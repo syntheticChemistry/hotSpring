@@ -94,7 +94,7 @@ fn main() {
 
     // ── Cleanup ──
     println!("\n━━━ Cleanup ━━━\n");
-    if let Err(e) = glowplug.experiment_end(&bdf) {
+    if let Err(e) = glowplug.experiment_lifecycle(&bdf, "end") {
         println!("  experiment_end: {e}");
     }
     println!("  experiment ended for {bdf}");
@@ -116,11 +116,11 @@ fn phase1_baseline(
     bdf: &str,
 ) -> PreSwapState {
     // Mark experiment start
-    if let Err(e) = glowplug.experiment_start(bdf) {
+    if let Err(e) = glowplug.experiment_lifecycle(bdf, "start") {
         println!("  experiment_start warning: {e}");
     }
 
-    let detail = match glowplug.device_status(bdf) {
+    let detail = match glowplug.get_device(bdf) {
         Ok(d) => {
             println!("  chip:        {}", d.chip);
             println!("  personality: {}", d.personality);
@@ -180,11 +180,11 @@ fn phase2_swap_to_nouveau(
     println!("  (This tests skip_sysfs_unbind + PCI rescan path)");
     let start = Instant::now();
 
-    match glowplug.device_swap(bdf, "nouveau", true) {
+    match glowplug.device_swap(bdf, "nouveau") {
         Ok(v) => {
             let elapsed = start.elapsed();
             println!("  Swap to nouveau: OK ({elapsed:.1?})");
-            if let Some(journal) = v.get("journal_entry") {
+            if let Some(journal) = v.extra.get("journal_entry") {
                 println!("  Journal: {journal}");
             }
             harness.check_bool("swap vfio → nouveau (no D-state)", true);
@@ -204,7 +204,7 @@ fn phase2_swap_to_nouveau(
 }
 
 fn phase3_verify_nouveau(harness: &mut ValidationHarness, glowplug: &GlowplugClient, bdf: &str) {
-    match glowplug.device_status(bdf) {
+    match glowplug.get_device(bdf) {
         Ok(d) => {
             println!("  personality: {}", d.personality);
             println!("  vram_alive:  {}", d.vram_alive);
@@ -237,11 +237,11 @@ fn phase4_swap_to_vfio(
     println!("  Swapping {bdf} from nouveau → vfio-pci (PCI rescan preserves warm)...");
     let start = Instant::now();
 
-    match glowplug.device_swap(bdf, "vfio-pci", true) {
+    match glowplug.device_swap(bdf, "vfio-pci") {
         Ok(v) => {
             let elapsed = start.elapsed();
             println!("  Swap to vfio-pci: OK ({elapsed:.1?})");
-            if let Some(journal) = v.get("journal_entry") {
+            if let Some(journal) = v.extra.get("journal_entry") {
                 println!("  Journal: {journal}");
             }
             harness.check_bool("swap nouveau → vfio-pci (PCI rescan)", true);
@@ -290,7 +290,7 @@ fn phase5_verify_ember(
     }
 
     // Verify device state via glowplug
-    match glowplug.device_status(bdf) {
+    match glowplug.get_device(bdf) {
         Ok(d) => {
             let is_vfio = d.personality.contains("vfio");
             println!("  personality: {} (want vfio)", d.personality);

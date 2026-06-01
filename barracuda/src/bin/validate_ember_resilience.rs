@@ -171,7 +171,7 @@ fn phase1_baseline(
         }
     };
 
-    let gp_health = glowplug.health();
+    let gp_health = glowplug.daemon_health();
     harness.check_bool("glowplug health.check ok", gp_health.is_ok());
     if let Ok(h) = &gp_health {
         println!("  Glowplug: alive={}", h.alive);
@@ -250,7 +250,7 @@ fn phase3_single_kill(
         std::thread::sleep(RESURRECTION_POLL_INTERVAL);
 
         // Glowplug is still alive
-        if glowplug.health().is_err() {
+        if glowplug.daemon_health().is_err() {
             println!("  Glowplug unreachable during resurrection wait!");
             continue;
         }
@@ -275,7 +275,7 @@ fn phase3_single_kill(
         };
         harness.check_bool("new ember has different PID", pid_changed);
 
-        let gp_ok = glowplug.health().is_ok();
+        let gp_ok = glowplug.daemon_health().is_ok();
         harness.check_bool("glowplug healthy after resurrection", gp_ok);
     }
 }
@@ -419,7 +419,7 @@ fn phase5_standby(
 }
 
 fn phase6_dispatch(harness: &mut ValidationHarness, target_bdf: &str, glowplug: &GlowplugClient) {
-    let device_status = glowplug.device_status(target_bdf);
+    let device_status = glowplug.get_device(target_bdf);
     match &device_status {
         Ok(info) => {
             println!("  Device {target_bdf}: personality={}", info.personality);
@@ -435,7 +435,7 @@ fn phase6_dispatch(harness: &mut ValidationHarness, target_bdf: &str, glowplug: 
     // Try a trivial dispatch through glowplug (device.compute_info proves GPU path is live)
     println!("  Verifying GPU path liveness via device.compute_info on {target_bdf}...");
 
-    match glowplug.device_status(target_bdf) {
+    match glowplug.get_device(target_bdf) {
         Ok(detail) => {
             let gpu_ok = detail.has_vfio_fd;
             println!(

@@ -242,27 +242,39 @@ impl NucleusContext {
     /// `capability.list` includes a capability string starting with `capability_domain`.
     #[must_use]
     pub fn get_by_capability(&self, capability_domain: &str) -> Option<&PrimalEndpoint> {
-        // First pass: exact `provided_capabilities.type` match (strongest signal)
-        let by_type = self.discovered.values().find(|ep| {
-            ep.alive
-                && ep
-                    .capabilities
-                    .as_ref()
-                    .and_then(|c| c.get("provided_capabilities"))
-                    .and_then(|a| a.as_array())
-                    .is_some_and(|arr| {
-                        arr.iter().any(|v| {
-                            v.get("type")
-                                .and_then(|t| t.as_str())
-                                .is_some_and(|t| t == capability_domain)
-                        })
+        let has_typed_cap = |cap_key: &str, ep: &&PrimalEndpoint| {
+            ep.capabilities
+                .as_ref()
+                .and_then(|c| c.get(cap_key))
+                .and_then(|a| a.as_array())
+                .is_some_and(|arr| {
+                    arr.iter().any(|v| {
+                        v.get("type")
+                            .and_then(|t| t.as_str())
+                            .is_some_and(|t| t == capability_domain)
                     })
-        });
+                })
+        };
+
+        // First pass: exact `provided_capabilities[].type` match (strongest signal)
+        let by_type = self
+            .discovered
+            .values()
+            .find(|ep| ep.alive && has_typed_cap("provided_capabilities", ep));
         if by_type.is_some() {
             return by_type;
         }
 
-        // Second pass: `domains` array (barraCuda style)
+        // Second pass: `capabilities[].type` match (toadStool format)
+        let by_cap_obj = self
+            .discovered
+            .values()
+            .find(|ep| ep.alive && has_typed_cap("capabilities", ep));
+        if by_cap_obj.is_some() {
+            return by_cap_obj;
+        }
+
+        // Third pass: `domains` array (barraCuda style)
         let by_domain = self.discovered.values().find(|ep| {
             ep.alive
                 && ep
@@ -279,7 +291,7 @@ impl NucleusContext {
             return by_domain;
         }
 
-        // Legacy: flat `capabilities` array (test harness format, prefix match)
+        // Legacy: flat `capabilities` array of strings (test harness format, prefix match)
         self.discovered.values().find(|ep| {
             ep.alive
                 && ep

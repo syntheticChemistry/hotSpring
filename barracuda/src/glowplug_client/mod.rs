@@ -97,6 +97,10 @@ impl GlowplugClient {
     // ── Device lifecycle ─────────────────────────────────────────────
 
     /// `device.list` — enumerate PCI devices the daemon knows about.
+    ///
+    /// Handles two toadStool response formats:
+    /// - Full rows: `{ "devices": [ { "bdf": "...", ... }, ... ] }`
+    /// - BDF-only:  `{ "devices": [ "0000:02:00.0", ... ] }` (older daemons)
     pub fn list_devices(&self) -> Result<Vec<GlowplugDeviceSummary>, GlowplugError> {
         let v = self.call("device.list", &serde_json::json!({}))?;
         let arr = v
@@ -107,9 +111,23 @@ impl GlowplugClient {
             })?;
         let mut out = Vec::with_capacity(arr.len());
         for dev in arr {
-            let row: GlowplugListRow = serde_json::from_value(dev.clone())
-                .map_err(|e| GlowplugError::InvalidPayload(format!("device row: {e}")))?;
-            out.push(row.into());
+            if let Some(bdf_str) = dev.as_str() {
+                out.push(GlowplugDeviceSummary {
+                    bdf: bdf_str.to_string(),
+                    vendor: String::new(),
+                    name: None,
+                    personality: "unknown".to_string(),
+                    protected: false,
+                    health: GlowplugDeviceHealthSummary {
+                        vram_alive: false,
+                        domains_faulted: 0,
+                    },
+                });
+            } else {
+                let row: GlowplugListRow = serde_json::from_value(dev.clone())
+                    .map_err(|e| GlowplugError::InvalidPayload(format!("device row: {e}")))?;
+                out.push(row.into());
+            }
         }
         Ok(out)
     }
@@ -143,7 +161,7 @@ impl GlowplugClient {
             "device.swap",
             &serde_json::json!({
                 "bdf": bdf,
-                "target_driver": target_driver,
+                "target": target_driver,
             }),
         )?;
         serde_json::from_value(v)

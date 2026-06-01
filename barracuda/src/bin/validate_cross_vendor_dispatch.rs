@@ -8,7 +8,7 @@
 
 use std::time::Instant;
 
-use hotspring_barracuda::glowplug_client::{GlowplugClient, GlowplugDispatchOptions};
+use hotspring_barracuda::glowplug_client::GlowplugDispatchOptions;
 use hotspring_barracuda::tolerances;
 
 #[path = "../bin_helpers/sovereignty/mod.rs"]
@@ -134,7 +134,7 @@ fn main() {
         };
 
         let t0 = Instant::now();
-        let dispatch_result = client.dispatch_with_options(
+        let dispatch_result = client.dispatch(
             bdf,
             ptx.as_bytes(),
             &input_bufs,
