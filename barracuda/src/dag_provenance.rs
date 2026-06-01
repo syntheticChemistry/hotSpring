@@ -71,18 +71,22 @@ impl DagSession {
     /// Returns `None` if rhizoCrypt is not available.
     pub fn begin(nucleus: &NucleusContext, label: &str) -> Option<Self> {
         let params = serde_json::json!({
-            "label": label,
-            "spring": "hotSpring",
+            "description": format!("hotSpring: {label}"),
+            "session_type": "General",
         });
 
         let resp = nucleus
             .call_by_capability("dag", "dag.session.create", params)
             .ok()?;
+        // rhizoCrypt returns session ID as plain UUID string or nested object
         let session_id = resp
-            .get("result")
-            .and_then(|r| r.get("session_id"))
-            .and_then(serde_json::Value::as_str)?
-            .to_string();
+            .as_str()
+            .map(String::from)
+            .or_else(|| {
+                resp.get("session_id")
+                    .and_then(serde_json::Value::as_str)
+                    .map(String::from)
+            })?;
 
         println!("  rhizoCrypt: DAG session {session_id}");
 
@@ -110,15 +114,23 @@ impl DagSession {
             &format!("dag:{}:phase:{}", self.session_id, event.phase),
         ));
 
+        let mut metadata: Vec<serde_json::Value> = vec![
+            serde_json::json!(["phase", event.phase]),
+            serde_json::json!(["wall_seconds", event.wall_seconds.to_string()]),
+            serde_json::json!(["spring", "hotSpring"]),
+        ];
+        if let Some(ref h) = event.input_hash {
+            metadata.push(serde_json::json!(["input_hash", h]));
+        }
+        if let Some(ref h) = event.output_hash {
+            metadata.push(serde_json::json!(["output_hash", h]));
+        }
+
         let params = serde_json::json!({
             "session_id": self.session_id,
-            "event": {
-                "phase": event.phase,
-                "input_hash": event.input_hash,
-                "output_hash": event.output_hash,
-                "wall_seconds": event.wall_seconds,
-                "summary": event.summary,
-            },
+            "event_type": { "Custom": { "kind": event.phase, "data": event.summary } },
+            "parents": [],
+            "metadata": metadata,
         });
 
         match nucleus.call_by_capability("dag", "dag.event.append", params) {
@@ -143,11 +155,14 @@ impl DagSession {
 
         let root = match nucleus.call_by_capability("dag", "dag.merkle.root", params) {
             Ok(resp) => resp
-                .get("result")
-                .and_then(|r| r.get("merkle_root"))
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("unknown")
-                .to_string(),
+                .as_str()
+                .map(String::from)
+                .or_else(|| {
+                    resp.get("merkle_root")
+                        .and_then(serde_json::Value::as_str)
+                        .map(String::from)
+                })
+                .unwrap_or_else(|| "unknown".to_string()),
             Err(e) => {
                 log::warn!("rhizoCrypt: dehydrate failed — {e}");
                 "error".to_string()
@@ -220,7 +235,7 @@ fn try_sign_merkle_root(
 ///
 /// Dispatches `nest.commit` which biomeOS decomposes into:
 /// `event.append` → `crypto.sign` → `content.put` → `session.commit` → `braid.create`.
-/// Falls back to direct `ledger.record` + `attribution.braid` multi-call
+/// Falls back to direct `entry.append` + `braid.create` multi-call
 /// if the signal is unavailable (pre-v3.57 biomeOS).
 ///
 /// **Trio semantics:** The commit flow is not atomic. Each leg is attempted
@@ -280,31 +295,49 @@ pub fn commit_provenance(
     primals_reached.push("rhizoCrypt");
 
     let ledger_params = serde_json::json!({
-        "experiment_id": experiment_id,
-        "dag_node_id": provenance.dag_session_id,
-        "spring": "hotspring",
-        "method": "dag.commit",
+        "spine_id": format!("hotspring-{experiment_id}"),
+        "data": {
+            "experiment_id": experiment_id,
+            "dag_session": provenance.dag_session_id,
+            "merkle_root": provenance.merkle_root,
+            "events_count": provenance.events_count,
+            "spring": "hotSpring",
+        },
+        "metadata": {
+            "spring": "hotSpring",
+            "experiment_id": experiment_id,
+        },
     });
     if nucleus
-        .call_by_capability("ledger", "ledger.record", ledger_params)
+        .call_by_capability("ledger", "entry.append", ledger_params)
         .is_ok()
     {
         primals_reached.push("loamSpine");
     }
 
-    if let Some(ref_str) = paper_ref {
-        let braid_params = serde_json::json!({
-            "witness_hash": provenance.merkle_root,
-            "paper_ref": ref_str,
-            "spring": "hotspring",
-            "status": "pass",
-        });
-        if nucleus
-            .call_by_capability("attribution", "attribution.braid", braid_params)
-            .is_ok()
-        {
-            primals_reached.push("sweetGrass");
-        }
+    // sweetGrass braid: canonical braid.create with data_hash/mime_type/size
+    let receipt_json = serde_json::to_string(&serde_json::json!({
+        "experiment_id": experiment_id,
+        "merkle_root": provenance.merkle_root,
+        "spring": "hotSpring",
+        "paper_ref": paper_ref,
+    }))
+    .unwrap_or_default();
+    let braid_params = serde_json::json!({
+        "data_hash": provenance.merkle_root,
+        "mime_type": "application/json",
+        "size": receipt_json.len(),
+        "name": format!("hotSpring:{experiment_id}"),
+        "description": paper_ref.map(|r| format!("Reproduction of {r}")),
+        "tags": ["hotSpring", "provenance"],
+        "source_session": provenance.dag_session_id,
+        "source_merkle_root": provenance.merkle_root,
+    });
+    if nucleus
+        .call_by_capability("attribution", "braid.create", braid_params)
+        .is_ok()
+    {
+        primals_reached.push("sweetGrass");
     }
 
     Some(serde_json::json!({
