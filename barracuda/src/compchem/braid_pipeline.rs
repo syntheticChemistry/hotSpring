@@ -190,8 +190,7 @@ pub fn write_ferment_transcript(
         result
             .transcript
             .dataset_id
-            .replace('/', "_")
-            .replace(' ', "_")
+            .replace(['/', ' '], "_")
     );
     let braid_json = serde_json::to_string_pretty(&serde_json::json!({
         "dataset_id": result.transcript.dataset_id,

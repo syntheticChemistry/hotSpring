@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** June 1, 2026 (Wave 67: Post-primordial QCD evolution complete — 8 phases, sovereign compute trio validated 16/19 on hardware. coralReef compiler bugs + songbird capability gap handed upstream. Previous: May 30 Wave 63 delta audit: GAP-HS-005 prototype, GAP-HS-111 committed, temporal sync 24/24 parity)
+**Last audited:** Jun 1, 2026 (Wave 67 glacial cutover: post-primordial QCD evolution 8 phases, sovereign compute trio 16/19 on hardware. Provenance trio wire contracts fixed — 6 mismatches resolved (dag.event.append, entry.append, braid.create). Braid pipeline for guidestone→lithoSpore→sporePrint. Cross-gate compute dispatch via capability.call + Songbird mesh. 633 tests pass.)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -66,8 +66,12 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   `GpuLeaseClient` (from NucleusContext), `propose_lease`, `sign_lease_contract`,
   `verify_lease`, `seal_bond`, and `negotiate_gpu_lease` convenience function.
   4 unit tests pass (serialization roundtrip, state transitions, BearDog discovery guard).
-- **Remaining:** Live E2E cross-family GPU lease test (requires second FAMILY_ID
-  gate with toadStool dispatch), integration with barraCuda session builder.
+- **Cross-gate dispatch (Wave 67):** `compute_dispatch::cross_gate` module
+  implements `capability.call`-based routing to remote gates via Songbird mesh.
+  `dispatch_with_lease()` wires ionic lease negotiation as a trust layer before
+  remote dispatch. 5 unit tests pass.
+- **Remaining:** Live E2E cross-family GPU lease test (requires strandGate deploy
+  after Phase 1 mesh validation), Songbird federation peer connectivity.
 
 ### GAP-HS-006: BTSP-BARRACUDA-WIRE Session Crypto — RESOLVED
 
@@ -257,6 +261,11 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Description:** rhizoCrypt may accept UDS connection with no JSON-RPC response,
   causing DAG calls to timeout. Composition script wraps all DAG calls with
   `cap_available dag` guards and local memo cache fallback.
+- **Wave 67 progress:** Wire contracts in `dag_provenance.rs` and `ipc/provenance/rhizocrypt.rs`
+  now match actual rhizoCrypt API (`dag.session.create`, `dag.event.append`, `dag.merkle.root`).
+  Session create sends `{description, session_type}`, event append uses `EventType::Custom`,
+  merkle root handles both plain hex and nested response. Braid pipeline (`braid_pipeline.rs`)
+  has graceful offline degradation for full trio.
 - **Action:** Upstream rhizoCrypt should implement connection-level healthcheck.
 
 ### GAP-HS-040: toadStool Short Timeout Sensitivity (PG-46)
