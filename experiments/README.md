@@ -96,9 +96,16 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 224 | SOVEREIGNTY_AUDIT_CHECKPOINT | checkpoint | CHECKPOINT — `classify_tier` on both Titan Vs confirms Tier 1 (WarmInfrastructure). Tier 2 NOT achieved (TPC wall, GPCCS HS fuse-locked). Three misconceptions corrected: VBIOS POST ≠ sovereign init, `compute_ready` ≠ dispatch readiness, RTX 5060 DRM ≠ sovereign compute. PostPrimordial transition. Remaining path to Tier 2 documented |
 | 225 | CATALYST_TPC_PERSISTENCE_TEST | validation | RESULT — nvidia RM failed to init GPU after vfio-pci release. **Root cause: vfio-pci reset-on-release** destroys VBIOS warm state (PMC_ENABLE 0x5fecdff1→0x40000020). RM bound but never completed DEVINIT. 5,210 regs captured (degraded). Titan V #1 now Tier 0. Next: suppress reset-on-release, re-run |
 | 226 | SBR_BUS_RESET_SUPPRESSION | validation | CODE COMPLETE — Three-layer defense (FLR suppression + `no_bus_reset.ko` SBR suppression + bridge power pin). Phase 3 `KmodBuilder` + `finit_module(2)` fork isolation. **Hardware validation pending** (Revalidation Sprint Bench 3) |
-| 227 | PMU_ACR_REVALIDATION | validation | Rewire of exp224 from direct BAR0 mmap to ember RPCs. Crash-protected fork-isolated MMIO. PMU CPUCTL_ALIAS sovereign boot test via toadstool-ember. No `low-level` feature required |
+| 227 | TIER2_WARM_COMPUTE_BREAKTHROUGH | validation | ✅ TPC PRI stations alive on both Titan Vs via catalyst pipeline. `tpc_alive=true`, `tpc_status=0x10`. Three breakthroughs: TPC probe register fix, pre-PRI-recovery FECS INIT_CTXSW, external rm_trigger. Tier 2 HW VALIDATED |
+| 228 | SOVEREIGN_DISPATCH_SPRINT | validation | Tier 2.5 dispatch mechanics. Pipeline proven but FECS ACR blocks execution (PENDING_CTX_RELOAD). Golden context capture path identified |
+| 229 | CATALYST_RM_CHANNEL | validation | ✅ Full end-to-end catalyst handoff. 5 lockup vectors cataloged+fixed. Diesel engine forensics proven. RM channel creation attempted — device_alloc 0x22 |
+| 230 | DIESEL_ABSTRACTION_REVALIDATION | validation | ✅ Diesel engine defense revalidation. Crash protection patterns verified across module cleanup, watchdog, catalyst boot |
+| 231 | K80_CROSSGEN_QUENCH_PROBE | analysis | 🔄 READY — awaiting K80 hardware. Cross-generation quench probe methodology designed |
+| 232 | CRASH_VECTOR_REPROFILE | validation | ✅ Crash vector reprofile. Module cleanup watchdog, catalyst boot watchdog activation. 9175 tests |
+| 233 | HYBRID_RM_DISPATCH | analysis | RM dispatch hybrid approach. device_alloc 0x22 root cause: NOP'd cap system prevents GPU registration in RM device table. Option 5 (os_is_administrator + device registry) analysis |
+| 234 | CATALYST_MINIMAL_NOP | validation | PAUSED — nvidia_catalyst_minimal_nop patch set. GPU inits (23 engines, firmware captured), but teardown/rebind path causes system lockups. 3 bugs found+fixed: cleanup_module NOP regression, usage_count leak, fire-and-poll race. Awaiting clean Run #6 |
 
-> **Note:** 227 experiments total (001–189 archived + 190 archived final coral-ember + 191–227 active).
+> **Note:** 234 experiments total (001–190 archived + 191–234 active).
 >
 > **Naming clarification:** The `exp224_pmu_acr_catalyst` binary implements what was originally the Exp 223 PMU ACR boot attempt; the binary name carries forward the Exp 224 numbering (sovereignty audit checkpoint) because the binary was created during that session. Exp 227 (`exp227_pmu_acr_revalidation`) is the ember-wired successor.
 

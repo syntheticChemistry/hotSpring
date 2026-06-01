@@ -170,402 +170,485 @@ cudarc = { version = "0.19.4", features = ["driver", "cuda-12060", "nvrtc"], opt
 [[bin]]
 name = "nuclear_eos_l1_ref"
 path = "src/bin/nuclear_eos_l1_ref.rs"
+required-features = ["barracuda-local"]
 
 # ── L2 validation (L1-seeded DirectSampler, HFB) ───────────────────
 [[bin]]
 name = "nuclear_eos_l2_ref"
 path = "src/bin/nuclear_eos_l2_ref.rs"
+required-features = ["barracuda-local"]
 
 # ── L2 GPU-batched HFB (BatchedEighGpu from barraCuda) ─────────
 [[bin]]
 name = "nuclear_eos_l2_gpu"
 path = "src/bin/nuclear_eos_l2_gpu.rs"
+required-features = ["barracuda-local"]
 
 # ── L2 heterogeneous pipeline (cascade: NMP → L1 → classifier → HFB)
 [[bin]]
 name = "nuclear_eos_l2_hetero"
 path = "src/bin/nuclear_eos_l2_hetero.rs"
+required-features = ["barracuda-local"]
 
 # ── BarraCuda library validation suites ─────────────────────────────
 [[bin]]
 name = "validate_special_functions"
 path = "src/bin/validate_special_functions.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_linalg"
 path = "src/bin/validate_linalg.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_optimizers"
 path = "src/bin/validate_optimizers.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_md"
 path = "src/bin/validate_md.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU FP64 validation (L1 + L2 on RTX 4070 via SHADER_F64) ────
 [[bin]]
 name = "nuclear_eos_gpu"
 path = "src/bin/nuclear_eos_gpu.rs"
+required-features = ["barracuda-local"]
 
 # ── HFB physics verification (Rust vs Python) ────────────────────
 [[bin]]
 name = "verify_hfb"
 path = "src/bin/verify_hfb.rs"
+required-features = ["barracuda-local"]
 
 # ── Sarkas GPU: Yukawa OCP molecular dynamics on consumer GPU ────
 [[bin]]
 name = "sarkas_gpu"
 path = "src/bin/sarkas_gpu.rs"
+required-features = ["barracuda-local"]
 
 # ── f64 builtin test: check if native sqrt/exp work on f64 ────
 [[bin]]
 name = "f64_builtin_test"
 path = "src/bin/f64_builtin_test.rs"
+required-features = ["barracuda-local"]
 
 # ── PPPM Coulomb validation (barraCuda PppmGpu, kappa=0) ────
 [[bin]]
 name = "validate_pppm"
 path = "src/bin/validate_pppm.rs"
+required-features = ["barracuda-local"]
 
 # ── Cell-list force diagnostic: compare all-pairs vs cell-list kernels ────
 [[bin]]
 name = "celllist_diag"
 path = "src/bin/celllist_diag.rs"
+required-features = ["barracuda-local"]
 
 # ── BarraCuda full-pipeline validation (ops → Yukawa OCP → energy conservation) ──
 [[bin]]
 name = "validate_barracuda_pipeline"
 path = "src/bin/validate_barracuda_pipeline.rs"
+required-features = ["barracuda-local"]
 
 # ── BarraCuda HFB pipeline validation (BCS bisection + eigensolve) ──
 [[bin]]
 name = "validate_barracuda_hfb"
 path = "src/bin/validate_barracuda_hfb.rs"
+required-features = ["barracuda-local"]
 
 # ── L3 deformed HFB (CPU Rayon) ───────────────────────────────────
 [[bin]]
 name = "nuclear_eos_l3_ref"
 path = "src/bin/nuclear_eos_l3_ref.rs"
+required-features = ["barracuda-local"]
 
 # ── L3 deformed HFB (GPU-resident — all physics on GPU) ──────────
 [[bin]]
 name = "nuclear_eos_l3_gpu"
 path = "src/bin/nuclear_eos_l3_gpu.rs"
+required-features = ["barracuda-local"]
 
 # ── Nuclear EOS validation: pure Rust replication of Python controls ──
 [[bin]]
 name = "validate_nuclear_eos"
 path = "src/bin/validate_nuclear_eos.rs"
+required-features = ["barracuda-local"]
 
 # ── Meta-validator: runs all validation suites ─────────────────────────
 [[bin]]
 name = "validate_all"
 path = "src/bin/validate_all.rs"
+required-features = ["barracuda-local"]
 
 # ── NVK workgroup-size diagnostic ──────────────────────────────────────
 [[bin]]
 name = "bench_wgsize_nvk"
 path = "src/bin/bench_wgsize_nvk.rs"
+required-features = ["barracuda-local"]
 
 # ── Multi-GPU benchmark ───────────────────────────────────────────
 [[bin]]
 name = "bench_multi_gpu"
 path = "src/bin/bench_multi_gpu.rs"
+required-features = ["barracuda-local"]
 
 # ── Heterogeneous dual-GPU device pair benchmark ─────────────────
 [[bin]]
 name = "bench_device_pair"
 path = "src/bin/bench_device_pair.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU FP64 throughput benchmark ─────────────────────────────────
 [[bin]]
 name = "bench_gpu_fp64"
 path = "src/bin/bench_gpu_fp64.rs"
+required-features = ["barracuda-local"]
 
 # ── Definitive FP64:FP32 ratio micro-benchmark (pure FMA chain) ──
 [[bin]]
 name = "bench_fp64_ratio"
 path = "src/bin/bench_fp64_ratio.rs"
+required-features = ["barracuda-local"]
 
 # ── Transport coefficient validation (Stanton & Murillo 2016) ──────
 [[bin]]
 name = "validate_transport"
 path = "src/bin/validate_transport.rs"
+required-features = ["barracuda-local"]
 
 # ── CPU/GPU parity: same algorithm, same initial conditions, different chip ──
 [[bin]]
 name = "validate_cpu_gpu_parity"
 path = "src/bin/validate_cpu_gpu_parity.rs"
+required-features = ["barracuda-local"]
 
 # ── CPU vs GPU N-scaling benchmark (fp64 throughput + cost analysis) ──
 [[bin]]
 name = "bench_cpu_gpu_scaling"
 path = "src/bin/bench_cpu_gpu_scaling.rs"
+required-features = ["barracuda-local"]
 
 # ── NAK-optimized eigensolve validation (correctness + perf vs baseline) ──
 [[bin]]
 name = "validate_nak_eigensolve"
 path = "src/bin/validate_nak_eigensolve.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 5: Stanton-Murillo transport coefficient validation ──
 [[bin]]
 name = "validate_stanton_murillo"
 path = "src/bin/validate_stanton_murillo.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 7: HotQCD EOS table validation (Bazavov bridge) ──
 [[bin]]
 name = "validate_hotqcd_eos"
 path = "src/bin/validate_hotqcd_eos.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 6: Screened Coulomb bound states (Murillo & Weisheit 1998) ──
 [[bin]]
 name = "validate_screened_coulomb"
 path = "src/bin/validate_screened_coulomb.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 6: Rust vs Python performance benchmark ──
 [[bin]]
 name = "bench_screened_coulomb"
 path = "src/bin/bench_screened_coulomb.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 8: Pure gauge SU(3) lattice QCD on consumer GPU ──
 [[bin]]
 name = "validate_pure_gauge"
 path = "src/bin/validate_pure_gauge.rs"
+required-features = ["barracuda-local"]
 
 # ── Papers 9-12: Production lattice QCD (quenched β-scan) ──
 [[bin]]
 name = "validate_production_qcd"
 path = "src/bin/validate_production_qcd.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 10: Dynamical fermion QCD (pseudofermion HMC) ──
 [[bin]]
 name = "validate_dynamical_qcd"
 path = "src/bin/validate_dynamical_qcd.rs"
+required-features = ["barracuda-local"]
 
 # ── Dual-GPU parallel QCD: two GPUs, same physics, cross-vendor parity ──
 [[bin]]
 name = "validate_dual_gpu_qcd"
 path = "src/bin/validate_dual_gpu_qcd.rs"
+required-features = ["barracuda-local"]
 
 # ── Production QCD V2: Omelyan integrator + Hasenbusch preconditioning ──
 [[bin]]
 name = "validate_production_qcd_v2"
 path = "src/bin/validate_production_qcd_v2.rs"
+required-features = ["barracuda-local"]
 
 # ── HVP g-2: Hadronic vacuum polarization correlator (Paper 11) ──
 [[bin]]
 name = "validate_hvp_g2"
 path = "src/bin/validate_hvp_g2.rs"
+required-features = ["barracuda-local"]
 
 # ── Freeze-out curvature: Susceptibility β-scan (Paper 12) ──
 [[bin]]
 name = "validate_freeze_out"
 path = "src/bin/validate_freeze_out.rs"
+required-features = ["barracuda-local"]
 
 # ── Pure GPU HMC: all math on GPU via fp64 WGSL shaders ──
 [[bin]]
 name = "validate_pure_gpu_hmc"
 path = "src/bin/validate_pure_gpu_hmc.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_reservoir_transport"
 path = "src/bin/validate_reservoir_transport.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_npu_quantization"
 path = "src/bin/validate_npu_quantization.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_npu_beyond_sdk"
 path = "src/bin/validate_npu_beyond_sdk.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_npu_pipeline"
 path = "src/bin/validate_npu_pipeline.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_lattice_npu"
 path = "src/bin/validate_lattice_npu.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_hetero_monitor"
 path = "src/bin/validate_hetero_monitor.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_spectral"
 path = "src/bin/validate_spectral.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_lanczos"
 path = "src/bin/validate_lanczos.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_anderson_3d"
 path = "src/bin/validate_anderson_3d.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "validate_hofstadter"
 path = "src/bin/validate_hofstadter.rs"
+required-features = ["barracuda-local"]
 
 # ── BarraCuda evolution: CPU foundation across all physics domains ──
 [[bin]]
 name = "validate_barracuda_evolution"
 path = "src/bin/validate_barracuda_evolution.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU SpMV: CSR sparse matrix-vector product on GPU (spectral theory P1) ──
 [[bin]]
 name = "validate_gpu_spmv"
 path = "src/bin/validate_gpu_spmv.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU Lanczos: eigensolve via GPU SpMV inner loop ──
 [[bin]]
 name = "validate_gpu_lanczos"
 path = "src/bin/validate_gpu_lanczos.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU Dirac: staggered Dirac operator on GPU (Papers 9-12) ──
 [[bin]]
 name = "validate_gpu_dirac"
 path = "src/bin/validate_gpu_dirac.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU CG: conjugate gradient D†D on GPU (Papers 9-12 complete) ──
 [[bin]]
 name = "validate_gpu_cg"
 path = "src/bin/validate_gpu_cg.rs"
+required-features = ["barracuda-local"]
 
 # ── Lattice QCD CG benchmark: Rust CPU vs Python baseline ──
 [[bin]]
 name = "bench_lattice_cg"
 path = "src/bin/bench_lattice_cg.rs"
+required-features = ["barracuda-local"]
 
 # ── Pure GPU lattice QCD: HMC + GPU CG on thermalized configs ──
 [[bin]]
 name = "validate_pure_gpu_qcd"
 path = "src/bin/validate_pure_gpu_qcd.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 13: Abelian Higgs (1+1)D U(1)+scalar field theory ──
 [[bin]]
 name = "validate_abelian_higgs"
 path = "src/bin/validate_abelian_higgs.rs"
+required-features = ["barracuda-local"]
 
 # ── Lattice QCD scaling: GPU CG at production lattice sizes ──
 [[bin]]
 name = "bench_lattice_scaling"
 path = "src/bin/bench_lattice_scaling.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU HMC scaling benchmark: CPU vs GPU at production sizes ──
 [[bin]]
 name = "bench_gpu_hmc"
 path = "src/bin/bench_gpu_hmc.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU β-scan: full temperature sweep entirely on GPU ──
 [[bin]]
 name = "validate_gpu_beta_scan"
 path = "src/bin/validate_gpu_beta_scan.rs"
+required-features = ["barracuda-local"]
 
 # ── metalForge mixed-substrate pipeline (GPU→NPU→CPU) ──
 [[bin]]
 name = "validate_mixed_substrate"
 path = "src/bin/validate_mixed_substrate.rs"
+required-features = ["barracuda-local"]
 
 # ── Three-substrate streaming pipeline: CPU→GPU→NPU→CPU ──
 [[bin]]
 name = "validate_streaming_pipeline"
 path = "src/bin/validate_streaming_pipeline.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU streaming HMC: zero dispatch overhead via batched encoders ──
 [[bin]]
 name = "validate_gpu_streaming"
 path = "src/bin/validate_gpu_streaming.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU-only transport: D* via batched VACF, zero velocity readback ──
 [[bin]]
 name = "validate_transport_gpu_only"
 path = "src/bin/validate_transport_gpu_only.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU-resident transport: VACF on GpuVelocityRing vs CPU reference ──
 [[bin]]
 name = "validate_transport_gpu_resident"
 path = "src/bin/validate_transport_gpu_resident.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 2: TTM 0D ODE solver (laser-plasma electron-ion equilibration) ──
 [[bin]]
 name = "validate_ttm"
 path = "src/bin/validate_ttm.rs"
+required-features = ["barracuda-local"]
 
 # ── Three-substrate orchestration: 3090 + NPU + Titan V ──
 [[bin]]
 name = "validate_three_substrate"
 path = "src/bin/validate_three_substrate.rs"
+required-features = ["barracuda-local"]
 
 # ── Multi-observable NPU monitoring: 8-feature ESN ──
 [[bin]]
 name = "validate_multi_observable_npu"
 path = "src/bin/validate_multi_observable_npu.rs"
+required-features = ["barracuda-local"]
 
 # ── NPU-driven adaptive beta steering ──
 [[bin]]
 name = "validate_adaptive_beta_scan"
 path = "src/bin/validate_adaptive_beta_scan.rs"
+required-features = ["barracuda-local"]
 
 # ── CG convergence predictor for dynamical QCD ──
 [[bin]]
 name = "validate_cg_predictor"
 path = "src/bin/validate_cg_predictor.rs"
+required-features = ["barracuda-local"]
 
 # ── STDP on-chip learning at phase boundary ──
 [[bin]]
 name = "validate_online_learning"
 path = "src/bin/validate_online_learning.rs"
+required-features = ["barracuda-local"]
 
 # ── Titan V teaches NPU via precision ground truth ──
 [[bin]]
 name = "validate_titan_oracle"
 path = "src/bin/validate_titan_oracle.rs"
+required-features = ["barracuda-local"]
 
 # ── Production quenched beta-scan (multi-point, checkpointed) ──
 [[bin]]
 name = "production_beta_scan"
 path = "src/bin/production_beta_scan.rs"
+required-features = ["barracuda-local"]
 
 [[bin]]
 name = "production_mixed_pipeline"
 path = "src/bin/production_mixed_pipeline.rs"
+required-features = ["barracuda-local"]
 
 # ── Production dynamical fermion beta-scan (resident CG) ──
 [[bin]]
 name = "production_dynamical_scan"
 path = "src/bin/production_dynamical_scan.rs"
+required-features = ["barracuda-local"]
 
 # ── Meta-table burst scanner (quenched + dynamical parameter sweeps) ──
 [[bin]]
 name = "meta_table_scan"
 path = "src/bin/meta_table_scan.rs"
+required-features = ["barracuda-local"]
 
 # ── Production dynamical + 9-head NPU mixed pipeline (Exp 023) ──
 [[bin]]
 name = "production_dynamical_mixed"
 path = "src/bin/production_dynamical_mixed.rs"
+required-features = ["barracuda-local"]
 
 # ── HMC parameter sweep — NPU training data (Exp 024) ──
 [[bin]]
 name = "production_dynamical_sweep"
 path = "src/bin/production_dynamical_sweep.rs"
+required-features = ["barracuda-local"]
 
 # ── Physics proxy pipeline — Anderson + Potts NPU training (Exp 025) ──
 [[bin]]
 name = "gpu_physics_proxy"
 path = "src/bin/gpu_physics_proxy.rs"
+required-features = ["barracuda-local"]
 
 # ── NPU characterization campaign (Exp 020) ──
 [[bin]]
 name = "npu_experiment_campaign"
 path = "src/bin/npu_experiment_campaign.rs"
+required-features = ["barracuda-local"]
 
 # ── Cross-substrate ESN benchmark (Exp 021) ──
 [[bin]]
 name = "cross_substrate_esn_benchmark"
 path = "src/bin/cross_substrate_esn_benchmark.rs"
+required-features = ["barracuda-local"]
 
 # ── Gen 2 NPU validation: 36-head ESN, disagreement map, concept edges ──
 [[bin]]
@@ -576,146 +659,181 @@ path = "src/bin/validate_gen2_npu.rs"
 [[bin]]
 name = "bench_backends"
 path = "src/bin/bench_backends.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 032: Finite-temperature β-scan (asymmetric N_s³×N_t lattices) ──
 [[bin]]
 name = "production_finite_temp"
 path = "src/bin/production_finite_temp.rs"
+required-features = ["barracuda-local"]
 
 # ── Gradient flow: production measurement of t₀ and w₀ scales ──
 [[bin]]
 name = "production_gradient_flow"
 path = "src/bin/production_gradient_flow.rs"
+required-features = ["barracuda-local"]
 
 # ── Gradient flow integrator comparison (Euler/RK2/W6/W7/CK4 convergence) ──
 [[bin]]
 name = "compare_flow_integrators"
 path = "src/bin/compare_flow_integrators.rs"
+required-features = ["barracuda-local"]
 
 # ── Gradient flow validation (Euler/RK2/RK3 cross-check) ──
 [[bin]]
 name = "validate_gradient_flow"
 path = "src/bin/validate_gradient_flow.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU gradient flow validation (Paper 43 GPU promotion) ──
 [[bin]]
 name = "validate_gpu_gradient_flow"
 path = "src/bin/validate_gpu_gradient_flow.rs"
+required-features = ["barracuda-local"]
 
 # ── N_f=4 staggered dynamical fermion HMC on GPU ──
 [[bin]]
 name = "production_dynamical"
 path = "src/bin/production_dynamical.rs"
+required-features = ["barracuda-local"]
 
 # ── Cross-spring evolution benchmark (GPU ops from all springs) ──
 [[bin]]
 name = "bench_cross_spring_evolution"
 path = "src/bin/bench_cross_spring_evolution.rs"
+required-features = ["barracuda-local"]
 
 # ── ESN baseline validation ──
 [[bin]]
 name = "esn_baseline_validation"
 path = "src/bin/esn_baseline_validation.rs"
+required-features = ["barracuda-local"]
 
 # ── BGK dielectric validation (Chuna & Murillo 2024) ──
 [[bin]]
 name = "validate_dielectric"
 path = "src/bin/validate_dielectric.rs"
+required-features = ["barracuda-local"]
 
 # ── GPU dielectric validation (Paper 44 GPU promotion) ──
 [[bin]]
 name = "validate_gpu_dielectric"
 path = "src/bin/validate_gpu_dielectric.rs"
+required-features = ["barracuda-local"]
 
 # ── Multi-species kinetic-fluid coupling (Haack et al. 2024) ──
 [[bin]]
 name = "validate_kinetic_fluid"
 path = "src/bin/validate_kinetic_fluid.rs"
+required-features = ["barracuda-local"]
 
 # ── DSF vs MD validation (Chuna Paper 44, Murillo DB) ──
 [[bin]]
 name = "validate_dsf_vs_md"
 path = "src/bin/validate_dsf_vs_md.rs"
+required-features = ["barracuda-local"]
 
 # ── Production gradient flow scale-setting (Chuna Paper 43) ──
 [[bin]]
 name = "gradient_flow_production"
 path = "src/bin/gradient_flow_production.rs"
+required-features = ["barracuda-local"]
 
 # ── Sovereign compiler FMA fusion benchmark (all WGSL shaders) ──
 [[bin]]
 name = "bench_sovereign_fma"
 path = "src/bin/bench_sovereign_fma.rs"
+required-features = ["barracuda-local"]
 
 # ── Gradient flow convergence benchmark (Paper 43 extension) ──
 [[bin]]
 name = "bench_flow_convergence"
 path = "src/bin/bench_flow_convergence.rs"
+required-features = ["barracuda-local"]
 
 # ── Chuna papers 43/44/45: unified portable validation artifact ──
+# ── CompChem FES GPU parity (CPU vs WGSL f64 Gaussian summation) ──
+[[bin]]
+name = "validate_compchem_gpu_parity"
+path = "src/bin/validate_compchem_gpu_parity.rs"
+required-features = ["barracuda-local"]
+
 [[bin]]
 name = "validate_chuna"
 path = "src/bin/validate_chuna.rs"
+required-features = ["barracuda-local"]
 
 # ── Chuna overnight: all Paper 43/44/45 validations in one run ──
 [[bin]]
 name = "validate_chuna_overnight"
 path = "src/bin/validate_chuna_overnight.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 32: Militzer FPEOS table validation ──
 [[bin]]
 name = "validate_fpeos"
 path = "src/bin/validate_fpeos.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 33: atoMEC average-atom validation ──
 [[bin]]
 name = "validate_atomec"
 path = "src/bin/validate_atomec.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 44 ext: PPPM dispatch overhead benchmark ──
 [[bin]]
 name = "bench_pppm_dispatch"
 path = "src/bin/bench_pppm_dispatch.rs"
+required-features = ["barracuda-local"]
 
 # ── Paper 45 ext: Dispatch overhead benchmark (Kokkos parity) ──
 [[bin]]
 name = "bench_dispatch_overhead"
 path = "src/bin/bench_dispatch_overhead.rs"
+required-features = ["barracuda-local"]
 
 # ── Phase 3: CPU vs GPU parity across all physics domains ──
 [[bin]]
 name = "validate_barracuda_cpu_gpu_parity"
 path = "src/bin/validate_barracuda_cpu_gpu_parity.rs"
+required-features = ["barracuda-local"]
 
 # ── Phase 3: Precision tier benchmark (f32/DF64/f64) ──
 [[bin]]
 name = "bench_precision_tiers"
 path = "src/bin/bench_precision_tiers.rs"
+required-features = ["barracuda-local"]
 
 # ── Live telemetry dashboard (petalTongue bridge) ──
 [[bin]]
 name = "live_telemetry_dashboard"
 path = "src/bin/live_telemetry_dashboard.rs"
+required-features = ["barracuda-local"]
 
 # ── 3-tier precision evaluation harness ──
 [[bin]]
 name = "bench_precision_eval"
 path = "src/bin/bench_precision_eval.rs"
+required-features = ["barracuda-local"]
 
 # ── MD Kokkos parity benchmark (9 Yukawa cases × all backends) ──
 [[bin]]
 name = "bench_md_parity"
 path = "src/bin/bench_md_parity.rs"
+required-features = ["barracuda-local"]
 
 # ── N-scaling complexity benchmark: barraCuda vs Kokkos across sizes ──
 [[bin]]
 name = "bench_kokkos_complexity"
 path = "src/bin/bench_kokkos_complexity.rs"
+required-features = ["barracuda-local"]
 
 # ── DF64 transcendental poisoning diagnostic ──
 [[bin]]
 name = "test_df64_nvk_poison"
 path = "src/bin/test_df64_nvk_poison.rs"
+required-features = ["barracuda-local"]
 
 # ── coralReef sovereign dispatch proof-of-concept ──
 [[bin]]
@@ -730,6 +848,7 @@ required-features = ["sovereign-dispatch"]
 [[bin]]
 name = "bench_sovereign_dispatch"
 path = "src/bin/bench_sovereign_dispatch.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 070: BAR0 register dump (JSON output for backend matrix) ──
 # Direct mmap path requires `low-level` feature; `--via-ember` works without it.
@@ -759,26 +878,31 @@ required-features = ["cuda-validation"]
 [[bin]]
 name = "validate_silicon_capabilities"
 path = "src/bin/validate_silicon_capabilities.rs"
+required-features = ["barracuda-local"]
 
 # ── Sovereign round-trip: raw WGSL vs naga re-emit GPU output comparison ──
 [[bin]]
 name = "validate_sovereign_roundtrip"
 path = "src/bin/validate_sovereign_roundtrip.rs"
+required-features = ["barracuda-local"]
 
 # ── Precision tier matrix: int2→df128 silicon characterization per GPU ──
 [[bin]]
 name = "validate_precision_matrix"
 path = "src/bin/validate_precision_matrix.rs"
+required-features = ["barracuda-local"]
 
 # ── Silicon science experiments: QCD ops × GPU silicon units × precision ──
 [[bin]]
 name = "validate_silicon_science"
 path = "src/bin/validate_silicon_science.rs"
+required-features = ["barracuda-local"]
 
 # ── QCD silicon benchmark: per-kernel profiling × lattice size × GPU vendor ──
 [[bin]]
 name = "bench_qcd_silicon"
 path = "src/bin/bench_qcd_silicon.rs"
+required-features = ["barracuda-local"]
 
 # bench_sovereign_parity excised — used coral-gpu directly.
 # Parity benchmarks now run via wgpu (sovereign roundtrip) vs coralReef IPC.
@@ -787,21 +911,25 @@ path = "src/bin/bench_qcd_silicon.rs"
 [[bin]]
 name = "bench_silicon_budget"
 path = "src/bin/bench_silicon_budget.rs"
+required-features = ["barracuda-local"]
 
 # ── Silicon saturation: per-unit micro-experiments (ALU, BW, cache, TMU) ──
 [[bin]]
 name = "bench_silicon_saturation"
 path = "src/bin/bench_silicon_saturation.rs"
+required-features = ["barracuda-local"]
 
 # ── Silicon composition: multi-unit parallel experiments ──
 [[bin]]
 name = "bench_silicon_composition"
 path = "src/bin/bench_silicon_composition.rs"
+required-features = ["barracuda-local"]
 
 # ── Production RHMC: all-flavors dynamical QCD (Nf=2, 2+1) ──
 [[bin]]
 name = "production_rhmc_scan"
 path = "src/bin/production_rhmc_scan.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 152: compute dispatch + provenance witness validation ──
 [[bin]]
@@ -812,36 +940,43 @@ path = "src/bin/validate_compute_dispatch.rs"
 [[bin]]
 name = "validate_ember_resilience"
 path = "src/bin/validate_ember_resilience.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 154: Titan V SEC2/ACR pipeline via ember IPC (PMU-first hypothesis) ──
 [[bin]]
 name = "exp154_sec2_acr_pipeline"
 path = "src/bin/exp154_sec2_acr_pipeline.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 155: K80 warm-cycle FECS dispatch via ember IPC ──
 [[bin]]
 name = "exp155_k80_warm_fecs"
 path = "src/bin/exp155_k80_warm_fecs.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 156: Reagent trace comparison (sovereign vs driver capture) ──
 [[bin]]
 name = "exp156_reagent_compare"
 path = "src/bin/exp156_reagent_compare.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 157: K80 DEVINIT replay experiment ──
 [[bin]]
 name = "exp157_k80_devinit_replay"
 path = "src/bin/exp157_k80_devinit_replay.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 158: SEC2 real firmware experiment ──
 [[bin]]
 name = "exp158_sec2_real_firmware"
 path = "src/bin/exp158_sec2_real_firmware.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 167: Warm handoff — nouveau HBM2 training → vfio sovereign compute ──
 [[bin]]
 name = "exp167_warm_handoff"
 path = "src/bin/exp167_warm_handoff.rs"
+required-features = ["barracuda-local"]
 
 # ── Exp 168: PMU firmware probe — P0 gate for Titan V sovereign compute ──────
 # Scans nv-kernel.o_binary / .run installers for GV100 PMU firmware blobs.

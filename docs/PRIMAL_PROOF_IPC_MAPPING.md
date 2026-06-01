@@ -111,7 +111,7 @@ This document maps every `barracuda::` call to the JSON-RPC method that would pr
 
 ## Migration Path
 
-### Current (v0.6.32)
+### Current (v0.6.32+)
 
 hotSpring uses a **dual-lane** model:
 - **Lane 1**: Library calls via `barracuda` path dependency (fast, zero IPC overhead)
@@ -128,6 +128,14 @@ hotSpring uses a **dual-lane** model:
 - Per-trio provenance modules: `ipc::provenance::{rhizocrypt, loamspine, sweetgrass}`
 - guideStone L6 certification: NUCLEUS deployment validation
 - Cross-sync: zero drift against primalSpring canonical 403 methods
+
+### Wave 64: Binary Feature Gates (May 31, 2026)
+
+- 130 `[[bin]]` entries now have `required-features = ["barracuda-local"]`
+- Default `cargo build` builds only IPC-native binaries (13 NUCLEUS bins + UniBin)
+- `cargo build --features barracuda-local` gates all GPU/physics/bench binaries
+- `cargo check --no-default-features --bins` passes cleanly (0 errors)
+- 622 lib tests pass without barracuda-local linked
 
 ### Tier 2 Live Science API (May 12 2026)
 
@@ -154,7 +162,9 @@ paths beyond fallback tiers. Modules evolved: `biome_status`, `method_register`,
 - All validation binaries confirm parity between lanes
 - ~~Wire `tier2_status()` into `hotspring_unibin status` subcommand~~ **DONE** (May 12)
 - ~~Wire `workload_preflight()` into scenario runner pre-check~~ **DONE** (May 12)
+- ~~Binary feature gates for barracuda-local~~ **DONE** (May 31 / Wave 64)
 - Phase D local dispatch parity validation on biomeGate hardware
+- GAP-HS-110: sovereign stack into `validate-primal-proof.sh` (`--sovereign` flag)
 
 ### CompositionContext Migration
 
