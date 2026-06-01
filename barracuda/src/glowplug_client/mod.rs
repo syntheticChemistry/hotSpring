@@ -399,6 +399,15 @@ impl GlowplugClient {
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("sovereign.boot: {e}")))
     }
+
+    /// Raw JSON-RPC to the compute/sovereign endpoint (NUCLEUS-routed when available).
+    pub fn rpc_call(
+        &self,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, GlowplugError> {
+        self.call_with_nucleus_fallback("compute", method, params)
+    }
 }
 
 // ── Free functions ──────────────────────────────────────────────────

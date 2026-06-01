@@ -41,9 +41,11 @@
 use std::time::{Duration, Instant};
 
 use hotspring_barracuda::ember_types::MmioBatchOp;
-use hotspring_barracuda::fleet_client::{
-    EmberClient, FleetDiscovery, discover_diesel_ember_socket,
-};
+use hotspring_barracuda::fleet_client::EmberClient;
+
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{connect_ember, extract_arg};
 
 // ── Falcon v5 register offsets (GV100, relative to engine base) ──────────
 
@@ -523,31 +525,6 @@ fn main() {
     println!("═══════════════════════════════════════");
 }
 
-fn connect_ember(bdf: &str, override_socket: Option<&str>) -> EmberClient {
-    if let Some(sock) = override_socket {
-        return EmberClient::connect(sock);
-    }
-    if let Some(sock) = discover_diesel_ember_socket(bdf) {
-        eprintln!("  diesel engine: found ember at {}", sock.display());
-        return EmberClient::connect(sock.to_string_lossy().as_ref());
-    }
-    if let Ok(disc) = FleetDiscovery::load_default() {
-        if let Some(sock) = disc.file().routes.get(bdf) {
-            return EmberClient::connect(sock);
-        }
-    }
-    for candidate in hotspring_barracuda::fleet_client::ember_socket_candidates(bdf) {
-        if candidate.exists() {
-            return EmberClient::connect(candidate.to_string_lossy().as_ref());
-        }
-    }
-    eprintln!("FATAL: no ember socket found for {bdf}");
-    std::process::exit(1);
-}
 
 fn tag(b: bool) -> &'static str { if b { "[OK]" } else { "[FAIL]" } }
 fn yn(b: bool) -> &'static str { if b { "YES" } else { "NO " } }
-
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
-}

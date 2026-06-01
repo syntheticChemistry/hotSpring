@@ -11,6 +11,7 @@ pub mod silicon_capabilities;
 pub mod silicon_qcd;
 pub mod silicon_saturation;
 pub mod silicon_science;
+pub mod sovereignty;
 pub mod validation_matrix;
 pub mod nuclear_eos_gpu;
 pub mod sarkas_gpu;

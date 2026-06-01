@@ -25,8 +25,12 @@
 
 use std::time::Duration;
 
-use hotspring_barracuda::fleet_client::{EmberClient, FleetDiscovery};
+use hotspring_barracuda::fleet_client::EmberClient;
 use hotspring_barracuda::validation::ValidationHarness;
+
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{extract_arg, try_connect_ember_probed};
 
 const PRAMIN_WINDOW: u32 = 0x700000;
 const PGRAPH_STATUS: u32 = 0x400700;
@@ -64,7 +68,7 @@ fn main() {
         println!("  Mode: DRY RUN (no writes)");
     }
 
-    let Some(ember) = connect_ember(&bdf) else {
+    let Some(ember) = try_connect_ember_probed(&bdf) else {
         eprintln!("ERROR: cannot connect to ember for {bdf}");
         harness.check_bool("ember reachable", false);
         harness.finish();
@@ -461,39 +465,3 @@ fn load_recipe(path: &str) -> Option<Vec<DevinitScript>> {
     serde_json::from_str(&data).ok()
 }
 
-fn connect_ember(bdf: &str) -> Option<EmberClient> {
-    if let Some(sock) = hotspring_barracuda::fleet_client::discover_diesel_ember_socket(bdf) {
-        let client = EmberClient::connect(sock.to_string_lossy().as_ref());
-        if client.mmio_read(bdf, 0).is_ok() {
-            return Some(client);
-        }
-    }
-    for candidate in hotspring_barracuda::fleet_client::ember_socket_candidates(bdf) {
-        if candidate.exists() {
-            let client = EmberClient::connect(candidate.to_string_lossy().as_ref());
-            if client.mmio_read(bdf, 0).is_ok() {
-                return Some(client);
-            }
-        }
-    }
-
-    let fleet_path = FleetDiscovery::resolve_path();
-    if let Ok(fleet) = FleetDiscovery::load(&fleet_path) {
-        if let Some(r) = fleet.file().devices.iter().find(|d| d.bdf == bdf) {
-            if let Some(sock) = &r.socket {
-                let client = EmberClient::connect(sock);
-                if client.mmio_read(bdf, 0).is_ok() {
-                    return Some(client);
-                }
-            }
-        }
-    }
-    None
-}
-
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.iter()
-        .position(|a| a == flag)
-        .and_then(|i| args.get(i + 1))
-        .cloned()
-}

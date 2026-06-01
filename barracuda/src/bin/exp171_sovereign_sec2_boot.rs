@@ -51,7 +51,34 @@ use std::io::{self, Write as IoWrite};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use hotspring_barracuda::low_level::Bar0Map;
+use hotspring_barracuda::ember_types::MmioBatchOp;
+use hotspring_barracuda::fleet_client::EmberClient;
+
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{connect_ember, extract_arg, is_dry_run};
+
+fn r32(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
+    match ember.mmio_read(bdf, offset) {
+        Ok(r) => r.value,
+        Err(e) => {
+            eprintln!("  WARN: mmio.read32({offset:#010x}): {e}");
+            0xDEAD_DEAD
+        }
+    }
+}
+
+fn w32(ember: &EmberClient, bdf: &str, offset: u32, value: u32) {
+    if let Err(e) = ember.mmio_write(bdf, offset, value) {
+        eprintln!("  WARN: mmio.write32({offset:#010x}, {value:#010x}): {e}");
+    }
+}
+
+fn batch(ember: &EmberClient, bdf: &str, ops: &[MmioBatchOp]) {
+    if let Err(e) = ember.mmio_batch(bdf, ops) {
+        eprintln!("  WARN: mmio.batch ({} ops): {e}", ops.len());
+    }
+}
 
 // ── Register Map ──────────────────────────────────────────────────────────────
 
@@ -113,10 +140,15 @@ const SEC2_CONFIG2: u32 = SEC2_BASE + 0x048; // Falcon config 2
 const SEC2_CONFIG3: u32 = SEC2_BASE + 0x054; // ACR alias selector
 const SEC2_ACR_PRIV: u32 = SEC2_BASE + 0x090; // ACR privilege config
 const SEC2_ACR_DC: u32 = SEC2_BASE + 0x0dc; // ACR data-cache config
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const SEC2_IMEMC: u32 = SEC2_BASE + 0x180; // IMEM control
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const SEC2_IMEMD: u32 = SEC2_BASE + 0x184; // IMEM data (auto-increment)
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const SEC2_IMETTAG: u32 = SEC2_BASE + 0x188; // IMEM virtual page tag
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const SEC2_DMEMC: u32 = SEC2_BASE + 0x1c0; // DMEM control
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const SEC2_DMEMD: u32 = SEC2_BASE + 0x1c4; // DMEM data
 const SEC2_RESET: u32 = SEC2_BASE + 0x3c0; // Soft-reset toggle
 const SEC2_MODE: u32 = SEC2_BASE + 0x058; // Mode (bit1 = ACR mode)
@@ -129,6 +161,7 @@ const SEC2_ACR_CMD: u32 = SEC2_BASE + 0xac0; // ACR command register
 const SEC2_ACR_DATA: u32 = SEC2_BASE + 0xac4; // ACR data register
 
 // IMEMC fields
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const SEC2_IMEMC_AUTOINCR: u32 = 0x0100_0000; // bit24 = autoincrement
 const SEC2_IMEMC_PAGE_FE00: u32 = 0x0000_fe00; // physical IMEM byte address 0xfe00
 const SEC2_IMEM_WORDS_PER_PAGE: usize = 64; // 256 bytes per page
@@ -179,10 +212,13 @@ fn main() {
     let fw_path = extract_arg(&args, "--firmware")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("wateringHole/titanv_sec2_fw_from_trace.bin"));
+    let dry_run = is_dry_run(&args);
+    let ember_socket = extract_arg(&args, "--ember-socket");
 
     banner();
     println!("  BDF:       {bdf}");
-    println!("  Firmware:  {}\n", fw_path.display());
+    println!("  Firmware:  {}", fw_path.display());
+    println!("  Dry-run:   {dry_run}\n");
 
     // ── Load SEC2 firmware ────────────────────────────────────────────────────
     let fw_bytes = std::fs::read(&fw_path).unwrap_or_else(|e| {
@@ -212,24 +248,21 @@ fn main() {
         );
     }
 
-    // ── Open BAR0 ────────────────────────────────────────────────────────────
-    let resource0 = format!("/sys/bus/pci/devices/{bdf}/resource0");
-    let bar0 = Bar0Map::open(&resource0).unwrap_or_else(|e| {
-        eprintln!("FATAL: cannot open {resource0}: {e}");
-        std::process::exit(1);
-    });
+    // ── Connect to ember ───────────────────────────────────────────────────
+    let ember = connect_ember(&bdf,  ember_socket.as_deref());
+    println!("  Ember:     {}\n", ember.socket_path().display());
 
     // ── Phase 1: Verify pre-conditions ───────────────────────────────────────
     println!("\n━━━ Phase 1: Pre-condition Check ━━━\n");
 
-    let boot0 = bar0.r32(BOOT0);
+    let boot0 = r32(&ember, &bdf, BOOT0);
     println!("  BOOT0          = {boot0:#010x}  (GV100 = 0x140000a1)");
     if boot0 == 0xffff_ffff || boot0 == 0 {
         eprintln!("FATAL: GPU link dead. Run exp170 first.");
         std::process::exit(1);
     }
 
-    let pmc_en = bar0.r32(PMC_ENABLE);
+    let pmc_en = r32(&ember, &bdf, PMC_ENABLE);
     println!("  PMC_ENABLE     = {pmc_en:#010x}");
     let devinit_done = pmc_en == PMC_ENABLE_WITH_SEC2 || pmc_en == PMC_ENABLE_NO_SEC2;
     if !devinit_done {
@@ -239,9 +272,9 @@ fn main() {
     }
     println!("  DEVINIT: OK ({pmc_en:#010x})");
 
-    let pt_hi0 = bar0.r32(PTIMER_DEN);
+    let pt_hi0 = r32(&ember, &bdf, PTIMER_DEN);
     std::thread::sleep(Duration::from_millis(5));
-    let pt_hi1 = bar0.r32(PTIMER_DEN);
+    let pt_hi1 = r32(&ember, &bdf, PTIMER_DEN);
     println!(
         "  PTIMER_DEN     = {pt_hi0:#010x} → {pt_hi1:#010x}  ({})",
         if pt_hi1 != pt_hi0 {
@@ -252,36 +285,41 @@ fn main() {
     );
 
     // Read PRIV_RING state at CORRECT addresses
-    let pr_cmd = bar0.r32(PRIV_RING_CMD);
-    let pr_status = bar0.r32(PRIV_RING_STATUS);
-    let pr_info0 = bar0.r32(PRIV_RING_INFO_0);
-    let pr_master = bar0.r32(PRIV_RING_MASTER0);
+    let pr_cmd = r32(&ember, &bdf, PRIV_RING_CMD);
+    let pr_status = r32(&ember, &bdf, PRIV_RING_STATUS);
+    let pr_info0 = r32(&ember, &bdf, PRIV_RING_INFO_0);
+    let pr_master = r32(&ember, &bdf, PRIV_RING_MASTER0);
     println!("  PRIV_RING_CMD    [0x12004c] = {pr_cmd:#010x}  (0=idle, 2=pending)");
     println!("  PRIV_RING_STATUS [0x12006c] = {pr_status:#010x}");
     println!("  PRIV_RING_INFO   [0x120058] = {pr_info0:#010x}");
     println!("  PRIV_RING_MASTER [0x120070] = {pr_master:#010x}");
 
     // Read hardware-detected WPR bounds
-    let wpr_hw_cfg = bar0.r32(WPR_HW_CFG);
-    let wpr_hw_lo = bar0.r32(WPR_HW_LO);
-    let wpr_hw_hi = bar0.r32(WPR_HW_HI);
-    let wpr_hw_end = bar0.r32(WPR_HW_END);
+    let wpr_hw_cfg = r32(&ember, &bdf, WPR_HW_CFG);
+    let wpr_hw_lo = r32(&ember, &bdf, WPR_HW_LO);
+    let wpr_hw_hi = r32(&ember, &bdf, WPR_HW_HI);
+    let wpr_hw_end = r32(&ember, &bdf, WPR_HW_END);
     println!("  WPR_HW_CFG [0x100c80] = {wpr_hw_cfg:#010x}");
     println!("  WPR_HW_LO  [0x100cc4] = {wpr_hw_lo:#010x}");
     println!("  WPR_HW_HI  [0x100cc8] = {wpr_hw_hi:#010x}");
     println!("  WPR_HW_END [0x100ccc] = {wpr_hw_end:#010x}");
 
     // Read current WPR controller state
-    let wpr_cfg_now = bar0.r32(WPR_CFG);
+    let wpr_cfg_now = r32(&ember, &bdf, WPR_CFG);
     println!("  WPR_CFG    [0x1fac80] = {wpr_cfg_now:#010x}  (current)");
 
     // Read SEC2 baseline
-    let sec2_hwcfg = bar0.r32(SEC2_HWCFG);
-    let sec2_cpuctl = bar0.r32(SEC2_CPUCTL);
-    let sec2_mb0 = bar0.r32(SEC2_MAILBOX0);
+    let sec2_hwcfg = r32(&ember, &bdf, SEC2_HWCFG);
+    let sec2_cpuctl = r32(&ember, &bdf, SEC2_CPUCTL);
+    let sec2_mb0 = r32(&ember, &bdf, SEC2_MAILBOX0);
     println!("  SEC2_HWCFG [0x08710c] = {sec2_hwcfg:#010x}  (bit0=idle)");
     println!("  SEC2_CPUCTL[0x087100] = {sec2_cpuctl:#010x}  (0x10=HRESET, 0=running)");
     println!("  SEC2_MB0   [0x087040] = {sec2_mb0:#010x}");
+
+    if dry_run {
+        println!("\n  (dry-run mode: no writes will occur)");
+        return;
+    }
 
     // ── Phase 2: WPR Configuration ────────────────────────────────────────────
     println!("\n━━━ Phase 2: WPR Configuration ━━━\n");
@@ -289,16 +327,20 @@ fn main() {
     // Copy hardware-detected WPR bounds to WPR controller
     // (as seen in mmiotrace lines 99082-99094, immediately after DEVINIT trigger)
     println!("  Writing WPR bounds from hardware detection...");
-    bar0.w32(WPR_CFG, wpr_hw_cfg);
-    bar0.w32(WPR_LO, wpr_hw_lo);
-    bar0.w32(WPR_HI, wpr_hw_hi);
-    bar0.w32(WPR_END, wpr_hw_end);
-
-    // Also set FB NISO address mask (from trace line 99082: W 0x100c10 = 0x00fffff0)
-    bar0.w32(0x100c10, 0x00ff_fff0);
+    batch(
+        &ember,
+        &bdf,
+        &[
+            MmioBatchOp::write(WPR_CFG, wpr_hw_cfg),
+            MmioBatchOp::write(WPR_LO, wpr_hw_lo),
+            MmioBatchOp::write(WPR_HI, wpr_hw_hi),
+            MmioBatchOp::write(WPR_END, wpr_hw_end),
+            MmioBatchOp::write(0x100c10, 0x00ff_fff0),
+        ],
+    );
 
     // Verify write-back
-    let wpr_cfg_new = bar0.r32(WPR_CFG);
+    let wpr_cfg_new = r32(&ember, &bdf, WPR_CFG);
     println!("  WPR_CFG [0x1fac80] wrote {wpr_hw_cfg:#010x}, reads back {wpr_cfg_new:#010x}");
     if wpr_cfg_new != wpr_hw_cfg {
         println!("  WARN: WPR_CFG readback mismatch (register may be WO or protected)");
@@ -308,16 +350,16 @@ fn main() {
     println!("\n━━━ Phase 3: PRIV_RING Device Enumeration ━━━\n");
 
     // PRIV_RING_CMD = 2 triggers device enumeration (as in mmiotrace lines 99018-99020)
-    let pr_before = bar0.r32(PRIV_RING_CMD);
+    let pr_before = r32(&ember, &bdf, PRIV_RING_CMD);
     println!("  PRIV_RING_CMD before = {pr_before:#010x}");
-    bar0.w32(PRIV_RING_CMD, 0x0000_0002);
+    w32(&ember, &bdf, PRIV_RING_CMD, 0x0000_0002);
     std::thread::sleep(Duration::from_millis(1));
-    let pr_after = bar0.r32(PRIV_RING_CMD);
+    let pr_after = r32(&ember, &bdf, PRIV_RING_CMD);
     println!("  PRIV_RING_CMD after  = {pr_after:#010x}  (0=enum done)");
 
     // Read updated ring status
-    let pr_status2 = bar0.r32(PRIV_RING_STATUS);
-    let pr_devinfo = bar0.r32(PRIV_RING_DEV_INFO);
+    let pr_status2 = r32(&ember, &bdf, PRIV_RING_STATUS);
+    let pr_devinfo = r32(&ember, &bdf, PRIV_RING_DEV_INFO);
     println!("  PRIV_RING_STATUS  = {pr_status2:#010x}");
     println!("  PRIV_RING_DEVINFO = {pr_devinfo:#010x}");
 
@@ -325,27 +367,31 @@ fn main() {
     println!("\n━━━ Phase 4: SEC2 Pre-load Setup ━━━\n");
 
     // Set PMC_ENABLE to SEC2-enabled state
-    bar0.w32(PMC_ENABLE, PMC_ENABLE_WITH_SEC2);
+    w32(&ember, &bdf, PMC_ENABLE, PMC_ENABLE_WITH_SEC2);
     std::thread::sleep(Duration::from_millis(1));
-    let pmc_now = bar0.r32(PMC_ENABLE);
+    let pmc_now = r32(&ember, &bdf, PMC_ENABLE);
     println!("  PMC_ENABLE = {pmc_now:#010x}");
 
     // Clear SEC2 mailbox and interrupts
-    bar0.w32(SEC2_MAILBOX0, 0x0000_0000);
-    bar0.w32(SEC2_IRQMASK, 0xffff_ffff);
+    w32(&ember, &bdf, SEC2_MAILBOX0, 0x0000_0000);
+    w32(&ember, &bdf, SEC2_IRQMASK, 0xffff_ffff);
 
     // Set boot vector argument (GPU chip ID, as in trace line 281180)
-    bar0.w32(SEC2_BOOTVEC2, SEC2_BOOT_ARG);
+    w32(&ember, &bdf, SEC2_BOOTVEC2, SEC2_BOOT_ARG);
     println!("  SEC2_BOOTVEC2 ← {SEC2_BOOT_ARG:#010x} (GV100 chip ID)");
 
     // Initial config2
-    bar0.w32(SEC2_CONFIG2, 0x0000_0004);
+    w32(&ember, &bdf, SEC2_CONFIG2, 0x0000_0004);
 
     // Wait for SEC2 idle (HWCFG bit0 = 1)
     print!("  Waiting for SEC2 idle: ");
     let _ = io::stdout().flush();
     for _ in 0..100 {
-        let hwcfg = bar0.r32(SEC2_HWCFG);
+        let hwcfg = r32(&ember, &bdf, SEC2_HWCFG);
+        if hwcfg == 0xFFFF_FFFF {
+            eprintln!("WARN: D3cold sentinel");
+            break;
+        }
         if hwcfg & 0x1 != 0 {
             println!("OK ({hwcfg:#010x})");
             break;
@@ -359,19 +405,19 @@ fn main() {
     // (replicating mmiotrace lines 281186-281226)
     println!("  PMC toggle: SEC2 disable → reset → re-enable");
 
-    bar0.w32(PMC_ENABLE, PMC_ENABLE_NO_SEC2);
+    w32(&ember, &bdf, PMC_ENABLE, PMC_ENABLE_NO_SEC2);
 
     // First reset pulse
-    bar0.w32(SEC2_RESET, 0x0000_0001);
+    w32(&ember, &bdf, SEC2_RESET, 0x0000_0001);
     std::thread::sleep(Duration::from_millis(1));
-    let rst = bar0.r32(SEC2_RESET);
+    let rst = r32(&ember, &bdf, SEC2_RESET);
     println!("  SEC2_RESET asserted = {rst:#010x}");
-    bar0.w32(SEC2_RESET, 0x0000_0000);
+    w32(&ember, &bdf, SEC2_RESET, 0x0000_0000);
 
     // Poll SEC2_HWCFG until it settles (0x7 during reset, 0x1 when done)
     let t_rst = Instant::now();
     loop {
-        let hwcfg = bar0.r32(SEC2_HWCFG);
+        let hwcfg = r32(&ember, &bdf, SEC2_HWCFG);
         if hwcfg == 0x0000_0001 || t_rst.elapsed() > Duration::from_millis(50) {
             println!("  SEC2_HWCFG after reset1 = {hwcfg:#010x}");
             break;
@@ -380,13 +426,13 @@ fn main() {
     }
 
     // Second reset pulse (as in trace)
-    bar0.w32(SEC2_RESET, 0x0000_0001);
+    w32(&ember, &bdf, SEC2_RESET, 0x0000_0001);
     std::thread::sleep(Duration::from_millis(1));
-    bar0.w32(SEC2_RESET, 0x0000_0000);
+    w32(&ember, &bdf, SEC2_RESET, 0x0000_0000);
 
     let t_rst2 = Instant::now();
     loop {
-        let hwcfg = bar0.r32(SEC2_HWCFG);
+        let hwcfg = r32(&ember, &bdf, SEC2_HWCFG);
         if hwcfg == 0x0000_0001 || t_rst2.elapsed() > Duration::from_millis(50) {
             println!("  SEC2_HWCFG after reset2 = {hwcfg:#010x}");
             break;
@@ -395,80 +441,88 @@ fn main() {
     }
 
     // Re-enable SEC2
-    bar0.w32(PMC_ENABLE, PMC_ENABLE_WITH_SEC2);
+    w32(&ember, &bdf, PMC_ENABLE, PMC_ENABLE_WITH_SEC2);
     std::thread::sleep(Duration::from_millis(1));
-    bar0.w32(SEC2_MAILBOX0, 0x0000_0000);
+    w32(&ember, &bdf, SEC2_MAILBOX0, 0x0000_0000);
 
     // Final idle check
-    let hwcfg_final = bar0.r32(SEC2_HWCFG);
+    let hwcfg_final = r32(&ember, &bdf, SEC2_HWCFG);
     println!("  SEC2_HWCFG post-reset = {hwcfg_final:#010x}  (expect 0x1 = idle)");
 
     // Set boot vector argument again after reset
-    bar0.w32(SEC2_BOOTVEC2, SEC2_BOOT_ARG);
+    w32(&ember, &bdf, SEC2_BOOTVEC2, SEC2_BOOT_ARG);
 
     // Config2 set to 0x5 (ACR variant, as in trace line 281234)
-    bar0.w32(SEC2_CONFIG2, 0x0000_0005);
+    w32(&ember, &bdf, SEC2_CONFIG2, 0x0000_0005);
 
     // FBIF config (read-modify-write, trace lines 281235-281236)
-    let fbif = bar0.r32(SEC2_FBIF);
-    bar0.w32(SEC2_FBIF, fbif);
+    let fbif = r32(&ember, &bdf, SEC2_FBIF);
+    w32(&ember, &bdf, SEC2_FBIF, fbif);
     println!("  SEC2_FBIF = {fbif:#010x}");
 
     // ACR alias selector (trace line 281237: W 0x087054 = 0x402ffe57)
-    bar0.w32(SEC2_CONFIG3, 0x402f_fe57);
+    w32(&ember, &bdf, SEC2_CONFIG3, 0x402f_fe57);
     println!("  SEC2_CONFIG3 ← 0x402ffe57 (ACR alias selector)");
 
     // ACR privilege mode (trace line 281238-281239)
-    let acr_priv = bar0.r32(SEC2_ACR_PRIV);
-    bar0.w32(SEC2_ACR_PRIV, acr_priv | 0x0001_0000);
+    let acr_priv = r32(&ember, &bdf, SEC2_ACR_PRIV);
+    w32(&ember, &bdf, SEC2_ACR_PRIV, acr_priv | 0x0001_0000);
     println!(
         "  SEC2_ACR_PRIV = {acr_priv:#010x} → {:#010x}",
         acr_priv | 0x0001_0000
     );
 
     // Enable ACR interrupt (trace lines 281240-281245)
-    bar0.w32(SEC2_IRQMSKSET, 0x0000_0008);
-    let irqstat = bar0.r32(SEC2_IRQSTAT);
+    w32(&ember, &bdf, SEC2_IRQMSKSET, 0x0000_0008);
+    let irqstat = r32(&ember, &bdf, SEC2_IRQSTAT);
     println!("  SEC2_IRQSTAT = {irqstat:#010x}");
-    bar0.w32(SEC2_IRQCLR, 0x0000_0008);
+    w32(&ember, &bdf, SEC2_IRQCLR, 0x0000_0008);
 
     // Set ACR mode (trace line 281247: W 0x087058 = 0x2)
-    bar0.w32(SEC2_MODE, 0x0000_0002);
-    let dc = bar0.r32(SEC2_ACR_DC);
+    w32(&ember, &bdf, SEC2_MODE, 0x0000_0002);
+    let dc = r32(&ember, &bdf, SEC2_ACR_DC);
     println!("  SEC2_MODE ← 0x2 (ACR mode)");
     println!("  SEC2_ACR_DC = {dc:#010x}");
 
     // ── Phase 5: SEC2 IMEM Load ───────────────────────────────────────────────
     println!("\n━━━ Phase 5: SEC2 IMEM Firmware Load ━━━\n");
 
-    // Load page 0: 64 words at physical 0xfe00, virtual tag 0xfd
+    let page0_bytes_len = (SEC2_IMEM_WORDS_PER_PAGE * 4).min(fw_bytes.len());
     println!("  IMEMC ← 0x0100fe00 (autoincr, page 0xfe00)");
-    bar0.w32(SEC2_IMEMC, SEC2_IMEMC_AUTOINCR | SEC2_IMEMC_PAGE_FE00);
-    bar0.w32(SEC2_IMETTAG, 0x0000_00fd); // virtual page tag 0xfd
-    let page0_words = SEC2_IMEM_WORDS_PER_PAGE.min(fw_words.len());
     println!(
-        "  IMETTAG ← 0xfd  writing {} words (page 0)...",
-        page0_words
+        "  IMETTAG ← 0xfd  writing {} bytes (page 0)...",
+        page0_bytes_len
     );
-    for i in 0..page0_words {
-        bar0.w32(SEC2_IMEMD, fw_words[i]);
+    match ember.falcon_upload_imem(
+        &bdf,
+        SEC2_BASE,
+        SEC2_IMEMC_PAGE_FE00,
+        &fw_bytes[..page0_bytes_len],
+        0x0000_00fd,
+        false,
+    ) {
+        Ok(r) if r.ok => println!("  Page 0 upload: {:?} bytes", r.bytes),
+        Ok(r) => eprintln!("  WARN: page 0 upload ok=false bytes={:?}", r.bytes),
+        Err(e) => eprintln!("  WARN: page 0 upload failed: {e}"),
     }
 
-    // Load page 1: next 64 words, virtual tag 0xfe
-    if fw_words.len() > SEC2_IMEM_WORDS_PER_PAGE {
-        bar0.w32(SEC2_IMETTAG, 0x0000_00fe); // virtual page tag 0xfe
-        let start = SEC2_IMEM_WORDS_PER_PAGE;
-        let end = (start + SEC2_IMEM_WORDS_PER_PAGE).min(fw_words.len());
+    if fw_bytes.len() > page0_bytes_len {
+        let page1_len = fw_bytes.len() - page0_bytes_len;
         println!(
-            "  IMETTAG ← 0xfe  writing {} words (page 1)...",
-            end - start
+            "  IMETTAG ← 0xfe  writing {} bytes (page 1)...",
+            page1_len
         );
-        for i in start..end {
-            bar0.w32(SEC2_IMEMD, fw_words[i]);
-        }
-        // Pad page 1 to 64 words with zeros if firmware was short
-        for _ in (end - start)..SEC2_IMEM_WORDS_PER_PAGE {
-            bar0.w32(SEC2_IMEMD, 0x0000_0000);
+        match ember.falcon_upload_imem(
+            &bdf,
+            SEC2_BASE,
+            SEC2_IMEMC_PAGE_FE00 + page0_bytes_len as u32,
+            &fw_bytes[page0_bytes_len..],
+            0x0000_00fe,
+            false,
+        ) {
+            Ok(r) if r.ok => println!("  Page 1 upload: {:?} bytes", r.bytes),
+            Ok(r) => eprintln!("  WARN: page 1 upload ok=false bytes={:?}", r.bytes),
+            Err(e) => eprintln!("  WARN: page 1 upload failed: {e}"),
         }
     }
 
@@ -478,30 +532,34 @@ fn main() {
     println!("\n━━━ Phase 6: SEC2 DMEM Descriptor ━━━\n");
 
     // DMEMC = autoincrement from offset 0
-    bar0.w32(SEC2_DMEMC, 0x0100_0000);
+    let dmem_bytes: Vec<u8> = SEC2_DMEM_DESC
+        .iter()
+        .flat_map(|w| w.to_le_bytes())
+        .collect();
     println!("  DMEMC ← 0x01000000 (autoincr, offset 0)");
     println!(
         "  Writing {} DMEM descriptor words...",
         SEC2_DMEM_DESC.len()
     );
-    for &word in &SEC2_DMEM_DESC {
-        bar0.w32(SEC2_DMEMD, word);
+    match ember.falcon_upload_dmem(&bdf, SEC2_BASE, 0, &dmem_bytes) {
+        Ok(r) if r.ok => println!("  DMEM descriptor written ({:?} bytes)", r.bytes),
+        Ok(r) => eprintln!("  WARN: DMEM upload ok=false bytes={:?}", r.bytes),
+        Err(e) => eprintln!("  WARN: DMEM upload failed: {e}"),
     }
-    println!("  DMEM descriptor written");
 
     // ── Phase 7: SEC2 STARTCPU ────────────────────────────────────────────────
     println!("\n━━━ Phase 7: SEC2 STARTCPU ━━━\n");
 
     // Write cafebeef sentinel to mailbox0 (Boot Falcon clears it when done)
-    bar0.w32(SEC2_MAILBOX0, SEC2_MAGIC);
+    w32(&ember, &bdf, SEC2_MAILBOX0, SEC2_MAGIC);
     println!("  SEC2_MAILBOX0 ← 0xcafebeef (sentinel)");
 
     // Set boot vector (entry at virtual 0xfd00)
-    bar0.w32(SEC2_BOOTVEC, SEC2_BOOTVEC_ENTRY);
+    w32(&ember, &bdf, SEC2_BOOTVEC, SEC2_BOOTVEC_ENTRY);
     println!("  SEC2_BOOTVEC  ← {SEC2_BOOTVEC_ENTRY:#010x}");
 
     // STARTCPU
-    bar0.w32(SEC2_CPUCTL, 0x0000_0002);
+    w32(&ember, &bdf, SEC2_CPUCTL, 0x0000_0002);
     let t_start = Instant::now();
     println!("  SEC2_CPUCTL   ← 0x2 (STARTCPU) — SEC2 is running");
 
@@ -514,7 +572,11 @@ fn main() {
 
     for _ in 0..500 {
         std::thread::sleep(Duration::from_millis(2));
-        let cpuctl = bar0.r32(SEC2_CPUCTL);
+        let cpuctl = r32(&ember, &bdf, SEC2_CPUCTL);
+        if cpuctl == 0xFFFF_FFFF {
+            eprintln!("WARN: D3cold sentinel");
+            break;
+        }
         // Bit 4 = HRESET, bit 6 = halted; expect 0x10 or 0x50
         if cpuctl & 0x10 != 0 {
             let elapsed = t_start.elapsed();
@@ -530,19 +592,19 @@ fn main() {
     }
 
     if !sec2_done {
-        let cpuctl = bar0.r32(SEC2_CPUCTL);
+        let cpuctl = r32(&ember, &bdf, SEC2_CPUCTL);
         println!("\n  TIMEOUT after 1s! SEC2_CPUCTL = {cpuctl:#010x}");
     }
 
     // ── Phase 9: Post-SEC2 State Probe ────────────────────────────────────────
     println!("\n━━━ Phase 9: Post-SEC2 State Probe ━━━\n");
 
-    let sec2_cpuctl = bar0.r32(SEC2_CPUCTL);
-    let sec2_mb0 = bar0.r32(SEC2_MAILBOX0);
-    let sec2_irqstat = bar0.r32(SEC2_IRQSTAT);
-    let sec2_unk1c = bar0.r32(SEC2_UNK1C);
-    let sec2_irqmsk = bar0.r32(SEC2_IRQMASK);
-    let pmc_final = bar0.r32(PMC_ENABLE);
+    let sec2_cpuctl = r32(&ember, &bdf, SEC2_CPUCTL);
+    let sec2_mb0 = r32(&ember, &bdf, SEC2_MAILBOX0);
+    let sec2_irqstat = r32(&ember, &bdf, SEC2_IRQSTAT);
+    let sec2_unk1c = r32(&ember, &bdf, SEC2_UNK1C);
+    let sec2_irqmsk = r32(&ember, &bdf, SEC2_IRQMASK);
+    let pmc_final = r32(&ember, &bdf, PMC_ENABLE);
 
     println!("  SEC2_CPUCTL  [0x087100] = {sec2_cpuctl:#010x}  (0x10=HRESET, 0x50=halt+bit6)");
     println!("  SEC2_MB0     [0x087040] = {sec2_mb0:#010x}  (0=sentinel cleared by SEC2)");
@@ -552,18 +614,18 @@ fn main() {
     println!("  PMC_ENABLE              = {pmc_final:#010x}");
 
     // Read ACR registers
-    let acr_status = bar0.r32(SEC2_ACR_STATUS);
-    let acr_ctl = bar0.r32(SEC2_ACR_CTL);
+    let acr_status = r32(&ember, &bdf, SEC2_ACR_STATUS);
+    let acr_ctl = r32(&ember, &bdf, SEC2_ACR_CTL);
     println!("  SEC2_ACR_STATUS [0x087a34] = {acr_status:#010x}");
     println!("  SEC2_ACR_CTL    [0x087a30] = {acr_ctl:#010x}");
 
     // PRIV_RING final state (CORRECT addresses)
     println!();
-    let pr_cmd_f = bar0.r32(PRIV_RING_CMD);
-    let pr_status_f = bar0.r32(PRIV_RING_STATUS);
-    let pr_info_f = bar0.r32(PRIV_RING_DEV_INFO);
-    let pr_cnt = bar0.r32(PRIV_RING_DEV_INFO + 4);
-    let pr_flags = bar0.r32(PRIV_RING_DEV_INFO + 8);
+    let pr_cmd_f = r32(&ember, &bdf, PRIV_RING_CMD);
+    let pr_status_f = r32(&ember, &bdf, PRIV_RING_STATUS);
+    let pr_info_f = r32(&ember, &bdf, PRIV_RING_DEV_INFO);
+    let pr_cnt = r32(&ember, &bdf, PRIV_RING_DEV_INFO + 4);
+    let pr_flags = r32(&ember, &bdf, PRIV_RING_DEV_INFO + 8);
     println!("  PRIV_RING_CMD    [0x12004c] = {pr_cmd_f:#010x}  (0=idle ✓)");
     println!("  PRIV_RING_STATUS [0x12006c] = {pr_status_f:#010x}");
     println!("  PRIV_RING_DEVINFO[0x122120] = {pr_info_f:#010x}");
@@ -572,17 +634,17 @@ fn main() {
 
     // WPR final state
     println!();
-    let wpr_cfg_f = bar0.r32(WPR_CFG);
-    let wpr_lo_f = bar0.r32(WPR_LO);
-    let wpr_hi_f = bar0.r32(WPR_HI);
+    let wpr_cfg_f = r32(&ember, &bdf, WPR_CFG);
+    let wpr_lo_f = r32(&ember, &bdf, WPR_LO);
+    let wpr_hi_f = r32(&ember, &bdf, WPR_HI);
     println!("  WPR_CFG [0x1fac80] = {wpr_cfg_f:#010x}");
     println!("  WPR_LO  [0x1facc4] = {wpr_lo_f:#010x}");
     println!("  WPR_HI  [0x1facc8] = {wpr_hi_f:#010x}");
 
     // PTIMER sanity
-    let pt0 = bar0.r32(PTIMER_DEN);
+    let pt0 = r32(&ember, &bdf, PTIMER_DEN);
     std::thread::sleep(Duration::from_millis(10));
-    let pt1 = bar0.r32(PTIMER_DEN);
+    let pt1 = r32(&ember, &bdf, PTIMER_DEN);
     println!();
     println!(
         "  PTIMER_DEN = {pt0:#010x} → {pt1:#010x}  ({})",
@@ -640,8 +702,4 @@ fn banner() {
     println!("║  EXP 171: Sovereign GV100 SEC2 Boot — ACR/WPR Init          ║");
     println!("║  Goal: SEC2 ACR → PRIV_RING idle → WPR configured           ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
-}
-
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }

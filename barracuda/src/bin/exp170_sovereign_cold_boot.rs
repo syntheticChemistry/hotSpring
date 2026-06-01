@@ -37,6 +37,8 @@
 //!
 //! With --reset flag: writes PM_CSR[1:0]=3 (D3hot) then 0 (D0) via PCI
 //! config space at offset 0x54, giving clean hardware state.
+//! Note: PCI config space writes cannot go through ember (BAR0 only).
+//! For a full power cycle, use `glowplug.device.reset()` RPC instead.
 //!
 //! ## Usage
 //!
@@ -51,16 +53,41 @@ use std::io::{self, Write as IoWrite};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use hotspring_barracuda::low_level::Bar0Map;
+use hotspring_barracuda::ember_types::MmioBatchOp;
+use hotspring_barracuda::fleet_client::EmberClient;
+
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{connect_ember, extract_arg, is_dry_run};
+
+fn r32(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
+    match ember.mmio_read(bdf, offset) {
+        Ok(r) => r.value,
+        Err(e) => {
+            eprintln!("  WARN: mmio.read32({offset:#010x}): {e}");
+            0xDEAD_DEAD
+        }
+    }
+}
+
+fn w32(ember: &EmberClient, bdf: &str, offset: u32, value: u32) {
+    if let Err(e) = ember.mmio_write(bdf, offset, value) {
+        eprintln!("  WARN: mmio.write32({offset:#010x}, {value:#010x}): {e}");
+    }
+}
+
+fn batch(ember: &EmberClient, bdf: &str, ops: &[MmioBatchOp]) {
+    if let Err(e) = ember.mmio_batch(bdf, ops) {
+        eprintln!("  WARN: mmio.batch ({} ops): {e}", ops.len());
+    }
+}
 
 // ── Registers ────────────────────────────────────────────────────────────────
 
 // Power management
 const PMC_INTR_EN_SET_0: u32 = 0x000180;
 const PMC_INTR_EN_SET_1: u32 = 0x000184;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMC_INTR_0: u32 = 0x000160;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const PMC_INTR_1: u32 = 0x000164;
 const PMC_ENABLE: u32 = 0x000200;
 
@@ -73,8 +100,11 @@ const BF_DMEMD0: u32 = BF_BASE + 0x084; // DMEM[0] boot arg
 const BF_CPUCTL: u32 = BF_BASE + 0x100;
 const BF_ALIAS: u32 = BF_BASE + 0x104;
 const BF_SCTL: u32 = BF_BASE + 0x10c;
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const BF_IMEMC: u32 = BF_BASE + 0x180; // IMEM control (page address, mode)
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const BF_IMEMD: u32 = BF_BASE + 0x184; // IMEM data (auto-increment)
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const BF_IMETTAG: u32 = BF_BASE + 0x188; // virtual page tag
 const BF_SIG_CTL: u32 = BF_BASE + 0x1c0; // signature block control
 const BF_SIG_DATA: u32 = BF_BASE + 0x1c4; // signature block data
@@ -109,7 +139,9 @@ const PRAMIN_WIN: u32 = 0x001700;
 const ROM_ACCESS_CTL: u32 = 0x088050;
 
 // IMEMC block structure
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const IMEMC_BLOCK0: u32 = 0x01000000; // non-secure, autoincr, page 0
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const IMEMC_BLOCK1: u32 = 0x11000100; // secure, autoincr, page 1
 const IMEMC_WORDS_PER_BLOCK: usize = 64;
 const DMACTL_MAGIC: u32 = 0xcafe_beef;
@@ -127,12 +159,13 @@ fn main() {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("wateringHole/titanv_pmu_hs_fw_from_trace.bin"));
     let do_reset = args.iter().any(|a| a == "--reset");
-    let dry_run = args.iter().any(|a| a == "--dry-run");
+    let dry_run = is_dry_run(&args);
+    let ember_socket = extract_arg(&args, "--ember-socket");
 
     banner();
     println!("  BDF:       {bdf}");
     println!("  Firmware:  {}", fw_path.display());
-    println!("  PCIe reset: {do_reset}");
+    println!("  PCIe reset: {do_reset} (PCI config — not ember; use glowplug for full reset)");
     println!("  Dry-run:   {dry_run}\n");
 
     // ── Load PMU HS firmware ─────────────────────────────────────────────────
@@ -179,38 +212,35 @@ fn main() {
         std::thread::sleep(Duration::from_millis(200));
     }
 
-    // ── Open BAR0 ────────────────────────────────────────────────────────────
-    let resource0 = format!("/sys/bus/pci/devices/{bdf}/resource0");
-    let bar0 = Bar0Map::open(&resource0).unwrap_or_else(|e| {
-        eprintln!("FATAL: cannot open {resource0}: {e}");
-        std::process::exit(1);
-    });
+    // ── Connect to ember ───────────────────────────────────────────────────
+    let ember = connect_ember(&bdf,  ember_socket.as_deref());
+    println!("  Ember:     {}\n", ember.socket_path().display());
 
     // ── Phase 1: Identity + State Baseline ──────────────────────────────────
     println!("\n━━━ Phase 1: GPU Identity + Baseline ━━━\n");
 
-    let boot0 = bar0.r32(0);
+    let boot0 = r32(&ember, &bdf, 0);
     println!("  BOOT0         = {boot0:#010x}  (GV100 = 0x140000a1)");
     if boot0 == 0xffff_ffff || boot0 == 0 {
         eprintln!("FATAL: GPU link dead (BOOT0={boot0:#010x})");
         std::process::exit(1);
     }
 
-    let pmc_en = bar0.r32(PMC_ENABLE);
+    let pmc_en = r32(&ember, &bdf, PMC_ENABLE);
     println!("  PMC_ENABLE    = {pmc_en:#010x}");
     println!(
         "  PRIV_RING     = {:#010x}  (bad00100=HS-locked)",
-        bar0.r32(PRIV_RING_INTR)
+        r32(&ember, &bdf, PRIV_RING_INTR)
     );
     println!(
         "  PMU cpuctl    = {:#010x}  (0x01=idle-halted)",
-        bar0.r32(PMU_CPUCTL)
+        r32(&ember, &bdf, PMU_CPUCTL)
     );
-    println!("  BF cpuctl     = {:#010x}", bar0.r32(BF_CPUCTL));
+    println!("  BF cpuctl     = {:#010x}", r32(&ember, &bdf, BF_CPUCTL));
 
-    let pt0 = bar0.r32(PTIMER_TIME_HI);
+    let pt0 = r32(&ember, &bdf, PTIMER_TIME_HI);
     std::thread::sleep(Duration::from_millis(10));
-    let pt1 = bar0.r32(PTIMER_TIME_HI);
+    let pt1 = r32(&ember, &bdf, PTIMER_TIME_HI);
     println!(
         "  PTIMER_HI     = {pt0:#010x} → {pt1:#010x}  ({})",
         if pt1 != pt0 { "RUNNING" } else { "FROZEN" }
@@ -231,18 +261,18 @@ fn main() {
     println!("\n━━━ Phase 2: Pre-PMU Hardware Setup ━━━\n");
 
     // ROM access control (enable host read)
-    bar0.w32(ROM_ACCESS_CTL, 0x0000_0001);
+    w32(&ember, &bdf, ROM_ACCESS_CTL, 0x0000_0001);
     println!("  ROM_ACCESS_CTL ← 0x1 (enable)");
 
     // PMC interrupt enables
-    bar0.w32(PMC_INTR_EN_SET_0, 0xffff_ffff);
-    bar0.w32(PMC_INTR_EN_SET_1, 0xffff_ffff);
+    w32(&ember, &bdf, PMC_INTR_EN_SET_0, 0xffff_ffff);
+    w32(&ember, &bdf, PMC_INTR_EN_SET_1, 0xffff_ffff);
     println!("  PMC_INTR_EN_SET 0/1 ← 0xffffffff");
 
     // Clock gating (from mmiotrace lines 64922-64925)
-    bar0.w32(0x6013d4, 0x0000_001f);
-    bar0.w32(0x6013d4, 0x0000_003f);
-    bar0.w32(0x6013d5, 0x0000_0057);
+    w32(&ember, &bdf, 0x6013d4, 0x0000_001f);
+    w32(&ember, &bdf, 0x6013d4, 0x0000_003f);
+    w32(&ember, &bdf, 0x6013d5, 0x0000_0057);
     println!("  Clock gating regs set");
 
     // PBDMA interrupt enables (6 PBDMAs, from lines 64927-64937)
@@ -254,7 +284,7 @@ fn main() {
         0x00dabc,
         0x00db0c,
     ] {
-        bar0.w32(base, 0x0000_0001);
+        w32(&ember, &bdf, base, 0x0000_0001);
     }
     println!("  PBDMA INTR_EN (6 units) ← 0x1");
 
@@ -270,28 +300,28 @@ fn main() {
         0x00d0f4,
         0x00d114,
     ] {
-        bar0.w32(base, 0x0000_0007);
+        w32(&ember, &bdf, base, 0x0000_0007);
     }
     println!("  FIFO class enables (9) ← 0x7");
 
     // FB NISO mask
-    bar0.w32(FB_NISO, 0x00ff_fff0);
+    w32(&ember, &bdf, FB_NISO, 0x00ff_fff0);
     println!("  FB_NISO ← 0x00fffff0");
 
     // PMC_ENABLE step 1+2
-    bar0.w32(PMC_ENABLE, 0x4000_0021);
+    w32(&ember, &bdf, PMC_ENABLE, 0x4000_0021);
     std::thread::sleep(Duration::from_millis(1));
-    bar0.w32(PMC_ENABLE, 0x4000_0121);
+    w32(&ember, &bdf, PMC_ENABLE, 0x4000_0121);
     std::thread::sleep(Duration::from_millis(5));
     println!("  PMC_ENABLE ← 0x40000021 → 0x40000121");
 
     // PMC_ENABLE step 3 (enable more engines before PMU FW load)
-    bar0.w32(PMC_ENABLE, 0x4000_8121);
+    w32(&ember, &bdf, PMC_ENABLE, 0x4000_8121);
     std::thread::sleep(Duration::from_millis(2));
     println!("  PMC_ENABLE ← 0x40008121");
 
     // Verify BOOT0 still responsive
-    let b0 = bar0.r32(0);
+    let b0 = r32(&ember, &bdf, 0);
     println!("  BOOT0 re-check = {b0:#010x}");
     if b0 != boot0 {
         eprintln!("  WARN: BOOT0 changed! GPU may have reset ({boot0:#010x} → {b0:#010x})");
@@ -301,54 +331,70 @@ fn main() {
     println!("\n━━━ Phase 3: Boot Falcon Firmware Load (IMEMC/IMEMD PIO) ━━━\n");
 
     // Initial boot Falcon setup
-    bar0.w32(BF_DMACTL, 0x0000_0000); // clear DMACTL
-    bar0.w32(BF_DMEMD0, BOOT_ARG_CHIPID); // DMEMD[0] = GV100 chip ID
-    bar0.w32(BF_DMATRFMOFFS, 0x0000_0004); // DMA config
-    bar0.w32(BF_IRQMASK, 0xffff_ffff); // all IRQs
-    bar0.w32(BF_DMACTL, 0x0000_0000); // DMACTL clear again
-    bar0.w32(BF_DMEMD0, BOOT_ARG_CHIPID); // DMEMD[0] again
-    bar0.w32(BF_FBIF, 0x0000_0190); // FBIF config
-    bar0.w32(BF_SCTL, 0x0000_0000); // SCTL clear
+    batch(
+        &ember,
+        &bdf,
+        &[
+            MmioBatchOp::write(BF_DMACTL, 0x0000_0000),
+            MmioBatchOp::write(BF_DMEMD0, BOOT_ARG_CHIPID),
+            MmioBatchOp::write(BF_DMATRFMOFFS, 0x0000_0004),
+            MmioBatchOp::write(BF_IRQMASK, 0xffff_ffff),
+            MmioBatchOp::write(BF_DMACTL, 0x0000_0000),
+            MmioBatchOp::write(BF_DMEMD0, BOOT_ARG_CHIPID),
+            MmioBatchOp::write(BF_FBIF, 0x0000_0190),
+            MmioBatchOp::write(BF_SCTL, 0x0000_0000),
+        ],
+    );
     println!("  Boot Falcon control regs initialized");
 
-    // Load firmware blocks via IMEMC/IMEMD PIO
+    // Load firmware blocks via ember.falcon.upload_imem
     let n_words = fw_words.len();
     let n_blocks = (n_words + IMEMC_WORDS_PER_BLOCK - 1) / IMEMC_WORDS_PER_BLOCK;
     println!("  Loading {n_words} words in {n_blocks} blocks...");
 
-    // Block 0: non-secure, page 0
-    bar0.w32(BF_IMEMC, IMEMC_BLOCK0);
-    bar0.w32(BF_IMETTAG, 0x0000_0000);
-    for i in 0..IMEMC_WORDS_PER_BLOCK.min(n_words) {
-        bar0.w32(BF_IMEMD, fw_words[i]);
+    let block0_end = (IMEMC_WORDS_PER_BLOCK * 4).min(fw_bytes.len());
+    match ember.falcon_upload_imem(&bdf, BF_BASE, 0, &fw_bytes[..block0_end], 0, false) {
+        Ok(r) if r.ok => println!("  Block 0 (non-secure): {block0_end} bytes uploaded"),
+        Ok(r) => eprintln!("  WARN: block 0 upload ok=false bytes={:?}", r.bytes),
+        Err(e) => eprintln!("  WARN: block 0 upload failed: {e}"),
     }
-
-    // Blocks 1..n: secure, auto-increment pages
-    bar0.w32(BF_IMEMC, IMEMC_BLOCK1); // switch to secure mode
-    for block in 1..n_blocks {
-        bar0.w32(BF_IMETTAG, block as u32);
-        let start = block * IMEMC_WORDS_PER_BLOCK;
-        let end = (start + IMEMC_WORDS_PER_BLOCK).min(n_words);
-        for i in start..end {
-            bar0.w32(BF_IMEMD, fw_words[i]);
+    if fw_bytes.len() > block0_end {
+        match ember.falcon_upload_imem(
+            &bdf,
+            BF_BASE,
+            block0_end as u32,
+            &fw_bytes[block0_end..],
+            1,
+            true,
+        ) {
+            Ok(r) if r.ok => {
+                println!(
+                    "  Blocks 1..{} (secure): {} bytes uploaded",
+                    n_blocks - 1,
+                    fw_bytes.len() - block0_end
+                );
+            }
+            Ok(r) => eprintln!("  WARN: secure blocks upload ok=false bytes={:?}", r.bytes),
+            Err(e) => eprintln!("  WARN: secure blocks upload failed: {e}"),
         }
     }
     println!("  {n_blocks} blocks loaded to IMEM");
 
     // Write signature block (64 words: 4 sig + 60 padding zeros)
-    bar0.w32(BF_SIG_CTL, 0x0100_0000);
+    let mut sig_ops = vec![MmioBatchOp::write(BF_SIG_CTL, 0x0100_0000)];
     for &sw in &FW_SIG {
-        bar0.w32(BF_SIG_DATA, sw);
+        sig_ops.push(MmioBatchOp::write(BF_SIG_DATA, sw));
     }
     for _ in 4..64 {
-        bar0.w32(BF_SIG_DATA, 0x0000_0000);
+        sig_ops.push(MmioBatchOp::write(BF_SIG_DATA, 0x0000_0000));
     }
+    batch(&ember, &bdf, &sig_ops);
     println!("  Signature block written (4 words + 60 zeros)");
 
     // Unlock and start
-    bar0.w32(BF_DMACTL, DMACTL_MAGIC); // 0xcafebeef unlock
-    bar0.w32(BF_ALIAS, 0x0000_0000); // clear alias
-    bar0.w32(BF_CPUCTL, 0x0000_0002); // STARTCPU
+    w32(&ember, &bdf, BF_DMACTL, DMACTL_MAGIC); // 0xcafebeef unlock
+    w32(&ember, &bdf, BF_ALIAS, 0x0000_0000); // clear alias
+    w32(&ember, &bdf, BF_CPUCTL, 0x0000_0002); // STARTCPU
     println!("  STARTCPU issued (BF_CPUCTL ← 0x02)");
 
     // ── Phase 4: Wait for PMU clock init ─────────────────────────────────────
@@ -356,13 +402,17 @@ fn main() {
 
     let t_start = Instant::now();
     let mut ptimer_started = false;
-    let pt_base = bar0.r32(PTIMER_TIME_HI);
+    let pt_base = r32(&ember, &bdf, PTIMER_TIME_HI);
     print!("  Polling PTIMER_HI (base={pt_base:#010x}): ");
     let _ = io::stdout().flush();
 
     for _ in 0..100 {
         std::thread::sleep(Duration::from_millis(10));
-        let pt = bar0.r32(PTIMER_TIME_HI);
+        let pt = r32(&ember, &bdf, PTIMER_TIME_HI);
+        if pt == 0xFFFF_FFFF {
+            eprintln!("WARN: D3cold sentinel");
+            break;
+        }
         if pt != pt_base && pt != 0 && pt != 0xffff_ffff {
             println!(
                 "\n  PTIMER running! {pt_base:#010x} → {pt:#010x} in {}ms",
@@ -376,10 +426,10 @@ fn main() {
     }
 
     if !ptimer_started {
-        let pt = bar0.r32(PTIMER_TIME_HI);
+        let pt = r32(&ember, &bdf, PTIMER_TIME_HI);
         println!("\n  PTIMER still frozen after 1s (={pt:#010x})");
         println!("  Boot Falcon may not have started. Checking state...");
-        println!("  BF_CPUCTL = {:#010x}", bar0.r32(BF_CPUCTL));
+        println!("  BF_CPUCTL = {:#010x}", r32(&ember, &bdf, BF_CPUCTL));
     }
 
     // ── Phase 5: Continue PMC_ENABLE ramp + PRIV_RING config ─────────────────
@@ -406,31 +456,31 @@ fn main() {
         0x41ec_dff1,
     ];
     for &val in pmc_steps {
-        bar0.w32(PMC_ENABLE, val);
+        w32(&ember, &bdf, PMC_ENABLE, val);
         std::thread::sleep(Duration::from_millis(2));
     }
-    let pmc_now = bar0.r32(PMC_ENABLE);
+    let pmc_now = r32(&ember, &bdf, PMC_ENABLE);
     println!("  PMC_ENABLE reached: {pmc_now:#010x} (target 0x41ecdff1)");
 
     // Additional pre-DEVINIT setup from mmiotrace
-    bar0.w32(0x100a34, 0x8000_0000); // (from line 98943)
-    bar0.w32(0x009140, 0x0000_0000); // (from line 98944)
-    bar0.w32(0x00dc68, 0x0000_0000); // (from line 98946)
-    bar0.w32(0x00dc60, 0x0300_0000); // (from line 98949)
-    bar0.w32(0x00dc08, 0x0000_0000); // (from line 98964)
-    bar0.w32(0x00dc88, 0x0000_0000); // (from line 98965)
-    bar0.w32(0x00dc00, 0x2001_2001); // (from line 98970)
-    bar0.w32(0x00dc80, 0x0000_0000); // (from line 98971)
+    w32(&ember, &bdf, 0x100a34, 0x8000_0000); // (from line 98943)
+    w32(&ember, &bdf, 0x009140, 0x0000_0000); // (from line 98944)
+    w32(&ember, &bdf, 0x00dc68, 0x0000_0000); // (from line 98946)
+    w32(&ember, &bdf, 0x00dc60, 0x0300_0000); // (from line 98949)
+    w32(&ember, &bdf, 0x00dc08, 0x0000_0000); // (from line 98964)
+    w32(&ember, &bdf, 0x00dc88, 0x0000_0000); // (from line 98965)
+    w32(&ember, &bdf, 0x00dc00, 0x2001_2001); // (from line 98970)
+    w32(&ember, &bdf, 0x00dc80, 0x0000_0000); // (from line 98971)
     println!("  FIFO/PBDMA final setup done");
 
     // PMC_INTR_0 final mask (sequence of individual bit-sets from mmiotrace)
     // Replicated as a single write of the final aggregate value
-    bar0.w32(PMC_INTR_0, 0x5f37_6eff);
-    bar0.w32(PMC_INTR_1, 0x0000_0000);
+    w32(&ember, &bdf, PMC_INTR_0, 0x5f37_6eff);
+    w32(&ember, &bdf, PMC_INTR_1, 0x0000_0000);
     println!("  PMC_INTR_0 ← 0x5f376eff");
 
     // PRIV_RING master config (line 99019 — accessible before DEVINIT)
-    bar0.w32(PRIV_RING_MASTER_CONFIG, 0x0000_0002);
+    w32(&ember, &bdf, PRIV_RING_MASTER_CONFIG, 0x0000_0002);
     println!("  PRIV_RING_MASTER_CONFIG ← 0x00000002");
 
     // ── Phase 6: DEVINIT trigger ──────────────────────────────────────────────
@@ -438,7 +488,7 @@ fn main() {
     println!("  Writing PMC_ENABLE = 0xffffffff...");
     println!("  Hardware will execute DEVINIT from VBIOS (~1.3s pause)...");
 
-    bar0.w32(PMC_ENABLE, 0xffff_ffff);
+    w32(&ember, &bdf, PMC_ENABLE, 0xffff_ffff);
     let devinit_start = Instant::now();
 
     // Poll PMC_ENABLE until it changes from 0xffffffff (DEVINIT complete)
@@ -448,7 +498,11 @@ fn main() {
 
     for _ in 0..300 {
         std::thread::sleep(Duration::from_millis(10));
-        let pmc = bar0.r32(PMC_ENABLE);
+        let pmc = r32(&ember, &bdf, PMC_ENABLE);
+        if pmc == 0xFFFF_FFFF {
+            eprintln!("WARN: D3cold sentinel");
+            break;
+        }
         print!(".");
         let _ = io::stdout().flush();
         if pmc != 0xffff_ffff && pmc != 0 {
@@ -462,21 +516,21 @@ fn main() {
     }
 
     if !devinit_done {
-        let pmc = bar0.r32(PMC_ENABLE);
+        let pmc = r32(&ember, &bdf, PMC_ENABLE);
         println!("\n  Timeout after 3s. PMC_ENABLE = {pmc:#010x}");
     }
 
     // ── Phase 7: Post-DEVINIT state probe ────────────────────────────────────
     println!("\n━━━ Phase 7: Post-DEVINIT State Probe ━━━\n");
 
-    let pmc_final = bar0.r32(PMC_ENABLE);
-    let priv_ring = bar0.r32(PRIV_RING_INTR);
-    let pmu_ctrl = bar0.r32(PMU_CPUCTL);
-    let pmu_mb0 = bar0.r32(PMU_MB0);
-    let sec2_ctrl = bar0.r32(SEC2_CPUCTL);
-    let pt_hi0 = bar0.r32(PTIMER_TIME_HI);
+    let pmc_final = r32(&ember, &bdf, PMC_ENABLE);
+    let priv_ring = r32(&ember, &bdf, PRIV_RING_INTR);
+    let pmu_ctrl = r32(&ember, &bdf, PMU_CPUCTL);
+    let pmu_mb0 = r32(&ember, &bdf, PMU_MB0);
+    let sec2_ctrl = r32(&ember, &bdf, SEC2_CPUCTL);
+    let pt_hi0 = r32(&ember, &bdf, PTIMER_TIME_HI);
     std::thread::sleep(Duration::from_millis(20));
-    let pt_hi1 = bar0.r32(PTIMER_TIME_HI);
+    let pt_hi1 = r32(&ember, &bdf, PTIMER_TIME_HI);
 
     println!("  PMC_ENABLE    = {pmc_final:#010x}  (expected 0x5fecdff1)");
     println!("  PRIV_RING     = {priv_ring:#010x}  (bad00100=HS-locked, 0=OK)");
@@ -569,8 +623,4 @@ fn banner() {
     println!("║  EXP 170: Sovereign GV100 Cold Boot from mmiotrace Recipe  ║");
     println!("║  Goal: DEVINIT → PRIV_RING clear → PTIMER running          ║");
     println!("╚═════════════════════════════════════════════════════════════╝\n");
-}
-
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }

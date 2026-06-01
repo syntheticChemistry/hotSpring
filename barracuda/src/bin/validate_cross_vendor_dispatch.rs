@@ -11,19 +11,12 @@ use std::time::Instant;
 use hotspring_barracuda::glowplug_client::{GlowplugClient, GlowplugDispatchOptions};
 use hotspring_barracuda::tolerances;
 
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::connect_glowplug;
+
 const N: usize = 1 << 12; // 4K f32 elements — fits RPC line limit comfortably
 const ALPHA: f32 = 2.5;
-
-fn connect_glowplug() -> GlowplugClient {
-    let nucleus = hotspring_barracuda::primal_bridge::NucleusContext::detect();
-    match hotspring_barracuda::glowplug_client::GlowplugClient::from_nucleus(&nucleus) {
-        Ok(g) => g,
-        Err(e) => {
-            eprintln!("NUCLEUS discovery failed: {e} — cross-vendor dispatch requires live toadStool");
-            std::process::exit(1);
-        }
-    }
-}
 
 /// Build PTX for SAXPY: `out[i] = alpha*x[i] + y[i]`
 ///

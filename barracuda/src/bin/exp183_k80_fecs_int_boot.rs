@@ -46,16 +46,22 @@
 //!
 //! ```text
 //! sudo ./target/release/exp183_k80_fecs_int_boot [--bdf 0000:4b:00.0] \
-//!      [--fw-dir ../wateringHole/gk110]
+//!      [--fw-dir ../wateringHole/gk110] \
+//!      [--ember-socket /run/toadstool/biomeos/compute.sock] \
+//!      [--dry-run]
 //! ```
-
-#[cfg(not(feature = "low-level"))]
-compile_error!("exp183 requires --features low-level");
+//!
+//! Requires toadstool-ember running and holding the VFIO fd for the target BDF.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use hotspring_barracuda::low_level::Bar0Map;
+use hotspring_barracuda::ember_types::MmioBatchOp;
+use hotspring_barracuda::fleet_client::EmberClient;
+
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{connect_ember, extract_arg, is_dry_run};
 
 // ── PMC / MC registers ─────────────────────────────────────────────────────
 const BOOT0: u32 = 0x000000;
@@ -73,9 +79,6 @@ const FECS_CPUCTL: u32 = FECS_BASE + 0x100;
 const FECS_PC: u32 = FECS_BASE + 0x110;
 const FECS_SCTL: u32 = FECS_BASE + 0x240;
 const FECS_HWCFG: u32 = FECS_BASE + 0x10c; // also: BAR0[0x40910c]
-const FECS_IMEMC: u32 = FECS_BASE + 0x180;
-const FECS_IMEMD: u32 = FECS_BASE + 0x184;
-const FECS_IMETTAG: u32 = FECS_BASE + 0x188;
 const FECS_DMEMC: u32 = FECS_BASE + 0x1c0;
 const FECS_DMEMD: u32 = FECS_BASE + 0x1c4;
 const FECS_MB0: u32 = FECS_BASE + 0x040;
@@ -86,11 +89,6 @@ const FECS_MB1: u32 = FECS_BASE + 0x044;
 // the GPCCS falcon PIO access register window used by nouveau's init_fw.
 const GPCCS_BASE: u32 = 0x41a000;
 const GPCCS_HWCFG: u32 = GPCCS_BASE + 0x10c; // also: BAR0[0x41a10c]
-const GPCCS_IMEMC: u32 = GPCCS_BASE + 0x180;
-const GPCCS_IMEMD: u32 = GPCCS_BASE + 0x184;
-const GPCCS_IMETTAG: u32 = GPCCS_BASE + 0x188;
-const GPCCS_DMEMC: u32 = GPCCS_BASE + 0x1c0;
-const GPCCS_DMEMD: u32 = GPCCS_BASE + 0x1c4;
 
 // ── GPC status (BAR0 broadcast, read-only from CPU) ────────────────────────
 const GPC0_BOOT0: u32 = 0x418000;
@@ -100,15 +98,23 @@ const GPC1_BOOT0: u32 = 0x428000;
 const FECS_STARTCPU: u32 = 0x02; // bit 1: start CPU
 const FECS_HALTED: u32 = 0x10; // bit 4: CPU halted
 
-// ── IMEMC flags ────────────────────────────────────────────────────────────
-const IMEMC_AINCW: u32 = 0x0100_0000; // bit 24: auto-increment on write
-const DMEMC_AINCW: u32 = 0x0100_0000; // same encoding for DMEMC
-
 const IMEM_PAGE: usize = 256; // bytes per IMEM page (64 words)
 const IMEM_WORDS_PER_PAGE: usize = IMEM_PAGE / 4;
 
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
+fn r32(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
+    match ember.mmio_read(bdf, offset) {
+        Ok(r) => r.value,
+        Err(e) => {
+            eprintln!("  WARN: mmio.read32({offset:#010x}): {e}");
+            0xDEAD_DEAD
+        }
+    }
+}
+
+fn w32(ember: &EmberClient, bdf: &str, offset: u32, value: u32) {
+    if let Err(e) = ember.mmio_write(bdf, offset, value) {
+        eprintln!("  WARN: mmio.write32({offset:#010x}, {value:#010x}): {e}");
+    }
 }
 
 fn load_fw(dir: &Path, name: &str) -> Vec<u32> {
@@ -130,28 +136,25 @@ fn load_fw(dir: &Path, name: &str) -> Vec<u32> {
         .collect()
 }
 
-fn pio_load_dmem(bar0: &Bar0Map, dmemc: u32, dmemd: u32, words: &[u32]) {
-    bar0.w32(dmemc, DMEMC_AINCW); // start at offset 0, auto-increment
-    for &w in words {
-        bar0.w32(dmemd, w);
+fn words_to_bytes(words: &[u32]) -> Vec<u8> {
+    words.iter().flat_map(|w| w.to_le_bytes()).collect()
+}
+
+fn upload_dmem(ember: &EmberClient, bdf: &str, base: u32, words: &[u32]) {
+    let bytes = words_to_bytes(words);
+    match ember.falcon_upload_dmem(bdf, base, 0, &bytes) {
+        Ok(r) if r.ok => {}
+        Ok(r) => eprintln!("  WARN: falcon.upload_dmem ok=false bytes={:?}", r.bytes),
+        Err(e) => eprintln!("  WARN: falcon.upload_dmem error: {e}"),
     }
 }
 
-fn pio_load_imem(bar0: &Bar0Map, imemc: u32, imemd: u32, imettag: u32, words: &[u32]) {
-    let npages = (words.len() + IMEM_WORDS_PER_PAGE - 1) / IMEM_WORDS_PER_PAGE;
-    for page in 0..npages {
-        let byte_addr = (page as u32) * (IMEM_PAGE as u32);
-        bar0.w32(imemc, byte_addr | IMEMC_AINCW);
-        bar0.w32(imettag, page as u32); // LS-mode: virt tag = phys page
-        let ws = page * IMEM_WORDS_PER_PAGE;
-        let we = (ws + IMEM_WORDS_PER_PAGE).min(words.len());
-        for &w in &words[ws..we] {
-            bar0.w32(imemd, w);
-        }
-        // pad partial last page with 0
-        for _ in (we - ws)..IMEM_WORDS_PER_PAGE {
-            bar0.w32(imemd, 0);
-        }
+fn upload_imem(ember: &EmberClient, bdf: &str, base: u32, words: &[u32]) {
+    let bytes = words_to_bytes(words);
+    match ember.falcon_upload_imem(bdf, base, 0, &bytes, 0, false) {
+        Ok(r) if r.ok => {}
+        Ok(r) => eprintln!("  WARN: falcon.upload_imem ok=false bytes={:?}", r.bytes),
+        Err(e) => eprintln!("  WARN: falcon.upload_imem error: {e}"),
     }
 }
 
@@ -161,13 +164,15 @@ fn main() {
     let fw_dir = extract_arg(&args, "--fw-dir")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("../wateringHole/gk110"));
-    let dry_run = args.iter().any(|a| a == "--dry-run");
+    let ember_socket = extract_arg(&args, "--ember-socket");
+    let dry_run = is_dry_run(&args);
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║  EXP 183 — K80 Sovereign FECS Boot (gf100_gr_init_ctxctl_int)  ║");
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!("  BDF:    {bdf}");
     println!("  FW dir: {}", fw_dir.display());
+    println!("  Wiring: toadstool-ember (all MMIO via JSON-RPC — no raw BAR0 mmap)");
     if dry_run {
         println!("  Mode:   DRY RUN");
     }
@@ -200,32 +205,27 @@ fn main() {
         gpccs_data.len() * 4
     );
 
-    // ── Open BAR0 ─────────────────────────────────────────────────────────
-    let resource0 = format!("/sys/bus/pci/devices/{bdf}/resource0");
-    let bar0 = Bar0Map::open(&resource0).unwrap_or_else(|e| {
-        eprintln!("FATAL: cannot open {resource0}: {e}");
-        eprintln!("  → Ensure device is bound to vfio-pci and MSE is enabled.");
-        eprintln!("  → sudo setpci -s {bdf} COMMAND=0x06");
-        std::process::exit(1);
-    });
+    // ── Connect to ember ──────────────────────────────────────────────────
+    let ember = connect_ember(&bdf, ember_socket.as_deref());
+    println!("  Ember:  connected ✓");
 
     // ── Phase 1: Pre-condition validation ─────────────────────────────────
     println!("\n━━━ Phase 1: Pre-conditions ━━━\n");
 
-    let boot0 = bar0.r32(BOOT0);
+    let boot0 = r32(&ember, &bdf, BOOT0);
     println!("  BOOT0        = {boot0:#010x}  (GK210 = 0x0f22d0a1)");
     if boot0 == 0xffff_ffff || boot0 == 0 {
         eprintln!("FATAL: GPU link dead. Check PCIe and power.");
         std::process::exit(1);
     }
 
-    let pmc_en = bar0.r32(PMC_ENABLE);
-    let fecs_sctl = bar0.r32(FECS_SCTL);
-    let fecs_cpuctl = bar0.r32(FECS_CPUCTL);
-    let fecs_hwcfg = bar0.r32(FECS_HWCFG);
-    let gpc0_boot0 = bar0.r32(GPC0_BOOT0);
-    let gpc1_boot0 = bar0.r32(GPC1_BOOT0);
-    let gr_ready_pre = bar0.r32(GR_READY);
+    let pmc_en = r32(&ember, &bdf, PMC_ENABLE);
+    let fecs_sctl = r32(&ember, &bdf, FECS_SCTL);
+    let fecs_cpuctl = r32(&ember, &bdf, FECS_CPUCTL);
+    let fecs_hwcfg = r32(&ember, &bdf, FECS_HWCFG);
+    let gpc0_boot0 = r32(&ember, &bdf, GPC0_BOOT0);
+    let gpc1_boot0 = r32(&ember, &bdf, GPC1_BOOT0);
+    let gr_ready_pre = r32(&ember, &bdf, GR_READY);
 
     println!("  PMC_ENABLE   = {pmc_en:#010x}");
     println!("  FECS_SCTL    = {fecs_sctl:#010x}  (0=LS ✓)");
@@ -252,9 +252,9 @@ fn main() {
         std::process::exit(1);
     }
 
-    let pt0 = bar0.r32(PTIMER_HI);
+    let pt0 = r32(&ember, &bdf, PTIMER_HI);
     std::thread::sleep(Duration::from_millis(5));
-    let pt1 = bar0.r32(PTIMER_HI);
+    let pt1 = r32(&ember, &bdf, PTIMER_HI);
     println!(
         "  PTIMER:      {} ({})",
         if pt1 != pt0 {
@@ -278,34 +278,42 @@ fn main() {
     // ── Phase 2: nvkm_mc_unk260(device, 0) ────────────────────────────────
     // From gf100_mc.c: gf100_mc_unk260 → nvkm_wr32(device, 0x000260, data)
     println!("\n━━━ Phase 2: MC UNK260 = 0 (reset falcons) ━━━\n");
-    bar0.w32(MC_UNK260, 0x0);
+    w32(&ember, &bdf, MC_UNK260, 0x0);
     println!("  BAR0[0x000260] ← 0x00000000");
     std::thread::sleep(Duration::from_micros(10));
 
     // ── Phase 3: Load FECS firmware ───────────────────────────────────────
     println!("\n━━━ Phase 3: FECS Firmware Load ━━━\n");
     println!("  Loading FECS DMEM ({} words)...", fecs_data.len());
-    pio_load_dmem(&bar0, FECS_DMEMC, FECS_DMEMD, &fecs_data);
+    upload_dmem(&ember, &bdf, FECS_BASE, &fecs_data);
     println!(
         "  Loading FECS IMEM ({} words, {} pages)...",
         fecs_code.len(),
         (fecs_code.len() + IMEM_WORDS_PER_PAGE - 1) / IMEM_WORDS_PER_PAGE
     );
-    pio_load_imem(&bar0, FECS_IMEMC, FECS_IMEMD, FECS_IMETTAG, &fecs_code);
+    upload_imem(&ember, &bdf, FECS_BASE, &fecs_code);
 
-    // Readback verification
-    bar0.w32(FECS_DMEMC, 0x0); // seek to word 0 (no auto-increment)
-    let dmem_v0 = bar0.r32(FECS_DMEMD);
-    let dmem_v1 = bar0.r32(FECS_DMEMD);
-    println!(
-        "  FECS DMEM readback: [{:#010x}, {:#010x}] (wrote [{:#010x}, {:#010x}])",
-        dmem_v0,
-        dmem_v1,
-        fecs_data[0],
-        fecs_data.get(1).copied().unwrap_or(0)
-    );
-    if dmem_v0 != fecs_data[0] {
-        println!("  WARN: DMEM readback mismatch! FECS DMEM write may have failed.");
+    // Readback verification via mmio.batch
+    {
+        let ops = vec![
+            MmioBatchOp::write(FECS_DMEMC, 0x0),
+            MmioBatchOp::read(FECS_DMEMD),
+            MmioBatchOp::read(FECS_DMEMD),
+        ];
+        if let Ok(result) = ember.mmio_batch(&bdf, &ops) {
+            let dmem_v0 = result.read_value(1).unwrap_or(0xDEAD);
+            let dmem_v1 = result.read_value(2).unwrap_or(0xDEAD);
+            println!(
+                "  FECS DMEM readback: [{:#010x}, {:#010x}] (wrote [{:#010x}, {:#010x}])",
+                dmem_v0,
+                dmem_v1,
+                fecs_data[0],
+                fecs_data.get(1).copied().unwrap_or(0)
+            );
+            if dmem_v0 != fecs_data[0] {
+                println!("  WARN: DMEM readback mismatch! FECS DMEM write may have failed.");
+            }
+        }
     }
     println!("  FECS firmware loaded ✓");
 
@@ -315,18 +323,18 @@ fn main() {
         "  Loading GPCCS DMEM ({} words) via broadcast 0x{GPCCS_BASE:06x}...",
         gpccs_data.len()
     );
-    pio_load_dmem(&bar0, GPCCS_DMEMC, GPCCS_DMEMD, &gpccs_data);
+    upload_dmem(&ember, &bdf, GPCCS_BASE, &gpccs_data);
     println!(
         "  Loading GPCCS IMEM ({} words, {} pages)...",
         gpccs_code.len(),
         (gpccs_code.len() + IMEM_WORDS_PER_PAGE - 1) / IMEM_WORDS_PER_PAGE
     );
-    pio_load_imem(&bar0, GPCCS_IMEMC, GPCCS_IMEMD, GPCCS_IMETTAG, &gpccs_code);
+    upload_imem(&ember, &bdf, GPCCS_BASE, &gpccs_code);
     println!("  GPCCS firmware loaded ✓");
 
     // ── Phase 5: nvkm_mc_unk260(device, 1) ────────────────────────────────
     println!("\n━━━ Phase 5: MC UNK260 = 1 (enable falcons) ━━━\n");
-    bar0.w32(MC_UNK260, 0x1);
+    w32(&ember, &bdf, MC_UNK260, 0x1);
     println!("  BAR0[0x000260] ← 0x00000001");
     std::thread::sleep(Duration::from_micros(10));
 
@@ -338,7 +346,7 @@ fn main() {
     let t0 = Instant::now();
     let scrub_timeout = Duration::from_millis(2000);
     loop {
-        let hwcfg = bar0.r32(FECS_HWCFG);
+        let hwcfg = r32(&ember, &bdf, FECS_HWCFG);
         if hwcfg & 0x6 == 0 {
             break;
         }
@@ -346,18 +354,19 @@ fn main() {
             println!("  WARN: FECS mem scrubbing timeout (HWCFG={hwcfg:#010x})");
             break;
         }
+        std::thread::sleep(Duration::from_millis(10));
     }
-    let fecs_hwcfg_after_unk260 = bar0.r32(FECS_HWCFG);
-    let gpccs_hwcfg_after = bar0.r32(GPCCS_HWCFG);
+    let fecs_hwcfg_after_unk260 = r32(&ember, &bdf, FECS_HWCFG);
+    let gpccs_hwcfg_after = r32(&ember, &bdf, GPCCS_HWCFG);
     println!("  FECS_HWCFG after unk260(1): {fecs_hwcfg_after_unk260:#010x}");
     println!("  GPCCS_HWCFG after unk260(1): {gpccs_hwcfg_after:#010x}");
 
     // Per gf100_gr_init_ctxctl_int: write 0 to FECS_HWCFG, then STARTCPU
-    bar0.w32(FECS_HWCFG, 0x0);
+    w32(&ember, &bdf, FECS_HWCFG, 0x0);
     println!("  FECS_HWCFG (0x40910c) ← 0x00000000");
 
     // STARTCPU = 0x2 on GK110/GK210 (Falcon v2/v4)
-    bar0.w32(FECS_CPUCTL, FECS_STARTCPU);
+    w32(&ember, &bdf, FECS_CPUCTL, FECS_STARTCPU);
     println!("  FECS_CPUCTL ← 0x{FECS_STARTCPU:08x} (STARTCPU bit 1)");
 
     // ── Phase 7: Poll GR_READY bit 31 ──────────────────────────────────────
@@ -371,12 +380,18 @@ fn main() {
 
     print!("  Polling");
     loop {
-        let ready = bar0.r32(GR_READY);
+        let ready = r32(&ember, &bdf, GR_READY);
         iters += 1;
+        if ready == 0xFFFF_FFFF {
+            let elapsed_ms = poll_start.elapsed().as_millis();
+            println!("\n  WARN: D3cold sentinel at t={elapsed_ms}ms — ember circuit breaker active");
+            println!("  → journalctl -u coral-ember for recovery status");
+            break;
+        }
         if ready != last_ready {
             print!(" [{ready:#010x}]");
             last_ready = ready;
-        } else if iters % 1000 == 0 {
+        } else if iters % 100 == 0 {
             print!(".");
         }
         if ready & 0x8000_0000 != 0 {
@@ -386,7 +401,7 @@ fn main() {
         if poll_start.elapsed() >= poll_timeout {
             break;
         }
-        std::hint::spin_loop();
+        std::thread::sleep(Duration::from_millis(10));
     }
     println!();
 
@@ -395,17 +410,17 @@ fn main() {
     // ── Phase 8: Post-boot state ────────────────────────────────────────────
     println!("\n━━━ Phase 8: Post-Boot State ━━━\n");
 
-    let fecs_cpuctl_post = bar0.r32(FECS_CPUCTL);
-    let fecs_pc_post = bar0.r32(FECS_PC);
-    let fecs_mb0_post = bar0.r32(FECS_MB0);
-    let fecs_mb1_post = bar0.r32(FECS_MB1);
-    let gr_ready_post = bar0.r32(GR_READY);
-    let gr_ctx_size = bar0.r32(GR_CTX_SIZE);
-    let pmc_post = bar0.r32(PMC_ENABLE);
-    let gpc0_post = bar0.r32(GPC0_BOOT0);
-    let gpc1_post = bar0.r32(GPC1_BOOT0);
-    let gpccs_hwcfg_post = bar0.r32(GPCCS_HWCFG);
-    let pt_post = bar0.r32(PTIMER_HI);
+    let fecs_cpuctl_post = r32(&ember, &bdf, FECS_CPUCTL);
+    let fecs_pc_post = r32(&ember, &bdf, FECS_PC);
+    let fecs_mb0_post = r32(&ember, &bdf, FECS_MB0);
+    let fecs_mb1_post = r32(&ember, &bdf, FECS_MB1);
+    let gr_ready_post = r32(&ember, &bdf, GR_READY);
+    let gr_ctx_size = r32(&ember, &bdf, GR_CTX_SIZE);
+    let pmc_post = r32(&ember, &bdf, PMC_ENABLE);
+    let gpc0_post = r32(&ember, &bdf, GPC0_BOOT0);
+    let gpc1_post = r32(&ember, &bdf, GPC1_BOOT0);
+    let gpccs_hwcfg_post = r32(&ember, &bdf, GPCCS_HWCFG);
+    let pt_post = r32(&ember, &bdf, PTIMER_HI);
 
     println!(
         "  FECS_CPUCTL  = {fecs_cpuctl_post:#010x}  \

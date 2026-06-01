@@ -41,13 +41,33 @@
 //!     --firmware /tmp/gv100_pmu_70k_B.bin
 //! ```
 //!
-//! Requires `sudo` for `/sys/bus/pci/devices/.../resource0` write access.
+//! Requires toadstool-ember running and holding the VFIO fd for the target BDF.
 
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use hotspring_barracuda::low_level::Bar0Map;
+use hotspring_barracuda::fleet_client::EmberClient;
+
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{connect_ember, extract_arg, is_dry_run};
+
+fn r32(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
+    match ember.mmio_read(bdf, offset) {
+        Ok(r) => r.value,
+        Err(e) => {
+            eprintln!("  WARN: mmio.read32({offset:#010x}): {e}");
+            0xDEAD_DEAD
+        }
+    }
+}
+
+fn w32(ember: &EmberClient, bdf: &str, offset: u32, value: u32) {
+    if let Err(e) = ember.mmio_write(bdf, offset, value) {
+        eprintln!("  WARN: mmio.write32({offset:#010x}, {value:#010x}): {e}");
+    }
+}
 
 // ── BAR0 / PCI register offsets ──────────────────────────────────────────────
 
@@ -85,6 +105,7 @@ const PMU_DMATRFCMD: u32 = PMU_BASE + 0x1C8;
 
 // PRAMIN (VRAM staging window)
 const NV_PRAMIN_WIN_BASE: u32 = 0x001700;
+#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
 const NV_PRAMIN_DATA: u32 = 0x0070_0000;
 
 const SEC2_BASE: u32 = 0x087000;
@@ -106,7 +127,8 @@ fn main() {
                 .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
             data_root.join("firmware").join("gv100_pmu_70k_B.bin")
         });
-    let dry_run = args.iter().any(|a| a == "--dry-run");
+    let dry_run = is_dry_run(&args);
+    let ember_socket = extract_arg(&args, "--ember-socket");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  EXP 169: GV100 PMU Boot — Titan V ACR unblock              ║");
@@ -130,36 +152,29 @@ fn main() {
         fw_data.len() as f64 / 1024.0
     );
 
-    // ── Open BAR0 ────────────────────────────────────────────────────────────
-    let resource0 = format!("/sys/bus/pci/devices/{bdf}/resource0");
-    let bar0 = match Bar0Map::open(&resource0) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("FATAL: cannot open resource0 (need sudo): {e}");
-            std::process::exit(1);
-        }
-    };
-    println!("  resource0: {} bytes\n", bar0.len());
+    // ── Connect to ember ─────────────────────────────────────────────────────
+    let ember = connect_ember(&bdf, ember_socket.as_deref());
+    println!("  Ember:    {}\n", ember.socket_path().display());
 
     // ── Phase 0: GPU identity + PMU baseline ─────────────────────────────────
     println!("━━━ Phase 0: GPU Identity + PMU Baseline ━━━\n");
 
-    let boot0 = bar0.r32(0);
+    let boot0 = r32(&ember, &bdf, 0);
     println!("  BOOT0         = {boot0:#010x}  (SM70 = 0x140000a1)");
     if boot0 == 0xFFFF_FFFF || boot0 == 0 {
         eprintln!("FATAL: GPU link dead (BOOT0 = {boot0:#010x})");
         std::process::exit(1);
     }
 
-    let pmc_en = bar0.r32(PMC_ENABLE);
+    let pmc_en = r32(&ember, &bdf, PMC_ENABLE);
     let pmu_enabled = pmc_en & PMC_ENABLE_PMU_BIT != 0;
     println!("  PMC_ENABLE    = {pmc_en:#010x}  (PMU bit 13 = {pmu_enabled})");
 
-    let pmu_ctrl = bar0.r32(PMU_CPUCTL);
-    let pmu_pc = bar0.r32(PMU_PC);
-    let pmu_sctl = bar0.r32(PMU_SCTL);
-    let pmu_mb0 = bar0.r32(PMU_MB0);
-    let pmu_hwcfg = bar0.r32(PMU_HWCFG);
+    let pmu_ctrl = r32(&ember, &bdf, PMU_CPUCTL);
+    let pmu_pc = r32(&ember, &bdf, PMU_PC);
+    let pmu_sctl = r32(&ember, &bdf, PMU_SCTL);
+    let pmu_mb0 = r32(&ember, &bdf, PMU_MB0);
+    let pmu_hwcfg = r32(&ember, &bdf, PMU_HWCFG);
     let pmu_hreset = pmu_ctrl & 0x10 != 0;
     let pmu_halted = pmu_ctrl & 0x20 != 0;
     println!("  PMU cpuctl    = {pmu_ctrl:#010x}  (HRESET={pmu_hreset} HALTED={pmu_halted})");
@@ -209,36 +224,32 @@ fn main() {
     let vram_fw_page: u32 = 0x0006_0000; // VRAM page (same as FECS DMATRF staging area)
 
     // Set PRAMIN window
-    bar0.w32(NV_PRAMIN_WIN_BASE, vram_fw_page >> 16);
-    let window_readback = bar0.r32(NV_PRAMIN_WIN_BASE);
+    w32(&ember, &bdf, NV_PRAMIN_WIN_BASE, vram_fw_page >> 16);
+    let window_readback = r32(&ember, &bdf, NV_PRAMIN_WIN_BASE);
     println!("  PRAMIN window → page {vram_fw_page:#010x} (readback={window_readback:#010x})");
 
     if !dry_run {
-        // Write code section to VRAM via PRAMIN
-        let pramin_data_base = NV_PRAMIN_DATA;
-        let mut pramin_offset = pramin_data_base;
-
         let code_slice = &fw_data[..actual_code_size];
-        for chunk in code_slice.chunks(4) {
-            let word = u32::from_le_bytes([
-                chunk.first().copied().unwrap_or(0),
-                chunk.get(1).copied().unwrap_or(0),
-                chunk.get(2).copied().unwrap_or(0),
-                chunk.get(3).copied().unwrap_or(0),
-            ]);
-            bar0.w32(pramin_offset, word);
-            pramin_offset += 4;
-        }
-
-        // Verify first word
-        bar0.w32(NV_PRAMIN_WIN_BASE, vram_fw_page >> 16);
-        let first_word = bar0.r32(NV_PRAMIN_DATA);
-        let expected = u32::from_le_bytes([fw_data[0], fw_data[1], fw_data[2], fw_data[3]]);
-        let ok = first_word == expected;
-        println!("  PRAMIN verify: got={first_word:#010x} want={expected:#010x} ok={ok}");
-
-        if !ok {
-            eprintln!("WARN: PRAMIN verify failed — VRAM staging may be broken");
+        match ember.pramin_write(&bdf, vram_fw_page as u64, code_slice) {
+            Ok(r) if r.ok => {
+                let readback = ember
+                    .pramin_read(&bdf, vram_fw_page as u64, 4)
+                    .unwrap_or_default();
+                let first_word = if readback.len() >= 4 {
+                    u32::from_le_bytes([readback[0], readback[1], readback[2], readback[3]])
+                } else {
+                    0
+                };
+                let expected =
+                    u32::from_le_bytes([fw_data[0], fw_data[1], fw_data[2], fw_data[3]]);
+                let ok = first_word == expected;
+                println!("  PRAMIN verify: got={first_word:#010x} want={expected:#010x} ok={ok}");
+                if !ok {
+                    eprintln!("WARN: PRAMIN verify failed — VRAM staging may be broken");
+                }
+            }
+            Ok(r) => eprintln!("WARN: pramin.write ok=false bytes_written={}", r.bytes_written),
+            Err(e) => eprintln!("WARN: pramin.write failed: {e}"),
         }
     } else {
         println!("  (dry-run: skipping VRAM write)");
@@ -255,14 +266,14 @@ fn main() {
         if !pmu_enabled {
             let new_pmc_en = pmc_en | PMC_ENABLE_PMU_BIT;
             println!("  PMC_ENABLE: {pmc_en:#010x} → {new_pmc_en:#010x} (setting bit 13)");
-            bar0.w32(PMC_ENABLE, new_pmc_en);
+            w32(&ember, &bdf, PMC_ENABLE, new_pmc_en);
             std::thread::sleep(Duration::from_millis(5));
         } else {
             println!("  PMC_ENABLE: PMU bit 13 already set — skipping");
         }
 
-        let pmc_en_post = bar0.r32(PMC_ENABLE);
-        let pmu_ctrl_post = bar0.r32(PMU_CPUCTL);
+        let pmc_en_post = r32(&ember, &bdf, PMC_ENABLE);
+        let pmu_ctrl_post = r32(&ember, &bdf, PMU_CPUCTL);
         let hreset_post = pmu_ctrl_post & 0x10 != 0;
         println!("  PMC_ENABLE post = {pmc_en_post:#010x}");
         println!("  PMU cpuctl post = {pmu_ctrl_post:#010x}  (HRESET={hreset_post})");
@@ -288,7 +299,7 @@ fn main() {
     if !dry_run {
         // Set VRAM DMA base: physical address >> 8 (256-byte granularity)
         let dma_base = vram_fw_page >> 8;
-        bar0.w32(PMU_DMATRFBASE, dma_base);
+        w32(&ember, &bdf, PMU_DMATRFBASE, dma_base);
         println!("  DMATRFBASE = {dma_base:#010x} (VRAM {vram_fw_page:#010x} >> 8)");
 
         let start = Instant::now();
@@ -297,16 +308,20 @@ fn main() {
         for block_idx in 0..n_blocks {
             let tag = block_idx;
             // IMEM tag descriptor: (tag << 8) | 0x02 — same encoding as FECS DMATRF
-            bar0.w32(PMU_IMEM_TAG, (tag << 8) | 0x02);
+            w32(&ember, &bdf, PMU_IMEM_TAG, (tag << 8) | 0x02);
             // VRAM source block index
-            bar0.w32(PMU_VRAM_BLOCK, block_idx);
+            w32(&ember, &bdf, PMU_VRAM_BLOCK, block_idx);
             // Trigger DMATRF: 0x11 = bit 0 (trigger) + bit 4 (?)
-            bar0.w32(PMU_DMATRFCMD, 0x0000_0011);
+            w32(&ember, &bdf, PMU_DMATRFCMD, 0x0000_0011);
 
             // Poll: bit 1 of CMD clears when DMA engine is no longer busy
             let block_start = Instant::now();
             loop {
-                let cmd = bar0.r32(PMU_DMATRFCMD);
+                let cmd = r32(&ember, &bdf, PMU_DMATRFCMD);
+                if cmd == 0xFFFF_FFFF {
+                    eprintln!("WARN: D3cold sentinel");
+                    break;
+                }
                 if cmd & 0x02 == 0 {
                     ok_count += 1;
                     break;
@@ -327,8 +342,8 @@ fn main() {
 
         // Attempt IMEM readback (may not work on all Falcons in this state)
         let imem_read_ctrl: u32 = 0x0200_0000; // read mode BIT(25)
-        bar0.w32(PMU_DMEM_PORT, imem_read_ctrl | 0);
-        let imem_first = bar0.r32(PMU_DMEM_DATA);
+        w32(&ember, &bdf, PMU_DMEM_PORT, imem_read_ctrl | 0);
+        let imem_first = r32(&ember, &bdf, PMU_DMEM_DATA);
         println!("  DMEM_PORT[0] after DMATRF: {imem_first:#010x}  (informational)");
     } else {
         println!("  (dry-run: skipping DMATRF)");
@@ -341,29 +356,25 @@ fn main() {
 
         if !dry_run {
             let data_slice = &fw_data[actual_code_size..];
-            // Load data section to DMEM starting at address 0
-            // Write mode: BIT(24) | addr — same encoding used for FECS DMEM PIO
-            bar0.w32(PMU_DMEM_PORT, 0x0100_0000 | 0);
-
-            for chunk in data_slice.chunks(4) {
-                let word = u32::from_le_bytes([
-                    chunk.first().copied().unwrap_or(0),
-                    chunk.get(1).copied().unwrap_or(0),
-                    chunk.get(2).copied().unwrap_or(0),
-                    chunk.get(3).copied().unwrap_or(0),
-                ]);
-                bar0.w32(PMU_DMEM_DATA, word);
+            match ember.falcon_upload_dmem(&bdf, PMU_BASE, 0, data_slice) {
+                Ok(r) if r.ok => {
+                    w32(&ember, &bdf, PMU_DMEM_PORT, 0x0200_0000 | 0);
+                    let dmem_first = r32(&ember, &bdf, PMU_DMEM_DATA);
+                    let exp_word = if data_slice.len() >= 4 {
+                        u32::from_le_bytes([
+                            data_slice[0],
+                            data_slice[1],
+                            data_slice[2],
+                            data_slice[3],
+                        ])
+                    } else {
+                        0
+                    };
+                    println!("  DMEM[0] verify: got={dmem_first:#010x} want={exp_word:#010x}");
+                }
+                Ok(r) => eprintln!("  WARN: falcon.upload_dmem ok=false bytes={:?}", r.bytes),
+                Err(e) => eprintln!("  WARN: falcon.upload_dmem failed: {e}"),
             }
-
-            // Verify first DMEM word
-            bar0.w32(PMU_DMEM_PORT, 0x0200_0000 | 0); // read mode BIT(25)
-            let dmem_first = bar0.r32(PMU_DMEM_DATA);
-            let exp_word = if data_slice.len() >= 4 {
-                u32::from_le_bytes([data_slice[0], data_slice[1], data_slice[2], data_slice[3]])
-            } else {
-                0
-            };
-            println!("  DMEM[0] verify: got={dmem_first:#010x} want={exp_word:#010x}");
         } else {
             println!("  (dry-run: skipping DMEM load)");
         }
@@ -375,11 +386,11 @@ fn main() {
 
     if !dry_run {
         // Set BOOTVEC to 0 (start at address 0 in IMEM)
-        bar0.w32(PMU_BOOTVEC, 0);
+        w32(&ember, &bdf, PMU_BOOTVEC, 0);
         println!("  BOOTVEC = 0x0");
 
         // Issue STARTCPU (CPUCTL bit 1)
-        bar0.w32(PMU_CPUCTL, 0x02);
+        w32(&ember, &bdf, PMU_CPUCTL, 0x02);
         println!("  CPUCTL ← 0x02 (STARTCPU issued)\n");
     } else {
         println!("  (dry-run: skipping STARTCPU)");
@@ -399,9 +410,14 @@ fn main() {
         let _ = io::stdout().flush();
 
         while poll_start.elapsed() < timeout {
-            let mb0 = bar0.r32(PMU_MB0);
-            let pc = bar0.r32(PMU_PC);
-            let ctrl = bar0.r32(PMU_CPUCTL);
+            let mb0 = r32(&ember, &bdf, PMU_MB0);
+            let pc = r32(&ember, &bdf, PMU_PC);
+            let ctrl = r32(&ember, &bdf, PMU_CPUCTL);
+
+            if mb0 == 0xFFFF_FFFF || pc == 0xFFFF_FFFF || ctrl == 0xFFFF_FFFF {
+                eprintln!("WARN: D3cold sentinel");
+                break;
+            }
 
             if mb0 != last_mb0 || pc != last_pc {
                 println!(
@@ -420,7 +436,7 @@ fn main() {
             }
 
             // Failed: EXCI security trap
-            let exci = bar0.r32(PMU_EXCI);
+            let exci = r32(&ember, &bdf, PMU_EXCI);
             if exci == 0x0407_0000 {
                 println!("\n  FAIL: PMU hit security trap (exci=0x04070000) — HS ROM gate");
                 break;
@@ -443,12 +459,12 @@ fn main() {
 
         println!();
         println!("━━━ Phase 6 Final PMU State ━━━\n");
-        let ctrl = bar0.r32(PMU_CPUCTL);
-        let pc = bar0.r32(PMU_PC);
-        let sctl = bar0.r32(PMU_SCTL);
-        let mb0 = bar0.r32(PMU_MB0);
-        let mb1 = bar0.r32(PMU_MB1);
-        let exci = bar0.r32(PMU_EXCI);
+        let ctrl = r32(&ember, &bdf, PMU_CPUCTL);
+        let pc = r32(&ember, &bdf, PMU_PC);
+        let sctl = r32(&ember, &bdf, PMU_SCTL);
+        let mb0 = r32(&ember, &bdf, PMU_MB0);
+        let mb1 = r32(&ember, &bdf, PMU_MB1);
+        let exci = r32(&ember, &bdf, PMU_EXCI);
         println!(
             "  PMU cpuctl = {ctrl:#010x}  (HRESET={} HALTED={})",
             ctrl & 0x10 != 0,
@@ -471,10 +487,10 @@ fn main() {
     println!("━━━ Phase 7: SEC2 ACR Re-Probe ━━━\n");
 
     {
-        let sec2_ctrl = bar0.r32(SEC2_CPUCTL);
-        let sec2_pc = bar0.r32(SEC2_PC);
-        let sec2_sctl = bar0.r32(SEC2_SCTL);
-        let sec2_mb0 = bar0.r32(SEC2_MB0);
+        let sec2_ctrl = r32(&ember, &bdf, SEC2_CPUCTL);
+        let sec2_pc = r32(&ember, &bdf, SEC2_PC);
+        let sec2_sctl = r32(&ember, &bdf, SEC2_SCTL);
+        let sec2_mb0 = r32(&ember, &bdf, SEC2_MB0);
 
         println!("  SEC2 cpuctl = {sec2_ctrl:#010x}");
         println!("  SEC2 pc     = {sec2_pc:#010x}");
@@ -493,8 +509,8 @@ fn main() {
         }
 
         // Check WPR2 — if PMU ACR completed, WPR2 should be configured
-        let wpr2_lo = bar0.r32(0x1FA824);
-        let wpr2_hi = bar0.r32(0x1FA828);
+        let wpr2_lo = r32(&ember, &bdf, 0x1FA824);
+        let wpr2_hi = r32(&ember, &bdf, 0x1FA828);
         println!("\n  WPR2 lo = {wpr2_lo:#010x}");
         println!("  WPR2 hi = {wpr2_hi:#010x}");
 
@@ -514,10 +530,4 @@ fn main() {
     println!("  EXP 169 complete. Check results above.");
     println!("  If PMU booted → run volta_warm_pipeline to attempt FECS dispatch.");
     println!("═══════════════════════════════════════════════════════════════");
-}
-
-// ── CLI argument extraction ───────────────────────────────────────────────────
-
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }

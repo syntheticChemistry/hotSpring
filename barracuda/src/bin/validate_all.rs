@@ -35,7 +35,7 @@ struct Suite {
     tier: Tier,
 }
 
-// 65 suites total: 35 smoke, 7 nucleus, 23 silicon
+// 66 suites total: 35 smoke, 8 nucleus, 23 silicon
 const SUITES: &[Suite] = &[
     // ── Smoke tier (no primals, no GPU) ────────────────────────────────
     Suite {
@@ -247,6 +247,11 @@ const SUITES: &[Suite] = &[
     Suite {
         name: "Compute Trio Pipeline",
         binary: "validate_compute_trio_pipeline",
+        tier: Tier::Nucleus,
+    },
+    Suite {
+        name: "Lockup Defense Matrix (Exp 229/232)",
+        binary: "validate_lockup_defense_matrix",
         tier: Tier::Nucleus,
     },
     // ── Silicon tier (requires GPU hardware) ──────────────────────────

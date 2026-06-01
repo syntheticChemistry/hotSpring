@@ -21,8 +21,8 @@
 //! ## Pipeline
 //!
 //! 1. Verify warm state: PMC_ENABLE ≠ reset value, FECS_SCTL = 0, FECS in HRESET
-//! 2. Load `/lib/firmware/nvidia/gk210/fecs_inst.bin` → FECS IMEM via IMEMC/IMEMD
-//! 3. Load `/lib/firmware/nvidia/gk210/fecs_data.bin` → FECS DMEM via DMEMC/DMEMD
+//! 2. Load `/lib/firmware/nvidia/gk210/fecs_inst.bin` → FECS IMEM via ember.falcon.upload_imem
+//! 3. Load `/lib/firmware/nvidia/gk210/fecs_data.bin` → FECS DMEM via ember.falcon.upload_dmem
 //! 4. Release HRESET, STARTCPU (FECS_CPUCTL = 0x01)
 //! 5. Poll FECS until halted/booted (CPUCTL bit5 or PGRAPH_STATUS transitions)
 //! 6. Verify: read FECS_MAILBOX0 (booted signal), GPC0/GPC1 CPUCTL state
@@ -30,12 +30,13 @@
 //! ## Usage
 //!
 //! ```text
-//! cargo run --release --features low-level --bin exp182_k80_fecs_pio_boot \
+//! cargo run --release --bin exp182_k80_fecs_pio_boot \
 //!   -- [--bdf 0000:4c:00.0] [--inst /lib/firmware/nvidia/gk210/fecs_inst.bin]
 //!        [--data /lib/firmware/nvidia/gk210/fecs_data.bin]
+//!        [--ember-socket /run/toadstool/biomeos/compute.sock] [--dry-run]
 //! ```
 //!
-//! **Requires root** for `/sys/bus/pci/devices/.../resource0` write access.
+//! Requires toadstool-ember running and holding the VFIO fd for the target BDF.
 //!
 //! ## Prerequisites
 //!
@@ -43,13 +44,14 @@
 //! Run warm handoff:
 //!   toadstool device warm-catch 0000:4c:00.0 --memory-type gddr5
 
-#[cfg(not(feature = "low-level"))]
-compile_error!("exp182_k80_fecs_pio_boot requires --features low-level");
-
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use hotspring_barracuda::low_level::Bar0Map;
+use hotspring_barracuda::fleet_client::EmberClient;
+
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{connect_ember, extract_arg, is_dry_run};
 
 // ── PMC registers ──────────────────────────────────────────────────────────
 const BOOT0: u32 = 0x000000;
@@ -64,11 +66,6 @@ const FECS_BOOTVEC: u32 = FECS_BASE + 0x104; // Boot vector
 const FECS_PC: u32 = FECS_BASE + 0x110; // Program counter
 const FECS_SCTL: u32 = FECS_BASE + 0x240; // Security control (0 = LS mode)
 const FECS_HWCFG: u32 = FECS_BASE + 0x10c; // Hardware config
-const FECS_IMEMC: u32 = FECS_BASE + 0x180; // IMEM control
-const FECS_IMEMD: u32 = FECS_BASE + 0x184; // IMEM data (auto-increment)
-const FECS_IMETTAG: u32 = FECS_BASE + 0x188; // IMEM virtual tag
-const FECS_DMEMC: u32 = FECS_BASE + 0x1c0; // DMEM control
-const FECS_DMEMD: u32 = FECS_BASE + 0x1c4; // DMEM data (auto-increment)
 const FECS_MB0: u32 = FECS_BASE + 0x040; // Mailbox 0 (FECS boot status)
 const FECS_MB1: u32 = FECS_BASE + 0x044; // Mailbox 1
 
@@ -87,9 +84,6 @@ const CPUCTL_SRESET: u32 = 0x04; // bit 2 = soft reset (clear halted state)
 const CPUCTL_HALTED: u32 = 0x10; // bit 4 = CPU halted (also used as HRESET on v5)
 const CPUCTL_HALT: u32 = CPUCTL_HALTED; // alias
 
-// ── IMEMC bit masks ────────────────────────────────────────────────────────
-const IMEMC_AINCW: u32 = 0x0100_0000; // bit 24 = auto-increment on write
-
 // ── K80 warm PMC_ENABLE reference (set by nouveau during DEVINIT) ─────────
 const PMC_WARM_LO: u32 = 0x0000_0001; // Minimum expected (not cold)
 
@@ -99,8 +93,20 @@ const FW_DATA_DEFAULT: &str = "/lib/firmware/nvidia/gk210/fecs_data.bin";
 const FECS_IMEM_PAGE_SIZE: usize = 256; // bytes per IMEM page
 const FECS_IMEM_WORDS_PER_PAGE: usize = FECS_IMEM_PAGE_SIZE / 4;
 
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
+fn r32(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
+    match ember.mmio_read(bdf, offset) {
+        Ok(r) => r.value,
+        Err(e) => {
+            eprintln!("  WARN: mmio.read32({offset:#010x}): {e}");
+            0xDEAD_DEAD
+        }
+    }
+}
+
+fn w32(ember: &EmberClient, bdf: &str, offset: u32, value: u32) {
+    if let Err(e) = ember.mmio_write(bdf, offset, value) {
+        eprintln!("  WARN: mmio.write32({offset:#010x}, {value:#010x}): {e}");
+    }
 }
 
 fn banner() {
@@ -121,12 +127,14 @@ fn main() {
     let data_path = extract_arg(&args, "--data")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(FW_DATA_DEFAULT));
-    let dry_run = args.iter().any(|a| a == "--dry-run");
+    let ember_socket = extract_arg(&args, "--ember-socket");
+    let dry_run = is_dry_run(&args);
 
     banner();
     println!("  BDF:        {bdf}");
     println!("  FECS INST:  {}", inst_path.display());
     println!("  FECS DATA:  {}", data_path.display());
+    println!("  Wiring:     toadstool-ember (all MMIO via JSON-RPC — no raw BAR0 mmap)");
     if dry_run {
         println!("  Mode:       DRY RUN (reads only, no writes)");
     }
@@ -177,19 +185,14 @@ fn main() {
         data_words.len()
     );
 
-    // ── Open BAR0 ─────────────────────────────────────────────────────────
-    let resource0 = format!("/sys/bus/pci/devices/{bdf}/resource0");
-    let bar0 = Bar0Map::open(&resource0).unwrap_or_else(|e| {
-        eprintln!("FATAL: cannot open {resource0}: {e}");
-        eprintln!("  → Ensure device is bound to vfio-pci and MSE is enabled.");
-        eprintln!("  → Run: sudo setpci -s {bdf} COMMAND=0x06");
-        std::process::exit(1);
-    });
+    // ── Connect to ember ──────────────────────────────────────────────────
+    let ember = connect_ember(&bdf, ember_socket.as_deref());
+    println!("  Ember:      connected ✓");
 
     // ── Phase 1: Pre-condition validation ─────────────────────────────────
     println!("\n━━━ Phase 1: Pre-condition Check ━━━\n");
 
-    let boot0 = bar0.r32(BOOT0);
+    let boot0 = r32(&ember, &bdf, BOOT0);
     println!("  BOOT0          = {boot0:#010x}  (GK210 = 0x0f22d0a1)");
     if boot0 == 0xffff_ffff || boot0 == 0 {
         eprintln!("FATAL: GPU link dead (BOOT0={boot0:#010x}). Check PCIe and power.");
@@ -200,7 +203,7 @@ fn main() {
         println!("  Proceeding anyway (may be GK110/GK104 variant).");
     }
 
-    let pmc_en = bar0.r32(PMC_ENABLE);
+    let pmc_en = r32(&ember, &bdf, PMC_ENABLE);
     println!("  PMC_ENABLE     = {pmc_en:#010x}");
     if pmc_en <= PMC_WARM_LO {
         eprintln!("ERROR: GPU is cold (PMC_ENABLE={pmc_en:#010x}). Run nouveau warm cycle first.");
@@ -210,9 +213,9 @@ fn main() {
     println!("  DEVINIT:       OK (PMC warm)");
 
     // PTIMER sanity
-    let pt0 = bar0.r32(PTIMER_HI);
+    let pt0 = r32(&ember, &bdf, PTIMER_HI);
     std::thread::sleep(Duration::from_millis(5));
-    let pt1 = bar0.r32(PTIMER_HI);
+    let pt1 = r32(&ember, &bdf, PTIMER_HI);
     println!(
         "  PTIMER:        {pt0:#010x} → {pt1:#010x}  ({})",
         if pt1 != pt0 {
@@ -222,10 +225,10 @@ fn main() {
         }
     );
 
-    let fecs_sctl = bar0.r32(FECS_SCTL);
-    let fecs_cpuctl = bar0.r32(FECS_CPUCTL);
-    let fecs_hwcfg = bar0.r32(FECS_HWCFG);
-    let fecs_mb0 = bar0.r32(FECS_MB0);
+    let fecs_sctl = r32(&ember, &bdf, FECS_SCTL);
+    let fecs_cpuctl = r32(&ember, &bdf, FECS_CPUCTL);
+    let fecs_hwcfg = r32(&ember, &bdf, FECS_HWCFG);
+    let fecs_mb0 = r32(&ember, &bdf, FECS_MB0);
     println!("  FECS_SCTL      = {fecs_sctl:#010x}  (0=LS mode ✓, non-zero=HS/ACR required)");
     println!("  FECS_CPUCTL    = {fecs_cpuctl:#010x}  (0x10=HRESET ✓, expected)");
     println!("  FECS_HWCFG     = {fecs_hwcfg:#010x}");
@@ -241,34 +244,24 @@ fn main() {
         println!("  FECS may already be running or in an unexpected state.");
     }
 
-    let pgraph_st = bar0.r32(PGRAPH_STAT);
+    let pgraph_st = r32(&ember, &bdf, PGRAPH_STAT);
     println!("  PGRAPH_STATUS  = {pgraph_st:#010x}");
 
     // ── Phase 2: FECS IMEM load ────────────────────────────────────────────
     println!("\n━━━ Phase 2: FECS IMEM Load ({} pages) ━━━\n", inst_pages);
 
     if !dry_run {
-        for page in 0..inst_pages {
-            let phys_byte_addr = (page as u32) * (FECS_IMEM_PAGE_SIZE as u32);
-            // IMEMC: bit24=AINCW, bits[22:0] = byte address of start of page
-            bar0.w32(FECS_IMEMC, phys_byte_addr | IMEMC_AINCW);
-            // IMETTAG: virtual tag = physical page (LS mode: 1:1 mapping)
-            bar0.w32(FECS_IMETTAG, page as u32);
-
-            let word_start = page * FECS_IMEM_WORDS_PER_PAGE;
-            let word_end = (word_start + FECS_IMEM_WORDS_PER_PAGE).min(inst_words.len());
-            for &word in &inst_words[word_start..word_end] {
-                bar0.w32(FECS_IMEMD, word);
+        match ember.falcon_upload_imem(&bdf, FECS_BASE, 0, &fw_inst, 0, false) {
+            Ok(r) if r.ok => {
+                println!("  IMEM load complete: {} pages via ember.falcon.upload_imem", inst_pages);
             }
-            // Pad partial last page with NOPs
-            if word_end - word_start < FECS_IMEM_WORDS_PER_PAGE {
-                let pad = FECS_IMEM_WORDS_PER_PAGE - (word_end - word_start);
-                for _ in 0..pad {
-                    bar0.w32(FECS_IMEMD, 0);
-                }
+            Ok(r) => {
+                eprintln!("  WARN: falcon.upload_imem ok=false bytes={:?}", r.bytes);
+            }
+            Err(e) => {
+                eprintln!("  WARN: falcon.upload_imem error: {e}");
             }
         }
-        println!("  IMEM load complete: {} pages written", inst_pages);
     } else {
         println!("  DRY RUN: IMEM load skipped");
     }
@@ -280,12 +273,20 @@ fn main() {
     );
 
     if !dry_run {
-        // DMEMC: bit24=AINCW, byte address 0 = start of DMEM
-        bar0.w32(FECS_DMEMC, IMEMC_AINCW); // reuse same AINCW bit
-        for &word in &data_words {
-            bar0.w32(FECS_DMEMD, word);
+        match ember.falcon_upload_dmem(&bdf, FECS_BASE, 0, &fw_data) {
+            Ok(r) if r.ok => {
+                println!(
+                    "  DMEM load complete: {} words via ember.falcon.upload_dmem",
+                    data_words.len()
+                );
+            }
+            Ok(r) => {
+                eprintln!("  WARN: falcon.upload_dmem ok=false bytes={:?}", r.bytes);
+            }
+            Err(e) => {
+                eprintln!("  WARN: falcon.upload_dmem error: {e}");
+            }
         }
-        println!("  DMEM load complete: {} words written", data_words.len());
     } else {
         println!("  DRY RUN: DMEM load skipped");
     }
@@ -295,19 +296,19 @@ fn main() {
 
     if !dry_run {
         // Ensure boot vector is 0 (firmware expects entry at byte 0)
-        bar0.w32(FECS_BOOTVEC, 0x0000_0000);
+        w32(&ember, &bdf, FECS_BOOTVEC, 0x0000_0000);
         println!("  FECS_BOOTVEC ← 0x00000000");
 
         // On Kepler (GK210 Falcon v2/v4): STARTCPU = bit 1 (0x02).
         // If FECS is in HALTED state (bit 4 = 0x10), we must first clear HALTED
         // via SRESET (soft reset, bit 2 = 0x04) before asserting STARTCPU.
-        let cpuctl_pre = bar0.r32(FECS_CPUCTL);
+        let cpuctl_pre = r32(&ember, &bdf, FECS_CPUCTL);
         if cpuctl_pre & CPUCTL_HALTED != 0 {
-            bar0.w32(FECS_CPUCTL, CPUCTL_SRESET);
+            w32(&ember, &bdf, FECS_CPUCTL, CPUCTL_SRESET);
             println!("  FECS_CPUCTL  ← 0x{CPUCTL_SRESET:08x} (SRESET — clearing HALTED state)");
-            std::thread::sleep(std::time::Duration::from_micros(50));
+            std::thread::sleep(Duration::from_micros(50));
         }
-        bar0.w32(FECS_CPUCTL, CPUCTL_STARTCPU);
+        w32(&ember, &bdf, FECS_CPUCTL, CPUCTL_STARTCPU);
         println!("  FECS_CPUCTL  ← 0x{CPUCTL_STARTCPU:08x} (STARTCPU bit 1, GK210 Falcon v2/v4)");
     } else {
         println!("  DRY RUN: STARTCPU skipped");
@@ -325,7 +326,13 @@ fn main() {
     if !dry_run {
         print!("  Polling FECS_CPUCTL");
         loop {
-            let cpuctl = bar0.r32(FECS_CPUCTL);
+            let cpuctl = r32(&ember, &bdf, FECS_CPUCTL);
+            if cpuctl == 0xFFFF_FFFF {
+                let elapsed_ms = started.elapsed().as_millis();
+                println!("\n  WARN: D3cold sentinel at t={elapsed_ms}ms — ember circuit breaker active");
+                println!("  → journalctl -u coral-ember for recovery status");
+                break;
+            }
             iterations += 1;
             if cpuctl != last_cpuctl {
                 print!(" [{cpuctl:#010x}]");
@@ -335,7 +342,7 @@ fn main() {
             }
             // Kepler FECS halts after boot init (bit 4 = HALTED = 0x10).
             // Also check MAILBOX0 for boot status signal.
-            let mb0 = bar0.r32(FECS_MB0);
+            let mb0 = r32(&ember, &bdf, FECS_MB0);
             if (cpuctl & CPUCTL_HALTED != 0) && iterations > 1 {
                 // Halted on iteration >1 means firmware ran and halted (not initial state)
                 booted = true;
@@ -347,15 +354,14 @@ fn main() {
                 break;
             }
             // Also check PGRAPH_STATUS for engine-ready
-            let pgraph = bar0.r32(PGRAPH_STAT);
+            let pgraph = r32(&ember, &bdf, PGRAPH_STAT);
             if pgraph != 0 && pgraph != pgraph_st {
                 println!("\n  PGRAPH_STATUS changed: {pgraph_st:#010x} → {pgraph:#010x}");
             }
             if started.elapsed() >= timeout {
                 break;
             }
-            // Brief delay to avoid flooding PRI bus
-            std::hint::spin_loop();
+            std::thread::sleep(Duration::from_millis(10));
         }
         println!();
 
@@ -375,13 +381,13 @@ fn main() {
     // ── Phase 6: Post-boot state probe ─────────────────────────────────────
     println!("\n━━━ Phase 6: Post-Boot State ━━━\n");
 
-    let fecs_cpuctl_post = bar0.r32(FECS_CPUCTL);
-    let fecs_pc_post = bar0.r32(FECS_PC);
-    let fecs_mb0_post = bar0.r32(FECS_MB0);
-    let fecs_mb1_post = bar0.r32(FECS_MB1);
-    let pmc_post = bar0.r32(PMC_ENABLE);
-    let pgraph_post = bar0.r32(PGRAPH_STAT);
-    let pt_post = bar0.r32(PTIMER_HI);
+    let fecs_cpuctl_post = r32(&ember, &bdf, FECS_CPUCTL);
+    let fecs_pc_post = r32(&ember, &bdf, FECS_PC);
+    let fecs_mb0_post = r32(&ember, &bdf, FECS_MB0);
+    let fecs_mb1_post = r32(&ember, &bdf, FECS_MB1);
+    let pmc_post = r32(&ember, &bdf, PMC_ENABLE);
+    let pgraph_post = r32(&ember, &bdf, PGRAPH_STAT);
+    let pt_post = r32(&ember, &bdf, PTIMER_HI);
 
     println!("  FECS_CPUCTL    = {fecs_cpuctl_post:#010x}");
     println!("  FECS_PC        = {fecs_pc_post:#010x}");
@@ -406,11 +412,11 @@ fn main() {
     );
 
     // GPC0 GPCCS state
-    let gpc0_cpuctl = bar0.r32(GPCCS_BASE_GPC0 + GPCCS_CPUCTL_OFF);
-    let gpc0_pc = bar0.r32(GPCCS_BASE_GPC0 + GPCCS_PC_OFF);
-    let gpc0_mb0 = bar0.r32(GPCCS_BASE_GPC0 + GPCCS_MB0_OFF);
-    let gpc1_cpuctl = bar0.r32(GPCCS_BASE_GPC1 + GPCCS_CPUCTL_OFF);
-    let gpc1_pc = bar0.r32(GPCCS_BASE_GPC1 + GPCCS_PC_OFF);
+    let gpc0_cpuctl = r32(&ember, &bdf, GPCCS_BASE_GPC0 + GPCCS_CPUCTL_OFF);
+    let gpc0_pc = r32(&ember, &bdf, GPCCS_BASE_GPC0 + GPCCS_PC_OFF);
+    let gpc0_mb0 = r32(&ember, &bdf, GPCCS_BASE_GPC0 + GPCCS_MB0_OFF);
+    let gpc1_cpuctl = r32(&ember, &bdf, GPCCS_BASE_GPC1 + GPCCS_CPUCTL_OFF);
+    let gpc1_pc = r32(&ember, &bdf, GPCCS_BASE_GPC1 + GPCCS_PC_OFF);
     println!("  GPC0_GPCCS_CPUCTL = {gpc0_cpuctl:#010x}  PC={gpc0_pc:#010x}  MB0={gpc0_mb0:#010x}");
     println!("  GPC1_GPCCS_CPUCTL = {gpc1_cpuctl:#010x}  PC={gpc1_pc:#010x}");
 

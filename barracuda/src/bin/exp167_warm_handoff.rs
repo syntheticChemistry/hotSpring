@@ -25,10 +25,13 @@
 
 use std::time::{Duration, Instant};
 
-use hotspring_barracuda::fleet_client::{EmberClient, FleetDiscovery};
+use hotspring_barracuda::fleet_client::EmberClient;
 use hotspring_barracuda::glowplug_client::GlowplugClient;
-use hotspring_barracuda::primal_bridge::NucleusContext;
 use hotspring_barracuda::validation::ValidationHarness;
+
+#[path = "../bin_helpers/sovereignty/mod.rs"]
+mod sovereignty;
+use sovereignty::connect::{extract_arg, try_connect_ember, try_connect_glowplug};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -44,8 +47,8 @@ fn main() {
     });
     println!("  Target BDF: {bdf}\n");
 
-    let glowplug = connect_glowplug();
-    let ember = connect_ember(&bdf);
+    let glowplug = try_connect_glowplug();
+    let ember = try_connect_ember(&bdf);
 
     let Some(glowplug) = glowplug else {
         eprintln!("  FATAL: glowplug not reachable");
@@ -335,28 +338,3 @@ fn phase5_verify_ember(
     }
 }
 
-fn connect_glowplug() -> Option<GlowplugClient> {
-    let nucleus = NucleusContext::detect();
-    GlowplugClient::from_nucleus(&nucleus).ok()
-}
-
-fn connect_ember(bdf: &str) -> Option<EmberClient> {
-    if let Some(sock) = hotspring_barracuda::fleet_client::discover_diesel_ember_socket(bdf) {
-        return Some(EmberClient::connect(sock.to_string_lossy().as_ref()));
-    }
-    if let Ok(disc) = FleetDiscovery::load_default() {
-        if let Some(sock) = disc.file().routes.get(bdf) {
-            return Some(EmberClient::connect(sock));
-        }
-    }
-    for candidate in hotspring_barracuda::fleet_client::ember_socket_candidates(bdf) {
-        if candidate.exists() {
-            return Some(EmberClient::connect(candidate.to_string_lossy().as_ref()));
-        }
-    }
-    None
-}
-
-fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
-}
