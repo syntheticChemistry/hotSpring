@@ -2195,13 +2195,15 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
   registry, separate from songbird's `ipc.resolve`. No mechanism to propagate
   songbird registrations to toadStool's internal registry.
 - **Cascade evolution (June 1, 2026 late)**: songBird added `ipc.watch` method —
-  revision-tracked event log with capability filter. toadStool can now poll
-  `ipc.watch { since_revision: N, capabilities: ["shader"] }` to detect when
-  coralReef registers. barraCuda also evolved to route shader binaries to toadStool
-  via `ipc.resolve`. Remaining work: toadStool must consume `ipc.watch` to populate
-  its internal provider registry.
-- **Status**: PARTIALLY RESOLVED — songBird + barraCuda sides done, toadStool
-  integration pending. Filed June 1, 2026 (revised same day).
+  revision-tracked event log with capability filter. barraCuda evolved to route
+  shader binaries to toadStool via `ipc.resolve`.
+- **toadStool integration (June 1, 2026 late)**: `VisualizationClient` evolved from
+  `OnceCell` (permanent cache) to `RwLock<CachedClient>` with `invalidate()`.
+  Background `ipc.watch` poller watches songBird for shader capability registrations
+  and invalidates the cache so dispatch re-discovers coralReef dynamically (10s poll).
+  Previously, if coralReef wasn't running at toadStool startup, shader dispatch was
+  permanently broken until restart. Now toadStool detects new providers within 10s.
+- **Status**: **RESOLVED** — all three primals integrated. Filed June 1, 2026.
 
 ### GAP-HS-120: ~~barraCuda~~ toadStool internal dispatch calls nonexistent method
 
