@@ -426,5 +426,68 @@ code exists — the missing link is runlist + host engine binding.
 
 ### Filed Gaps
 
-GAP-HS-118 through GAP-HS-122 filed in `docs/PRIMAL_GAPS.md` (118 and 120-121 revised).
+GAP-HS-118 through GAP-HS-123 filed in `docs/PRIMAL_GAPS.md` (118 and 120-122 revised).
 Full handback: `infra/wateringHole/handoffs/hotSpring/HOTSPRING_PIPELINE_INTELLIGENCE_JUN01_2026.md`
+
+## Upstream Cascade Response (June 1, 2026 — late evening)
+
+All three FRAGO teams responded with targeted evolutions:
+
+### coralReef — `b30804a` fix: resolve hotSpring pipeline gaps (CR-001/002/003)
+
+| Gap | Description | Status |
+|-----|-------------|--------|
+| CR-001 | Adapter-aware arch routing — `resolve_arch()` infers SM target from AdapterDescriptor | **PASS** — prevents silent sm_70 fallback for Blackwell |
+| CR-002 | Copy propagation panic fix — assertion `entry_ssa.comps()==1` changed to guard | **PARTIAL** — fixed line 142 but lines 116 and 219 have identical asserts. Local fix applied. |
+| CR-003 | f64 pow spec gap documented — WGSL rejects `pow(f64,f64)`, polyfill documented | **PASS** — `exp2(y * log2(x))` |
+
+**Validation**: After applying local fix (lines 116+219), `sum_reduce_subgroup_f64.wgsl`
+compiles successfully (1520-char SPIR-V binary, 0.05s). Server survives post-compilation.
+This is the **first successful subgroup shader compilation** in the hotSpring pipeline.
+
+### barraCuda — `ccb5d752` Wave 67 FRAGO: evolve compute.dispatch.submit wire contract
+
+Two-mode dispatch implemented:
+- **Mode 1** (shader binary): When `binary_b64` present, resolves toadStool via Songbird
+  `ipc.resolve` and forwards. Falls back to tensor passthrough with `"routed": false`.
+- **Mode 2** (tensor passthrough): Original behavior when no binary provided.
+
+Response includes `"routed": true/false` flag so callers know the execution path.
+Addresses P1 (wire contract clarity) and P2 (capability routing) from FRAGO.
+
+### songBird — `87e0b05f` feat(ipc): add ipc.watch for registry change propagation (GAP-HS-119)
+
+New method: `ipc.watch { since_revision, capabilities? }`
+
+Returns: `{ revision, events: [{ kind, primal, capabilities, endpoint }] }`
+
+Implementation:
+- `ServiceRegistry` now tracks monotonic revision + bounded event log (256 entries)
+- `RegistryEvent` with `Registered`/`Unregistered` kinds
+- Capability filter for targeted watches
+- Wired into dispatch routing table
+
+This resolves the songBird half of GAP-HS-119. toadStool must now consume `ipc.watch`
+to populate its internal provider registry when coralReef comes online.
+
+### Updated Compute Trio Status
+
+| Stage | Result |
+|-------|--------|
+| coralReef WGSL → SPIR-V (sm_70) | **PASS** — incl. subgroup shaders (post-local-fix) |
+| coralReef sm_120 arch routing | **PASS** — adapter-aware, no silent fallback |
+| songbird discovery resolution | **PASS** — now with `ipc.watch` for change propagation |
+| barraCuda wire contract | **PASS** — dual-mode dispatch with routing flag |
+| toadStool VFIO dispatch (Titan V) | **PASS** — `local_cylinder` |
+| VFIO readback | **PASS** (zeros — FECS boundary) |
+| DRM dispatch (Blackwell) | **PARTIAL** — wgpu backend implemented, needs `ipc.watch` integration |
+| Blackwell wgpu compute | **PASS** — 256/256 values correct |
+
+### Remaining Evolution Targets
+
+1. **toadStool `ipc.watch` consumer** — poll songBird for coralReef registration,
+   populate internal provider registry. This unblocks DRM dispatch end-to-end.
+2. **toadStool PBDMA/runlist binding** — configure RUNLIST_BASE and register GR channel
+   with Host engine. Single blocker for VFIO Tier 2 → actual kernel execution.
+3. **coralReef CR-002 completion** — upstream needs to fix lines 116 and 219 in
+   `opt_copy_prop/mod.rs` (same pattern as line 142 fix). Local fix applied here.

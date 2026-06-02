@@ -2187,14 +2187,21 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
 
 ### GAP-HS-119: toadStool DRM dispatch requires missing visualization provider
 
-- **Severity**: P0 — blocks all DRM-path GPU dispatch
-- **Upstream**: toadStool DRM dispatch engine
+- **Severity**: P0 → **P1** — songBird now provides `ipc.watch` for change propagation
+- **Upstream**: toadStool DRM dispatch engine + songBird IPC
 - **Symptom**: `"visualization/shader service not available"` on all DRM GPUs,
   even after coralReef is registered with songbird as shader/compile provider.
 - **Root cause**: toadStool's DRM dispatch path uses its own internal provider
   registry, separate from songbird's `ipc.resolve`. No mechanism to propagate
   songbird registrations to toadStool's internal registry.
-- **Status**: OPEN — filed June 1, 2026.
+- **Cascade evolution (June 1, 2026 late)**: songBird added `ipc.watch` method —
+  revision-tracked event log with capability filter. toadStool can now poll
+  `ipc.watch { since_revision: N, capabilities: ["shader"] }` to detect when
+  coralReef registers. barraCuda also evolved to route shader binaries to toadStool
+  via `ipc.resolve`. Remaining work: toadStool must consume `ipc.watch` to populate
+  its internal provider registry.
+- **Status**: PARTIALLY RESOLVED — songBird + barraCuda sides done, toadStool
+  integration pending. Filed June 1, 2026 (revised same day).
 
 ### GAP-HS-120: ~~barraCuda~~ toadStool internal dispatch calls nonexistent method
 
@@ -2223,13 +2230,33 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
   VFIO for sovereign bare-metal, wgpu for DRM-bound cards.
 - **Status**: PARTIALLY RESOLVED — wgpu path validated June 1, 2026.
 
-### GAP-HS-122: coralReef has no sm_120 (Blackwell) codegen target
+### GAP-HS-122: coralReef ~~has no sm_120 (Blackwell) codegen target~~ — RESOLVED
 
-- **Severity**: P1 — Blackwell compilations fall back to sm_70
+- **Severity**: P1 → **RESOLVED**
 - **Upstream**: coralReef codegen
 - **Symptom**: All WGSL compilations return `target: sm_70` regardless of
   requested architecture. No sm_120 SASS/PTX output available.
-- **Status**: OPEN — filed June 1, 2026.
+- **Resolution**: coralReef health check confirmed sm_120 is a supported arch
+  (Wave 67, v0.2.0). Requires explicit `arch: "sm_120"` parameter.
+- **Cascade evolution (June 1, 2026 late)**: coralReef added adapter-aware arch
+  routing (CR-001) — `resolve_arch()` infers SM target from AdapterDescriptor
+  when no explicit arch is provided. Prevents silent sm_70 fallback for Blackwell.
+- **Status**: RESOLVED — June 1, 2026.
+
+### GAP-HS-123: coralReef opt_copy_prop panic on subgroupAdd (multi-component SSA)
+
+- **Severity**: P1 — crashes coralReef server on certain subgroup shaders
+- **Upstream**: coralReef codegen — `opt_copy_prop/mod.rs`
+- **Symptom**: `sum_reduce_subgroup_f64.wgsl` with `subgroupAdd()` crashes
+  coralReef with assertion `src_ssa.comps() == 1` at line 219 (and also
+  line 116) of `opt_copy_prop/mod.rs`. The upstream CR-002 fix only addressed
+  line 142 (changed assert to continue for `entry_ssa`), missing two additional
+  assertions on `src_ssa` and `ssa` in the same file.
+- **Cascade evolution**: Upstream CR-002 fixed line 142. Local hotSpring fix
+  applied to lines 116 and 219 with same pattern (assert→guard+return/continue).
+  After fix: subgroup shader compiles successfully, server survives.
+- **Status**: RESOLVED locally — fix applied and validated. Upstream FRAGO
+  needed to patch remaining assertions (lines 116, 219).
 
 ## Handback Protocol
 
