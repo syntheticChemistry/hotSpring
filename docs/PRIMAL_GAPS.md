@@ -2227,10 +2227,21 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
 - **Workaround**: **wgpu/Vulkan compute VERIFIED** — direct wgpu dispatch
   produces correct results (256/256 f32 values, exact match). The Blackwell
   GPU works through the standard Vulkan compute path via wgpu v28.
-- **Evolution**: toadStool needs a `wgpu` dispatch backend for DRM-bound GPUs
-  (complement to VFIO `local_cylinder` path). This enables dual-path compute:
-  VFIO for sovereign bare-metal, wgpu for DRM-bound cards.
-- **Status**: PARTIALLY RESOLVED — wgpu path validated June 1, 2026.
+- **Evolution**: toadStool `wgpu_dispatch.rs` backend implemented for DRM-bound GPUs
+  (complement to VFIO `local_cylinder` path). Dual-path compute: VFIO for
+  sovereign bare-metal, wgpu for DRM-bound cards.
+- **Implementation (June 1–2, 2026)**:
+  - wgpu dispatch backend added with explicit `BindGroupLayout` + `PipelineLayout`
+    (avoids `pipeline.get_bind_group_layout()` panic under `panic=abort`)
+  - `device_lost` AtomicBool flag via `set_device_lost_callback` — detects Vulkan
+    ERROR_UNKNOWN at init and during dispatch, prevents fatal panics
+  - SPIR-V magic validation (0x07230203) before passthrough — coralReef returns
+    internal binary format (0x00007919), not SPIR-V. Feeding non-SPIR-V to Vulkan
+    caused immediate device loss. Now falls back to naga/WGSL compilation.
+  - Separate thread for wgpu init (avoids tokio runtime nesting)
+- **Verified**: Full sovereign pipeline: coralReef compile → toadStool wgpu dispatch
+  → RTX 5060 Blackwell → 256/256 f32 values correct. `data[i] = f32(i)*2+1` verified.
+- **Status**: **RESOLVED** — wgpu dispatch operational, June 2, 2026.
 
 ### GAP-HS-122: coralReef ~~has no sm_120 (Blackwell) codegen target~~ — RESOLVED
 
@@ -2259,6 +2270,21 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
   After fix: subgroup shader compiles successfully, server survives.
 - **Status**: RESOLVED locally — fix applied and validated. Upstream FRAGO
   needed to patch remaining assertions (lines 116, 219).
+
+### GAP-HS-124: coralReef `shader.compile.wgsl` returns internal binary, not SPIR-V
+
+- **Severity**: P2 — workaround in place (naga/WGSL fallback)
+- **Upstream**: coralReef `shader.compile.wgsl` response format
+- **Symptom**: Requesting `target: "spirv"` from coralReef returns 192-byte binary
+  with magic `0x00007919` — this is coralReef's internal codegen format, not SPIR-V
+  (which has magic `0x07230203`). Passing this to wgpu's SPIRV_SHADER_PASSTHROUGH
+  causes immediate Vulkan device loss (ERROR_UNKNOWN → "Parent device is lost").
+- **Workaround**: toadStool validates SPIR-V magic before passthrough; falls back to
+  naga/WGSL compilation when binary is not valid SPIR-V. Works correctly.
+- **Upstream fix needed**: coralReef should either (a) return actual SPIR-V when
+  `target: "spirv"` is requested, or (b) document that `binary_b64` contains
+  internal format and add a separate `spirv_b64` field for validated SPIR-V.
+- **Status**: OPEN (workaround deployed) — Filed June 2, 2026.
 
 ## Handback Protocol
 

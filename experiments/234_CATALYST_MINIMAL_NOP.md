@@ -478,16 +478,35 @@ to populate its internal provider registry when coralReef comes online.
 | coralReef sm_120 arch routing | **PASS** — adapter-aware, no silent fallback |
 | songbird discovery resolution | **PASS** — now with `ipc.watch` for change propagation |
 | barraCuda wire contract | **PASS** — dual-mode dispatch with routing flag |
-| toadStool VFIO dispatch (Titan V) | **PASS** — `local_cylinder` |
+| toadStool VFIO dispatch (Titan V) | **PASS** — `local_cylinder`, FECS cold boundary |
 | VFIO readback | **PASS** (zeros — FECS boundary) |
-| DRM dispatch (Blackwell) | **PARTIAL** — wgpu backend implemented, needs `ipc.watch` integration |
-| Blackwell wgpu compute | **PASS** — 256/256 values correct |
+| **DRM dispatch (Blackwell)** | **PASS** — full sovereign pipeline verified |
+| **Blackwell wgpu compute** | **PASS** — 256/256 f32 values exact match |
+| **End-to-end: coralReef→toadStool→GPU** | **PASS** — sovereign compute verified |
+
+### Sovereign Compute Pipeline — Verified June 2, 2026
+
+Full pipeline: `coralReef compile` → `toadStool wgpu dispatch` → `RTX 5060 Blackwell`
+
+- coralReef compiles WGSL → 192-byte internal binary (not SPIR-V; magic 0x00007919)
+- toadStool detects non-SPIR-V binary, falls back to naga/WGSL path
+- wgpu creates Vulkan compute pipeline via naga compilation
+- RTX 5060 executes: `data[idx] = f32(idx) * 2.0 + 1.0`
+- Readback: 256/256 f32 values match expected — **verified correct**
+
+Key fixes during execution:
+- **wgpu tokio nesting**: `get_or_init_wgpu()` spawns dedicated thread for runtime
+- **SPIR-V magic validation**: Prevents Vulkan device loss from non-SPIR-V binary
+- **Explicit pipeline layout**: Avoids `get_bind_group_layout()` panic under `panic=abort`
+- **Device lost detection**: `AtomicBool` via `set_device_lost_callback`
 
 ### Remaining Evolution Targets
 
-1. **toadStool `ipc.watch` consumer** — poll songBird for coralReef registration,
-   populate internal provider registry. This unblocks DRM dispatch end-to-end.
-2. **toadStool PBDMA/runlist binding** — configure RUNLIST_BASE and register GR channel
-   with Host engine. Single blocker for VFIO Tier 2 → actual kernel execution.
-3. **coralReef CR-002 completion** — upstream needs to fix lines 116 and 219 in
+1. **toadStool PBDMA/runlist binding** — configure RUNLIST_BASE and register GR channel
+   with Host engine. Single blocker for VFIO Tier 2 → actual kernel execution on Titan V.
+2. **coralReef CR-002 completion** — upstream needs to fix lines 116 and 219 in
    `opt_copy_prop/mod.rs` (same pattern as line 142 fix). Local fix applied here.
+3. **coralReef SPIR-V output** — `shader.compile.wgsl` with `target: "spirv"` should
+   return actual SPIR-V (magic 0x07230203), not internal format. Filed as GAP-HS-124.
+4. **songBird discovery.sock deployment** — ipc.watch poller in toadStool is ready,
+   waiting for evolved songBird to expose discovery capability socket.
