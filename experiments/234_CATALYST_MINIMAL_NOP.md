@@ -381,15 +381,48 @@ After upstream sync (coralReef 1d9452c, barraCuda 5c70da46), full pipeline reval
    doesn't propagate to toadStool's internal registry. The NUCLEUS discovery
    contract is incomplete.
 
+### Tier 2 Root Cause Analysis (June 1, 2026 late)
+
+Precise diagnosis of why VFIO dispatches return all zeros:
+
+```
+FECS state: running=true, halted=false, pc=4057 (idle loop), os=0, mailbox0=0
+FECS_CTXSW_STATUS: 0 (no context switch in progress)
+FECS_NEW_CTX: 0, FECS_NEXT_CTX: 0 (no context loaded)
+RUNLIST_BASE: 0 (no runlist configured)
+GR_ENGINE_STATUS: 0xbadf5040 (uninitialized)
+```
+
+PBDMA diagnostics during dispatch:
+```
+pre-sync:  userd_gp_put=7, userd_gp_get=0
+post-sync: userd_gp_put=7, userd_gp_get=0 (ZERO entries consumed)
+hw_get=0x00010000 (misaligned — GPFIFO base, not entry offset)
+```
+
+**Root cause**: The PBDMA is not connected to a valid GR channel. FECS is alive
+(running idle firmware, PC advancing) but has no compute context to schedule.
+The pushbuffer entries are written to GPFIFO memory but the Host engine never
+picks them up because RUNLIST_BASE=0 (no runlist registered with the scheduler).
+
+**Fix path**: The cylinder needs to:
+1. Configure RUNLIST_BASE with the channel descriptor
+2. Register the channel with the Host engine scheduler
+3. Optionally: send FECS a context load command via mailbox
+
+toadStool has the primitives (ember.pramin.write, ember.falcon.*), the channel
+code exists — the missing link is runlist + host engine binding.
+
 ### Evolution Targets
 
-- **toadStool wgpu backend**: Add a wgpu/Vulkan compute dispatch path for DRM-bound
-  GPUs. The Blackwell is proven compute-capable — toadStool just needs to use wgpu
-  instead of local_cylinder for non-VFIO cards.
-- **FECS context init**: The Tier 2 boundary requires FECS golden context loading
-  for VFIO compute execution. This is a toadStool diesel engine evolution target
-  (GPU firmware/microcontroller init sequence).
+- **toadStool PBDMA/runlist binding**: Configure RUNLIST_BASE and register the
+  GR channel with the Host engine so PBDMA picks up pushbuffer commands. This is
+  the single blocker for Tier 2 → Tier 3 (actual kernel execution).
+- **toadStool wgpu backend**: Add a wgpu/Vulkan dispatch path for DRM-bound GPUs.
+  Blackwell confirmed capable (256/256 exact match via wgpu).
 - **coralReef subgroup codegen**: `opt_copy_prop` panic on `subgroupAdd` — upstream.
+- **coralReef sm_120**: Already supported! (confirmed in health check). Just needs
+  to be requested with `arch: "sm_120"` parameter.
 
 ### Filed Gaps
 
