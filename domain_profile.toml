@@ -1,0 +1,169 @@
+# Domain Profile: hotSpring — GPU Physics & Computational Chemistry
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Root domain profile for litho emit-pseudospore ecosystem classification.
+# hotSpring is the GPU compute + physics science spring: lattice QCD, nuclear EOS,
+# CAZyme free energy landscapes, molecular dynamics, and sovereign GPU validation.
+
+[profile]
+id = "hotspring-gpu-physics"
+version = "0.6.32"
+domain = "computational-physics"
+subdomain = [
+    "lattice-qcd",
+    "nuclear-eos",
+    "computational-chemistry",
+    "molecular-dynamics",
+    "gpu-compute-validation",
+    "metadynamics",
+]
+tools = [
+    "barraCuda",
+    "coralReef",
+    "toadStool",
+    "GROMACS",
+    "PLUMED",
+    "wgpu",
+]
+methods = [
+    "hybrid-monte-carlo",
+    "rational-hmc",
+    "hasenbusch-preconditioning",
+    "well-tempered-metadynamics",
+    "cremer-pople-puckering",
+    "fes-reconstruction",
+    "gpu-shader-dispatch",
+    "cross-gate-compute",
+]
+
+[translation]
+
+[[translation.entity_groups]]
+name = "lattice_qcd"
+domain_description = "SU(3) lattice gauge theory: HMC, thermalization, measurement, gradient flow"
+computation = "Wilson gauge action → leapfrog/Omelyan HMC → plaquette/Polyakov/Wilson loops → gradient flow → continuum extrapolation"
+modules = ["lattice_hmc", "lattice_multi_gpu", "lattice_measurement", "lattice_gradient_flow"]
+
+[[translation.entity_groups]]
+name = "nuclear_eos"
+domain_description = "Nuclear equation of state: Skyrme parametrization, neutron star observables"
+computation = "SLy4/SkM* parameters → binding energy → neutron star mass-radius → NMP chi-squared"
+modules = ["provenance_nmp", "provenance_hfb", "provenance_lattice"]
+
+[[translation.entity_groups]]
+name = "compchem_metadynamics"
+domain_description = "CAZyme free energy landscapes via well-tempered metadynamics"
+computation = "GROMACS topology → Cremer-Pople CVs → Gaussian hill deposition → FES reconstruction"
+modules = ["compchem_topology", "compchem_metadynamics", "compchem_parity", "compchem_braid_pipeline"]
+
+[[translation.entity_groups]]
+name = "molecular_dynamics_forces"
+domain_description = "Bonded force field interactions for biomolecular simulation"
+computation = "Harmonic bonds/angles + periodic dihedrals + impropers → force/energy evaluation (f64 WGSL shaders)"
+modules = ["harmonic_bond_f64", "harmonic_angle_f64", "dihedral_f64", "improper_f64"]
+
+[[translation.entity_groups]]
+name = "gpu_compute_validation"
+domain_description = "Sovereign GPU compute validation: shader dispatch, device management, cross-gate routing"
+computation = "WGSL compile → binary dispatch → result verification → BLAKE3 witness → DAG provenance"
+modules = ["compute_dispatch", "compute_dispatch_cross_gate", "glowplug_client", "fleet_ember"]
+
+[[translation.entity_groups]]
+name = "reservoir_computing"
+domain_description = "Echo state networks for time-series prediction and control"
+computation = "Input scaling → reservoir state → leaky integration → ridge regression readout"
+modules = ["md_reservoir"]
+
+[derivation]
+
+[[derivation.pipeline]]
+name = "sovereign_lattice_qcd"
+description = "Full SU(3) HMC with GPU-accelerated plaquette computation"
+input = "Lattice parameters (beta, N_t, N_s)"
+output = "Gauge configurations + observables (plaquette, Polyakov loop, Wilson loops)"
+tool = "hotspring lattice module (barraCuda GPU)"
+
+[[derivation.pipeline]]
+name = "cazyme_fes"
+description = "Free energy surface reconstruction from metadynamics HILLS"
+input = "PLUMED HILLS file + GROMACS topology"
+output = "fes_theta.dat / fes_2d.dat + FermentTranscript braid"
+tool = "hotspring compchem module (sovereign Rust-native reconstruction)"
+
+[[derivation.pipeline]]
+name = "gpu_shader_validation"
+description = "End-to-end sovereign GPU compute validation with provenance"
+input = "WGSL shader source + input data"
+output = "Computation result + BLAKE3 witness + DAG provenance"
+tool = "hotspring compute_dispatch (barraCuda + coralReef + toadStool)"
+
+[[derivation.pipeline]]
+name = "cross_gate_dispatch"
+description = "Remote GPU compute via Songbird mesh and capability.call routing"
+input = "WGSL shader + input + target gate"
+output = "Remote computation result + cross-gate provenance metadata"
+tool = "hotspring cross_gate module (biomeOS capability.call + Songbird)"
+
+[audit]
+
+[[audit.checks]]
+name = "gpu_cpu_parity"
+description = "GPU WGSL shader results match CPU reference within f64 tolerance"
+applies_to = ["lattice_hmc", "compchem_metadynamics", "molecular_dynamics_forces"]
+
+[[audit.checks]]
+name = "fes_tier_parity"
+description = "Sovereign FES reconstruction RMSD < 2.0 kJ/mol vs GROMACS reference"
+applies_to = ["compchem_parity"]
+
+[[audit.checks]]
+name = "provenance_completeness"
+description = "All pipeline outputs have BLAKE3 hashes, DAG session, and FermentTranscript"
+applies_to = ["cazyme_fes", "gpu_shader_validation"]
+
+[[audit.checks]]
+name = "cross_gate_integrity"
+description = "Remote dispatch produces bit-identical results to local dispatch"
+applies_to = ["cross_gate_dispatch"]
+
+[[audit.checks]]
+name = "hmc_reversibility"
+description = "Omelyan integrator energy drift < threshold over test trajectory"
+applies_to = ["lattice_hmc"]
+
+[[audit.checks]]
+name = "named_tolerance_coverage"
+description = "All numerical comparisons use named tolerances (no inline magic numbers)"
+applies_to = "all"
+
+[figures]
+auto_generate = false
+
+[[figures.plot]]
+name = "plaquette_thermalization"
+module = "lattice_hmc"
+type = "1d_line"
+x_axis = "HMC trajectory"
+y_axis = "Average plaquette"
+
+[[figures.plot]]
+name = "puckering_fel_1d"
+module = "compchem_parity"
+type = "1d_line"
+x_axis = "theta (rad)"
+y_axis = "F(theta) kJ/mol"
+overlay = true
+
+[[figures.plot]]
+name = "stoddart_fel_2d"
+module = "compchem_parity"
+type = "2d_heatmap"
+axes = ["qx (nm)", "qy (nm)"]
+colorbar = "kJ/mol"
+
+[[figures.plot]]
+name = "nuclear_eos_mass_radius"
+module = "provenance_nmp"
+type = "1d_line"
+x_axis = "Radius (km)"
+y_axis = "Mass (M_sun)"
