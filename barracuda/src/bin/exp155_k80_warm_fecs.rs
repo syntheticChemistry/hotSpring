@@ -138,7 +138,7 @@ fn main() {
             result.ok, result.decontaminated
         );
     }
-    if glowplug.experiment_end(&bdf).is_ok() {
+    if glowplug.experiment_lifecycle(&bdf, "end").is_ok() {
         println!("  Experiment ended for {bdf}");
     }
 
@@ -183,13 +183,13 @@ fn phase2_warm_cycle(
     bdf: &str,
 ) -> bool {
     // Mark experiment start
-    if let Err(e) = glowplug.experiment_start(bdf) {
-        println!("  experiment_start warning: {e}");
+    if let Err(e) = glowplug.experiment_lifecycle(bdf, "start") {
+        println!("  experiment_lifecycle(start) warning: {e}");
     }
 
     // Swap to nouveau (warm cycle)
     println!("  Swapping {bdf} to nouveau (with trace)...");
-    match glowplug.device_swap(bdf, "nouveau", true) {
+    match glowplug.device_swap(bdf, "nouveau") {
         Ok(_) => {
             println!("  Swap to nouveau: OK");
             harness.check_bool("swap to nouveau", true);
@@ -208,7 +208,7 @@ fn phase2_warm_cycle(
 
     // Swap back to vfio-pci
     println!("  Swapping {bdf} back to vfio-pci...");
-    match glowplug.device_swap(bdf, "vfio-pci", true) {
+    match glowplug.device_swap(bdf, "vfio-pci") {
         Ok(_) => {
             println!("  Swap to vfio-pci: OK");
             harness.check_bool("swap back to vfio-pci", true);

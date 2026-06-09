@@ -21,7 +21,6 @@ use hotspring_barracuda::physics::hfb_gpu_resident::binding_energies_l2_gpu_resi
 use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances::{HFB_L2_MIXING, HFB_L2_TOLERANCE};
 
-use hotspring_barracuda as barracuda;
 
 use barracuda::ops::linalg::BatchedEighGpu;
 use std::sync::Arc;

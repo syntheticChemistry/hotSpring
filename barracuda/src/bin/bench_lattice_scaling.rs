@@ -16,7 +16,6 @@ use hotspring_barracuda::lattice::dirac::{
 use hotspring_barracuda::lattice::hmc::{HmcConfig, hmc_trajectory};
 use hotspring_barracuda::lattice::wilson::Lattice;
 
-use hotspring_barracuda as barracuda;
 
 use barracuda::pipeline::ReduceScalarPipeline;
 use std::time::Instant;

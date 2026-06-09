@@ -86,8 +86,8 @@ fn main() {
     harness.check_bool("ember reachable for Titan V", true);
 
     // Mark experiment start
-    if let Err(e) = glowplug.experiment_start(&bdf) {
-        println!("  experiment_start warning: {e}");
+    if let Err(e) = glowplug.experiment_lifecycle(&bdf, "start") {
+        println!("  experiment_lifecycle(start) warning: {e}");
     }
 
     // ── Phase 1: BROM baseline (before any boot attempts) ──
@@ -151,7 +151,7 @@ fn main() {
         ),
         Err(e) => println!("  DMA cleanup error: {e}"),
     }
-    if glowplug.experiment_end(&bdf).is_ok() {
+    if glowplug.experiment_lifecycle(&bdf, "end").is_ok() {
         println!("  Experiment ended for {bdf}");
     }
 

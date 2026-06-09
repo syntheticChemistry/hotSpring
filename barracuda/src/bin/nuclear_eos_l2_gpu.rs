@@ -22,7 +22,6 @@ use hotspring_barracuda::physics::{
 use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances;
 
-use hotspring_barracuda as barracuda;
 
 use barracuda::sample::latin_hypercube;
 

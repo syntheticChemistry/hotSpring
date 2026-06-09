@@ -28,7 +28,6 @@ use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
-use hotspring_barracuda as barracuda;
 
 use barracuda::pipeline::ReduceScalarPipeline;
 use std::time::Instant;

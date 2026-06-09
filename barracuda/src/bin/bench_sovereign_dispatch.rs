@@ -16,7 +16,6 @@
 use hotspring_barracuda::md::config::MdConfig;
 use hotspring_barracuda::md::sovereign_engine::run_simulation_generic;
 
-use hotspring_barracuda as barracuda;
 
 use barracuda::device::WgpuDevice;
 use barracuda::device::backend::GpuBackend;

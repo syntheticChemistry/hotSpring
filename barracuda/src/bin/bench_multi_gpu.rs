@@ -24,7 +24,6 @@
 use hotspring_barracuda::gpu::{GpuF64, discover_primary_and_secondary_adapters};
 use hotspring_barracuda::physics::bcs_gpu::BcsBisectionGpu;
 
-use hotspring_barracuda as barracuda;
 
 use barracuda::ops::linalg::BatchedEighGpu;
 use std::sync::Arc;
