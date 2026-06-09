@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 1, 2026 (Wave 67 glacial cutover: post-primordial QCD evolution 8 phases, sovereign compute trio 16/19 on hardware. Provenance trio wire contracts fixed — 6 mismatches resolved (dag.event.append, entry.append, braid.create). Braid pipeline for guidestone→lithoSpore→sporePrint. Cross-gate compute dispatch via capability.call + Songbird mesh. 633 tests pass.)
+**Last audited:** Jun 9, 2026 (Wave 102 depot refresh: 9/9 stale primals rebuilt to musl-static — songbird aebe271f (mesh+auth), beardog d3a8eb7bb (transport+PQC), barracuda 9b9cbed3 (sourdough-core removed), rhizocrypt 133dd23 (transport+service extract), coralreef 4c417a95 (capabilities.list+deep debt), skunkbat (typed ServerError), squirrel (transport+deep debt), petaltongue (coverage sprint), sourdough 4cf83fd (scaffold transport-kit). Mesh LIVE with eastGate 192.168.1.144:7700 — health_check all_healthy, discovery quality:1.0. beardog v0.9.0 with 220+ methods. Zero P1 blockers.)
 **License:** AGPL-3.0-or-later
 
 ---
