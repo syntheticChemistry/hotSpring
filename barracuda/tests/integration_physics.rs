@@ -113,7 +113,7 @@ fn bcs_occupations_particle_conservation() {
 
     let (v2, _lam) = hfb.bcs_occupations_from_eigs(&eigs, 20, delta);
     let degs = hfb.deg_values();
-    let n_total: f64 = degs.iter().zip(v2.iter()).map(|(d, v)| d * v).sum();
+    let n_total: f64 = degs.iter().zip(v2.iter()).map(|(d, v)| (*d) * (*v)).sum();
     assert!(
         (n_total - 20.0).abs() < 2.0,
         "BCS particle number {n_total} should be near 20"

@@ -266,6 +266,13 @@ stability = "stable"
 # ── Compute dispatch (routed to ToadStool) ───────────────────────────
 
 [[capabilities]]
+method = "signal.dispatch"
+served = "routed"
+provider = "toadstool"
+domain = "signal"
+stability = "evolving"
+
+[[capabilities]]
 method = "compute.dispatch.submit"
 served = "routed"
 provider = "toadstool"
@@ -385,12 +392,6 @@ provider = "toadstool"
 domain = "compute"
 stability = "stable"
 
-[[capabilities]]
-method = "device.vfio.alloc"
-served = "routed"
-provider = "toadstool"
-domain = "compute"
-stability = "stable"
 
 [[capabilities]]
 method = "device.vfio.roundtrip"
@@ -942,3 +943,129 @@ candidates = ["nest.store"]
 [registration]
 method = "primal.announce"
 fallback = ["lifecycle.register", "capability.register", "method.register"]
+
+[[capabilities]]
+method = "ember.prepare_dma"
+served = "routed"
+provider = "toadstool"
+domain = "ember"
+stability = "evolving"
+
+[[capabilities]]
+method = "ember.cleanup_dma"
+served = "routed"
+provider = "toadstool"
+domain = "ember"
+stability = "evolving"
+
+[[capabilities]]
+method = "ember.pramin.read"
+served = "routed"
+provider = "toadstool"
+domain = "ember"
+stability = "evolving"
+
+[[capabilities]]
+method = "ember.pramin.write"
+served = "routed"
+provider = "toadstool"
+domain = "ember"
+stability = "evolving"
+
+[[capabilities]]
+method = "ember.falcon.upload_imem"
+served = "routed"
+provider = "toadstool"
+domain = "ember"
+stability = "evolving"
+
+[[capabilities]]
+method = "ember.falcon.upload_dmem"
+served = "routed"
+provider = "toadstool"
+domain = "ember"
+stability = "evolving"
+
+[[capabilities]]
+method = "ember.falcon.start_cpu"
+served = "routed"
+provider = "toadstool"
+domain = "ember"
+stability = "evolving"
+
+[[capabilities]]
+method = "ember.falcon.poll"
+served = "routed"
+provider = "toadstool"
+domain = "ember"
+stability = "evolving"
+
+[[capabilities]]
+method = "device.get"
+served = "routed"
+provider = "toadstool"
+domain = "device"
+stability = "evolving"
+
+[[capabilities]]
+method = "device.reset"
+served = "routed"
+provider = "toadstool"
+domain = "device"
+stability = "evolving"
+
+[[capabilities]]
+method = "device.resurrect"
+served = "routed"
+provider = "toadstool"
+domain = "device"
+stability = "evolving"
+
+[[capabilities]]
+method = "device.experiment_lifecycle"
+served = "routed"
+provider = "toadstool"
+domain = "device"
+stability = "evolving"
+
+[[capabilities]]
+method = "sovereign.init"
+served = "routed"
+provider = "toadstool"
+domain = "sovereign"
+stability = "evolving"
+
+[[capabilities]]
+method = "sovereign.defense_status"
+served = "routed"
+provider = "toadstool"
+domain = "sovereign"
+stability = "evolving"
+
+[[capabilities]]
+method = "sovereign.watchdog_status"
+served = "routed"
+provider = "toadstool"
+domain = "sovereign"
+stability = "evolving"
+
+[[capabilities]]
+method = "ledger.record"
+served = "routed"
+provider = "loamspine"
+domain = "ledger"
+stability = "evolving"
+
+[[capabilities]]
+method = "attribution.braid"
+served = "routed"
+provider = "sweetgrass"
+domain = "attribution"
+stability = "evolving"
+
+[[capabilities]]
+method = "attribution.query"
+served = "routed"
+provider = "sweetgrass"
+domain = "attribution"
+stability = "evolving"

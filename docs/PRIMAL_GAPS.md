@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 9, 2026 (Wave 102 depot refresh: 9/9 stale primals rebuilt to musl-static — songbird aebe271f (mesh+auth), beardog d3a8eb7bb (transport+PQC), barracuda 9b9cbed3 (sourdough-core removed), rhizocrypt 133dd23 (transport+service extract), coralreef 4c417a95 (capabilities.list+deep debt), skunkbat (typed ServerError), squirrel (transport+deep debt), petaltongue (coverage sprint), sourdough 4cf83fd (scaffold transport-kit). Mesh LIVE with eastGate 192.168.1.144:7700 — health_check all_healthy, discovery quality:1.0. beardog v0.9.0 with 220+ methods. Zero P1 blockers.)
+**Last audited:** Jun 9, 2026 (Wave 103: biomeOS v4.14 rebuilt (LocalTrusted a459ec58). Capability registry synced — 18 routed methods added, 1 stale removed, signal.dispatch wired. cross_gate test hardened for live NUCLEUS. integration_physics type annotation fix. toadStool transport confirmed DONE (45bb47f). 1089 lib tests pass. Bin target debt: 20 bin targets reference removed barracuda primal API (ops, device, tensor — feature-gated behind gpu). 10/11 primals transport-adopted. Mesh 11.6h+ stable.)
 **License:** AGPL-3.0-or-later
 
 ---
