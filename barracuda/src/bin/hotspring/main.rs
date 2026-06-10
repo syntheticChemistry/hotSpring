@@ -260,8 +260,10 @@ fn cmd_fleet_init(output: Option<String>) {
         }
     };
 
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
-    let default_path = format!("{runtime_dir}/biomeos/toadstool-ember-fleet.json");
+    let socket_dir = std::env::var("BIOMEOS_SOCKET_DIR")
+        .or_else(|_| std::env::var("XDG_RUNTIME_DIR").map(|d| format!("{d}/biomeos")))
+        .unwrap_or_else(|_| "/run/user/1000/biomeos".into());
+    let default_path = format!("{socket_dir}/toadstool-ember-fleet.json");
     let out_path = output.unwrap_or(default_path);
 
     let fleet = serde_json::json!({

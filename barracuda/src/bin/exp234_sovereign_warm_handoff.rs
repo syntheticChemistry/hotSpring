@@ -33,7 +33,12 @@ use sovereignty::connect::{
     extract_arg, is_dry_run, resolve_target_bdf, try_connect_ember_probed,
 };
 
-const LOCK_FILE: &str = "/tmp/hotspring-warm-handoff.lock";
+fn lock_file_path() -> String {
+    let dir = std::env::var("BIOMEOS_SOCKET_DIR")
+        .or_else(|_| std::env::var("XDG_RUNTIME_DIR").map(|d| format!("{d}/biomeos")))
+        .unwrap_or_else(|_| "/run/user/1000/biomeos".into());
+    format!("{dir}/hotspring-warm-handoff.lock")
+}
 const DEFAULT_STRATEGY: &str = "nvidia_catalyst_minimal_nop_titanv";
 const DEFAULT_SETTLE_SECS: u64 = 60;
 
@@ -175,7 +180,8 @@ fn main() {
 }
 
 fn acquire_lock(bdf: &str) -> bool {
-    let lock_path = Path::new(LOCK_FILE);
+    let lock_file = lock_file_path();
+    let lock_path = Path::new(&lock_file);
     if lock_path.exists() {
         if let Ok(contents) = fs::read_to_string(lock_path) {
             eprintln!("  Lock file exists: {contents}");
@@ -212,7 +218,7 @@ fn acquire_lock(bdf: &str) -> bool {
 }
 
 fn release_lock() {
-    let _ = fs::remove_file(LOCK_FILE);
+    let _ = fs::remove_file(lock_file_path());
 }
 
 fn check_nmi_watchdog(harness: &mut ValidationHarness) -> bool {
