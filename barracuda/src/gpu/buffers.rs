@@ -283,6 +283,7 @@ impl GpuF64 {
 }
 
 /// Convert mapped GPU buffer bytes to f32 values.
+#[allow(dead_code)]
 pub fn mapped_bytes_to_f32(data: &[u8]) -> Vec<f32> {
     bytemuck::try_cast_slice(data).map_or_else(
         |_| {

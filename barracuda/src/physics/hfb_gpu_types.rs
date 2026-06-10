@@ -184,6 +184,7 @@ pub fn make_pipeline(
 // ═══════════════════════════════════════════════════════════════════
 
 // Energy pipeline (potential integrands + pairing) when gpu_energy feature is enabled.
+#[allow(dead_code)]
 pub struct GroupResources {
     pub ns: usize,
     pub nr: usize,
@@ -266,6 +267,7 @@ pub struct GroupResources {
     pub ns_wg: u32,
 }
 
+#[allow(dead_code)]
 impl GroupResources {
     /// Apply BCS v² → density transformation on GPU.
     ///

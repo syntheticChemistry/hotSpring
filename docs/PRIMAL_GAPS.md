@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 9, 2026 (Wave 106: Bin target debt RESOLVED — 22 bin targets fixed (crate alias conflict: `hotspring_barracuda as barracuda` shadowed primal dep; renamed to `hs`, removed unused aliases). GlowplugClient API migrated (experiment_start/end → experiment_lifecycle, device_swap 3→2 args). BenchError .len() fix. Full `cargo check --features barracuda-local` now 0 errors, 0 warnings. 1089 lib tests pass. Mesh rejoin validated after extended offline — 2 peers (eastGate LAN + golgiBody VPS), all_healthy, quality 1.0, direct path. Cross-topology validation: LAN x86_64 re-enrollment PROVEN.)
+**Last audited:** Jun 10, 2026 (Wave 107: ZERO P1 ecosystem-wide. Lib warning cleanup — removed 2 unused imports, suppressed 3 WIP GPU pipeline dead-code warnings (hfb_gpu_types::GroupResources, gpu::buffers::mapped_bytes_to_f32). `#[cfg(test)]` guard for make_u32x4_params. 0 errors, 0 non-doc warnings, 1089 tests pass. Mesh persistence validated (songbird 1df7ef90). biomeOS v4.17 (supervision) + v4.18 (TCP fallback) rebuilt locally. Depot checksums current.)
 **License:** AGPL-3.0-or-later
 
 ---

@@ -19,7 +19,9 @@ use barracuda::ops::lattice::absorbed_shaders::{
 use crate::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 use crate::lattice::gpu_hmc::resident_cg_buffers::encode_reduce_chain;
 use crate::lattice::gpu_hmc::resident_cg_pipelines::GpuResidentCgPipelines;
-use crate::lattice::gpu_hmc::{GpuF64, make_u32x4_params};
+use crate::lattice::gpu_hmc::GpuF64;
+#[cfg(test)]
+use crate::lattice::gpu_hmc::make_u32x4_params;
 
 const WGSL_MS_ZETA: &str = WGSL_MS_ZETA_UPDATE_F64;
 const WGSL_MS_X_UPDATE: &str = WGSL_MS_X_UPDATE_F64;

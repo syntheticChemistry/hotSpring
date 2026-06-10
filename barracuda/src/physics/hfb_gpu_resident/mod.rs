@@ -36,7 +36,7 @@ use crate::tolerances::GPU_JACOBI_CONVERGENCE;
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
 use barracuda::ops::physics::{
-    WGSL_HFB_DENSITY, WGSL_HFB_ENERGY, WGSL_HFB_HAMILTONIAN, WGSL_HFB_POTENTIALS,
+    WGSL_HFB_DENSITY, WGSL_HFB_HAMILTONIAN, WGSL_HFB_POTENTIALS,
     WGSL_SPIN_ORBIT_PACK,
 };
 use std::sync::Arc;
