@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 11, 2026 (Wave 110: guideStone convergence — HEALTH-01 compliant (bare `"health"` alias + `uptime_s` in all health endpoints). STARTUP contract: `PRIMAL_BIND_MODE=tcp_only` TCP fallback server added. 6 new serve::tests for guideStone schema validation. Niche tables + capability_registry.toml synced with `"health"` entry. 625 lib tests pass, 0 clippy, 0 errors. grapheneGate 13/13 achieved. biomeOS v4.22, sweetGrass v0.7.56, bearDog Wave 109 absorbed upstream.)
+**Last audited:** Jun 12, 2026 (Wave 111 pre-sync: GAP header hygiene — 3 mislabeled GAPs promoted to RESOLVED headers (050, 103, 117). 625 lib tests pass, 0 clippy, 0 errors. strandGate STANDBY — no new assigned Wave 111 work items. All 6 FRAGO streams owned by cellMembrane/songBird/primalSpring/biomeOS/ops. Convergence gate 3/7 GREEN. biomeGate kernel recovery LOW carry.)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -567,7 +567,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   holds `DirectMmap(Bar0View)` — no raw pointers outside the struct.
   Unsafe surface reduced to two `read_volatile` lines inside `Bar0View`.
 
-### GAP-HS-050: Large File Smart Refactoring (Evolution Pass)
+### GAP-HS-050: Large File Smart Refactoring (Evolution Pass) — RESOLVED
 
 - **Primal:** hotSpring (self)
 - **Severity:** Low
@@ -1840,7 +1840,7 @@ Next: hardware validation on Titan V and K80.
 - **Validation:** 596/596 lib tests pass. Zero clippy warnings (all-targets barracuda-local).
   Zero unfulfilled lint expectations. `cargo fmt --check` clean.
 
-### GAP-HS-103 — Wave 17 Signal Adoption + Deep Debt Sprint (May 16, 2026)
+### GAP-HS-103 — Wave 17 Signal Adoption + Deep Debt Sprint (May 16, 2026) — RESOLVED
 
 - **Severity:** Low (forward evolution + structural improvements, no regressions)
 - **Classification:** Neural API signal adoption + deep debt refactoring audit
@@ -2160,7 +2160,7 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
   coralReef. Subgroup variant works through wgpu/naga path.
 - **Status**: OPEN — filed June 1, 2026.
 
-### GAP-HS-117: coralReef WGSL parse error on f64 pow()
+### GAP-HS-117: coralReef WGSL parse error on f64 pow() — RESOLVED
 
 - **Severity**: P2 — `deformed_wavefunction_f64.wgsl` failed coralReef compilation
 - **Upstream**: coralReef WGSL frontend
