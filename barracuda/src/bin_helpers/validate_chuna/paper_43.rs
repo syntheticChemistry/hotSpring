@@ -2,7 +2,7 @@
 
 //! Paper 43: Wilson gradient flow validation.
 
-use hotspring_barracuda::lattice::gradient_flow::{find_t0, run_flow, FlowIntegrator};
+use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, run_flow};
 use hotspring_barracuda::lattice::su3::Su3Matrix;
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::tolerances;

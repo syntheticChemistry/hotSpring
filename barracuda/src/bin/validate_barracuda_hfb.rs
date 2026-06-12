@@ -21,7 +21,6 @@ use hotspring_barracuda::physics::bcs_gpu::BcsBisectionGpu;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
-
 use barracuda::linalg::eigh_f64;
 use barracuda::ops::linalg::BatchedEighGpu;
 
@@ -301,9 +300,15 @@ async fn main() {
         // Loop unroller u32 fix (toadstool S42+): substitute_loop_var now emits
         // "0u", "1u" etc. instead of bare ints, so WGSL type-checks pass.
         println!("\n  Single-dispatch eigensolve (all rotations in one shader):");
-        let (sd_vals, sd_vecs) =
-            BatchedEighGpu::execute_single_dispatch(device, &packed, ns, batch_size, 30, tolerances::BISECT_CONVERGENCE_TOL)
-                .expect("single-dispatch eigensolve failed");
+        let (sd_vals, sd_vecs) = BatchedEighGpu::execute_single_dispatch(
+            device,
+            &packed,
+            ns,
+            batch_size,
+            30,
+            tolerances::BISECT_CONVERGENCE_TOL,
+        )
+        .expect("single-dispatch eigensolve failed");
 
         let mut max_sd_err: f64 = 0.0;
         for b in 0..batch_size {

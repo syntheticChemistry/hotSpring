@@ -18,7 +18,6 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 
-
 use barracuda::ops::md::electrostatics::{PppmGpu, PppmParams};
 use std::time::Instant;
 

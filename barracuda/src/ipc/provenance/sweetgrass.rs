@@ -64,9 +64,7 @@ pub fn create_braid(params: &BraidParams) -> Option<BraidResult> {
     let ctx = NucleusContext::detect();
     let wire_params = serde_json::to_value(params).ok()?;
 
-    if let Ok(resp) =
-        ctx.call_by_capability("attribution", "braid.create", wire_params.clone())
-    {
+    if let Ok(resp) = ctx.call_by_capability("attribution", "braid.create", wire_params.clone()) {
         if let Some(bid) = resp.get("braid_id").and_then(|v| v.as_str()) {
             return Some(BraidResult {
                 braid_id: bid.to_string(),

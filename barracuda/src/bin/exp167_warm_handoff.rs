@@ -139,10 +139,7 @@ fn phase1_baseline(
             );
             harness.check_bool("device visible in glowplug", true);
             PreSwapState {
-                personality: d
-                    .personality
-                    .clone()
-                    .unwrap_or_else(|| "unknown".into()),
+                personality: d.personality.clone().unwrap_or_else(|| "unknown".into()),
                 vram_alive: d.vram_alive.unwrap_or(false),
                 domains_alive: d.domains_alive.unwrap_or(0),
             }
@@ -320,9 +317,7 @@ fn phase5_verify_ember(
             println!("  personality: {personality} (want vfio)");
             println!("  has_vfio_fd: {}", d.has_vfio_fd);
             println!("  vram_alive:  {vram_alive}");
-            println!(
-                "  domains:     alive={domains_alive}, faulted={domains_faulted}"
-            );
+            println!("  domains:     alive={domains_alive}, faulted={domains_faulted}");
             println!("  power:       {}", d.power.as_deref().unwrap_or("unknown"));
 
             harness.check_bool("device back on vfio after round-trip", is_vfio);
@@ -347,10 +342,7 @@ fn phase5_verify_ember(
             println!("\n  Pre/post comparison:");
             println!("    personality: {} → {personality}", pre.personality);
             println!("    vram_alive:  {} → {vram_alive}", pre.vram_alive);
-            println!(
-                "    domains:     {} → {domains_alive}",
-                pre.domains_alive
-            );
+            println!("    domains:     {} → {domains_alive}", pre.domains_alive);
         }
         Err(e) => {
             println!("  device.get failed: {e}");
@@ -360,4 +352,3 @@ fn phase5_verify_ember(
         }
     }
 }
-

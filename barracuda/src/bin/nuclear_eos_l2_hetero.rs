@@ -26,7 +26,6 @@ use hotspring_barracuda::nuclear_eos_helpers::save_results;
 use hotspring_barracuda::physics::nuclear_matter_properties;
 use hotspring_barracuda::provenance;
 
-
 use std::time::Instant;
 
 fn main() {

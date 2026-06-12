@@ -23,7 +23,6 @@
 //!
 //! Requires running toadstool-ember daemon.
 
-
 use std::time::Duration;
 
 use hotspring_barracuda::ember_types::MmioBatchOp;
@@ -420,4 +419,3 @@ fn phase6_fecs_state(harness: &mut ValidationHarness, ember: &EmberClient, bdf: 
         }
     }
 }
-

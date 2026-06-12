@@ -249,7 +249,11 @@ mod tests {
         };
 
         let hills = FesParity::parse_hills(&hills_content);
-        assert!(hills.len() > 1000, "should have >1000 hills, got {}", hills.len());
+        assert!(
+            hills.len() > 1000,
+            "should have >1000 hills, got {}",
+            hills.len()
+        );
 
         let (ref_grid, ref_fes) = FesParity::parse_fes_reference(&fes_content);
         assert!(ref_grid.len() > 50, "reference should have >50 points");

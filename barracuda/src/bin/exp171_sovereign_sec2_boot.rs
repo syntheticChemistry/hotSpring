@@ -87,26 +87,47 @@ const BOOT0: u32 = 0x000000;
 
 // Power management
 const PMC_ENABLE: u32 = 0x000200;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PMC_INTR_0: u32 = 0x000160;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PMC_INTR_1: u32 = 0x000164;
 
 // PTIMER
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PTIMER_NUM: u32 = 0x009410;
 const PTIMER_DEN: u32 = 0x009400;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PTIMER_CTRL: u32 = 0x009140;
 
 // PRIV_RING (CORRECT addresses from trace analysis)
 const PRIV_RING_INFO_0: u32 = 0x120058; // ring size
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PRIV_RING_INFO_1: u32 = 0x12005c;
 const PRIV_RING_MASTER0: u32 = 0x120070; // master control
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PRIV_RING_MASTER1: u32 = 0x120074;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PRIV_RING_MASTER2: u32 = 0x120078;
 const PRIV_RING_DEV_INFO: u32 = 0x122120; // device info base
 const PRIV_RING_CMD: u32 = 0x12004c; // CMD: write 2 = ENUM_DEVICES
@@ -140,28 +161,52 @@ const SEC2_CONFIG2: u32 = SEC2_BASE + 0x048; // Falcon config 2
 const SEC2_CONFIG3: u32 = SEC2_BASE + 0x054; // ACR alias selector
 const SEC2_ACR_PRIV: u32 = SEC2_BASE + 0x090; // ACR privilege config
 const SEC2_ACR_DC: u32 = SEC2_BASE + 0x0dc; // ACR data-cache config
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const SEC2_IMEMC: u32 = SEC2_BASE + 0x180; // IMEM control
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const SEC2_IMEMD: u32 = SEC2_BASE + 0x184; // IMEM data (auto-increment)
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const SEC2_IMETTAG: u32 = SEC2_BASE + 0x188; // IMEM virtual page tag
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const SEC2_DMEMC: u32 = SEC2_BASE + 0x1c0; // DMEM control
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const SEC2_DMEMD: u32 = SEC2_BASE + 0x1c4; // DMEM data
 const SEC2_RESET: u32 = SEC2_BASE + 0x3c0; // Soft-reset toggle
 const SEC2_MODE: u32 = SEC2_BASE + 0x058; // Mode (bit1 = ACR mode)
 const SEC2_FBIF: u32 = SEC2_BASE + 0x604; // FBIF / context config
 const SEC2_ACR_STATUS: u32 = SEC2_BASE + 0xa34; // ACR queue status
 const SEC2_ACR_CTL: u32 = SEC2_BASE + 0xa30; // ACR queue control
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const SEC2_ACR_CMD: u32 = SEC2_BASE + 0xac0; // ACR command register
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const SEC2_ACR_DATA: u32 = SEC2_BASE + 0xac4; // ACR data register
 
 // IMEMC fields
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const SEC2_IMEMC_AUTOINCR: u32 = 0x0100_0000; // bit24 = autoincrement
 const SEC2_IMEMC_PAGE_FE00: u32 = 0x0000_fe00; // physical IMEM byte address 0xfe00
 const SEC2_IMEM_WORDS_PER_PAGE: usize = 64; // 256 bytes per page
@@ -251,7 +296,7 @@ fn main() {
     }
 
     // ── Connect to ember ───────────────────────────────────────────────────
-    let ember = connect_ember(&bdf,  ember_socket.as_deref());
+    let ember = connect_ember(&bdf, ember_socket.as_deref());
     println!("  Ember:     {}\n", ember.socket_path().display());
 
     // ── Phase 1: Verify pre-conditions ───────────────────────────────────────
@@ -510,10 +555,7 @@ fn main() {
 
     if fw_bytes.len() > page0_bytes_len {
         let page1_len = fw_bytes.len() - page0_bytes_len;
-        println!(
-            "  IMETTAG ← 0xfe  writing {} bytes (page 1)...",
-            page1_len
-        );
+        println!("  IMETTAG ← 0xfe  writing {} bytes (page 1)...", page1_len);
         match ember.falcon_upload_imem(
             &bdf,
             SEC2_BASE,

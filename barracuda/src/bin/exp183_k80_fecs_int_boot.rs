@@ -384,7 +384,9 @@ fn main() {
         iters += 1;
         if ready == 0xFFFF_FFFF {
             let elapsed_ms = poll_start.elapsed().as_millis();
-            println!("\n  WARN: D3cold sentinel at t={elapsed_ms}ms — ember circuit breaker active");
+            println!(
+                "\n  WARN: D3cold sentinel at t={elapsed_ms}ms — ember circuit breaker active"
+            );
             println!("  → journalctl -u coral-ember for recovery status");
             break;
         }

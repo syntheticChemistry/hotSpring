@@ -532,7 +532,6 @@ pub fn print_budget(budget: &GpuSiliconBudget) {
     println!("  └─────────────────────────────────────────────────────────┘");
 }
 
-
 pub fn print_working_set_analysis(budget: &GpuSiliconBudget) {
     println!("\n  ── QCD Working-Set Analysis ──\n");
 

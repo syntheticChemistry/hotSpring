@@ -47,14 +47,14 @@ extern crate self as hotspring_barracuda;
 
 /// Minimal zero-dependency base64 codec (RFC 4648).
 pub mod base64_encode;
-/// Minimal inline `block_on` — replaces `pollster` crate.
-pub mod block_on;
 /// Benchmark harness (RAPL energy, `nvidia-smi`, JSON reports).
 #[cfg(feature = "barracuda-local")]
 pub mod bench;
 /// Shared infrastructure for `src/bin` targets (refactored validation suites).
 #[cfg(feature = "barracuda-local")]
 pub mod bin_helpers;
+/// Minimal inline `block_on` — replaces `pollster` crate.
+pub mod block_on;
 /// Composition certification engine — absorbed guideStone organelle (L0–L5).
 pub mod certification;
 /// Computational chemistry: topology parsing, force field bridge, parity validation.
@@ -113,7 +113,10 @@ pub mod lattice;
 /// Contains `unsafe` blocks for mmap/`read_volatile`/`write_volatile`.
 /// Gated behind `low-level` feature (not in default build).
 #[cfg(feature = "low-level")]
-#[expect(unsafe_code, reason = "MMIO mmap requires unsafe; audited surface confined to bar0.rs")]
+#[expect(
+    unsafe_code,
+    reason = "MMIO mmap requires unsafe; audited surface confined to bar0.rs"
+)]
 #[deprecated(
     since = "0.6.32",
     note = "Use toadStool ember/glowplug RPCs. See bin_helpers/sovereignty/connect.rs."
@@ -158,8 +161,6 @@ pub mod precision_routing;
 pub mod prescreen;
 /// NUCLEUS primal discovery — runtime detection of available primals.
 pub mod primal_bridge;
-/// JSON-RPC server for NUCLEUS deploy graph integration.
-pub mod serve;
 /// Shared types and infrastructure for production lattice QCD binaries.
 #[cfg(feature = "barracuda-local")]
 pub mod production;
@@ -173,6 +174,8 @@ pub mod provenance;
 pub mod proxy;
 /// Ed25519 receipt signing via bearDog `crypto.sign_ed25519` JSON-RPC.
 pub mod receipt_signing;
+/// JSON-RPC server for NUCLEUS deploy graph integration.
+pub mod serve;
 /// Spectral theory re-exports from `barracuda::spectral`.
 #[cfg(feature = "barracuda-local")]
 pub mod spectral;

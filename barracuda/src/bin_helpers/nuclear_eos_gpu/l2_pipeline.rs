@@ -8,9 +8,9 @@ use std::time::Instant;
 
 use barracuda::device::WgpuDevice;
 use barracuda::optimize::convergence_diagnostics;
-use barracuda::sample::direct::{direct_sampler, DirectSamplerConfig};
+use barracuda::sample::direct::{DirectSamplerConfig, direct_sampler};
 use barracuda::sample::latin_hypercube;
-use barracuda::sample::sparsity::{sparsity_sampler, PenaltyFilter, SparsitySamplerConfig};
+use barracuda::sample::sparsity::{PenaltyFilter, SparsitySamplerConfig, sparsity_sampler};
 use barracuda::stats::{bootstrap_ci, chi2_decomposed_weighted};
 use hotspring_barracuda::physics::hfb::binding_energy_l2;
 use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energy};
@@ -45,7 +45,9 @@ pub struct SeedResult {
 
 /// Returns `Some(nmp)` when parameters satisfy NMP saturation constraints; otherwise `None`.
 #[must_use]
-pub fn validate_nmp_constraints(params: &[f64]) -> Option<hotspring_barracuda::physics::NuclearMatterProps> {
+pub fn validate_nmp_constraints(
+    params: &[f64],
+) -> Option<hotspring_barracuda::physics::NuclearMatterProps> {
     if params[8] <= 0.01 || params[8] > 1.0 {
         return None;
     }
@@ -57,7 +59,11 @@ pub fn validate_nmp_constraints(params: &[f64]) -> Option<hotspring_barracuda::p
 }
 
 #[must_use]
-pub fn l1_objective_nmp(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, lambda: f64) -> f64 {
+pub fn l1_objective_nmp(
+    x: &[f64],
+    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    lambda: f64,
+) -> f64 {
     let Some(nmp) = validate_nmp_constraints(x) else {
         return (1e4_f64).ln_1p();
     };
@@ -114,7 +120,11 @@ pub fn l2_objective_nmp(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: 
 }
 
 #[must_use]
-pub fn decompose_chi2(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64) -> (f64, f64, f64) {
+pub fn decompose_chi2(
+    params: &[f64],
+    nuclei: &[(usize, usize, f64)],
+    lambda: f64,
+) -> (f64, f64, f64) {
     let results: Vec<(f64, f64)> = nuclei
         .par_iter()
         .map(|&(z, n, b_exp)| {
@@ -264,8 +274,8 @@ pub fn run_l2_seed_pipeline(
     let lambda_l2 = cli.lambda;
     let l2_obj_ds = move |x: &[f64]| -> f64 { l2_objective_nmp(x, &nuclei_ds, lambda_l2) };
 
-    let result_direct =
-        direct_sampler(device.clone(), l2_obj_ds, bounds, &direct_config).expect("DirectSampler failed");
+    let result_direct = direct_sampler(device.clone(), l2_obj_ds, bounds, &direct_config)
+        .expect("DirectSampler failed");
 
     let direct_time = t2.elapsed().as_secs_f64();
 
@@ -365,7 +375,11 @@ pub fn run_l2_seed_pipeline(
     }
 }
 
-pub fn run_statistical_analysis(best_params: &[f64], nuclei: &[(usize, usize, f64)], current_seed: u64) {
+pub fn run_statistical_analysis(
+    best_params: &[f64],
+    nuclei: &[(usize, usize, f64)],
+    current_seed: u64,
+) {
     println!();
     println!("═══════════════════════════════════════════════════════════════");
     println!("  STATISTICAL ANALYSIS");

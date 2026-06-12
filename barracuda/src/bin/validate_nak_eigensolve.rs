@@ -18,7 +18,6 @@ use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
-
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 

@@ -19,12 +19,14 @@ const DF64_ARITH_PREAMBLE: &str =
     include_str!("../../bin/shaders/silicon_capabilities/df64_arith_preamble.wgsl");
 const PROBE_DF64_STORAGE_ARITH_BODY: &str =
     include_str!("../../bin/shaders/silicon_capabilities/probe_df64_storage_arith_body.wgsl");
-const PROBE_DF64_WORKGROUP_REDUCE_F32_BODY: &str =
-    include_str!("../../bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f32_body.wgsl");
+const PROBE_DF64_WORKGROUP_REDUCE_F32_BODY: &str = include_str!(
+    "../../bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f32_body.wgsl"
+);
 const DF64_F64_BRIDGE: &str =
     include_str!("../../bin/shaders/silicon_capabilities/df64_f64_bridge.wgsl");
-const PROBE_DF64_WORKGROUP_REDUCE_F64_BODY: &str =
-    include_str!("../../bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f64_body.wgsl");
+const PROBE_DF64_WORKGROUP_REDUCE_F64_BODY: &str = include_str!(
+    "../../bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f64_body.wgsl"
+);
 
 pub fn bytes_to_f32(bytes: &[u8]) -> Vec<f32> {
     bytes
@@ -430,7 +432,11 @@ pub async fn probe_df64_storage_arith(gpu: &GpuF64, tag: &str, harness: &mut Val
     println!();
 }
 
-pub async fn probe_df64_workgroup_reduce_f32(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness) {
+pub async fn probe_df64_workgroup_reduce_f32(
+    gpu: &GpuF64,
+    tag: &str,
+    harness: &mut ValidationHarness,
+) {
     println!("── DF64 workgroup reduce (f32 storage, no f64 needed) ──");
     let device = gpu.device();
     let queue = gpu.queue();
@@ -535,7 +541,11 @@ pub async fn probe_df64_workgroup_reduce_f32(gpu: &GpuF64, tag: &str, harness: &
     println!();
 }
 
-pub async fn probe_df64_workgroup_reduce_f64(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness) {
+pub async fn probe_df64_workgroup_reduce_f64(
+    gpu: &GpuF64,
+    tag: &str,
+    harness: &mut ValidationHarness,
+) {
     println!("── DF64 workgroup reduce (f64 storage — production pattern) ──");
     let device = gpu.device();
     let queue = gpu.queue();
@@ -729,7 +739,10 @@ pub async fn probe_reduce_pipeline(gpu: &GpuF64, tag: &str, harness: &mut Valida
     println!();
 }
 
-pub fn harness_to_measurements(harness: &ValidationHarness, ts: u64) -> Vec<PerformanceMeasurement> {
+pub fn harness_to_measurements(
+    harness: &ValidationHarness,
+    ts: u64,
+) -> Vec<PerformanceMeasurement> {
     let mut measurements = Vec::new();
 
     for check in &harness.checks {

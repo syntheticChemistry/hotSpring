@@ -18,8 +18,8 @@
 //! Uses the same buffer layout and uniform struct as `BarraCuda`'s
 //! `BatchedBisectionGpu`, so results are directly comparable.
 
-use barracuda::ops::physics::WGSL_BCS_BISECTION;
 use crate::gpu::GpuF64;
+use barracuda::ops::physics::WGSL_BCS_BISECTION;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 

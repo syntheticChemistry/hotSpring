@@ -95,10 +95,9 @@ impl MetadynamicsBias {
     pub fn deposit(&mut self, center: &[f64], sigma: &[f64], height: f64) {
         let mut c = [0.0f64; 2];
         let mut s = [0.0f64; 2];
-        for i in 0..self.ndim.min(2) {
-            c[i] = center[i];
-            s[i] = sigma[i];
-        }
+        let len = self.ndim.min(2);
+        c[..len].copy_from_slice(&center[..len]);
+        s[..len].copy_from_slice(&sigma[..len]);
         self.hills.push(GaussianHill {
             center: c,
             sigma: s,
@@ -139,29 +138,24 @@ impl MetadynamicsBias {
     }
 
     fn evaluate_single_hill(&self, hill: &GaussianHill, cv: &[f64]) -> f64 {
-        let mut exponent = 0.0f64;
-        for d in 0..self.ndim {
-            let ds = self.periodic_distance(d, cv[d], hill.center[d]);
-            exponent += ds * ds / (2.0 * hill.sigma[d] * hill.sigma[d]);
-        }
+        let exponent: f64 = (0..self.ndim)
+            .map(|d| {
+                let ds = self.periodic_distance(d, cv[d], hill.center[d]);
+                ds * ds / (2.0 * hill.sigma[d] * hill.sigma[d])
+            })
+            .sum();
         hill.height * (-exponent).exp()
     }
 
-    fn evaluate_single_hill_with_grad(
-        &self,
-        hill: &GaussianHill,
-        cv: &[f64],
-    ) -> (f64, [f64; 2]) {
+    fn evaluate_single_hill_with_grad(&self, hill: &GaussianHill, cv: &[f64]) -> (f64, [f64; 2]) {
         let mut exponent = 0.0f64;
         let mut ds_vals = [0.0f64; 2];
         for d in 0..self.ndim {
-            let ds = self.periodic_distance(d, cv[d], hill.center[d]);
-            ds_vals[d] = ds;
-            exponent += ds * ds / (2.0 * hill.sigma[d] * hill.sigma[d]);
+            ds_vals[d] = self.periodic_distance(d, cv[d], hill.center[d]);
+            exponent += ds_vals[d] * ds_vals[d] / (2.0 * hill.sigma[d] * hill.sigma[d]);
         }
         let gauss = hill.height * (-exponent).exp();
 
-        // dV/ds_d = -gauss * ds_d / sigma_d²
         let mut grad = [0.0f64; 2];
         for d in 0..self.ndim {
             grad[d] = -gauss * ds_vals[d] / (hill.sigma[d] * hill.sigma[d]);
@@ -173,11 +167,10 @@ impl MetadynamicsBias {
         let mut d = a - b;
         if self.periodic[dim] {
             let p = self.period[dim];
-            while d > p / 2.0 {
+            let half_p = p / 2.0;
+            d = d.rem_euclid(p);
+            if d > half_p {
                 d -= p;
-            }
-            while d < -p / 2.0 {
-                d += p;
             }
         }
         d
@@ -192,7 +185,7 @@ impl MetadynamicsBias {
 
         for line in content.lines() {
             let trimmed = line.trim();
-            if trimmed.starts_with('#') || trimmed.starts_with("@") || trimmed.is_empty() {
+            if trimmed.starts_with('#') || trimmed.starts_with('@') || trimmed.is_empty() {
                 if trimmed.contains("biasfactor") {
                     if let Some(val) = extract_field_value(trimmed, "biasfactor") {
                         biasfactor = val;
@@ -308,8 +301,14 @@ mod tests {
         let force_left = bias.bias_force(&[0.4]);
         let force_right = bias.bias_force(&[0.6]);
 
-        assert!(force_left[0] < 0.0, "force left of hill should push further left");
-        assert!(force_right[0] > 0.0, "force right of hill should push further right");
+        assert!(
+            force_left[0] < 0.0,
+            "force left of hill should push further left"
+        );
+        assert!(
+            force_right[0] > 0.0,
+            "force right of hill should push further right"
+        );
 
         let force_center = bias.bias_force(&[0.5]);
         assert!(
@@ -325,7 +324,10 @@ mod tests {
         bias.deposit(&[0.7], &[0.1], 1.0);
 
         let v_sum = bias.evaluate(&[0.5]);
-        assert!(v_sum > 1.0, "V should be > single hill at 0.5 due to overlap");
+        assert!(
+            v_sum > 1.0,
+            "V should be > single hill at 0.5 due to overlap"
+        );
     }
 
     #[test]
@@ -348,7 +350,10 @@ mod tests {
 
         bias.deposit_well_tempered(&[0.5], &[0.1], kbt);
         let h1 = bias.hills().last().unwrap().height;
-        assert!((h1 - 1.0).abs() < 1e-10, "first hill should have full height");
+        assert!(
+            (h1 - 1.0).abs() < 1e-10,
+            "first hill should have full height"
+        );
 
         bias.deposit_well_tempered(&[0.5], &[0.1], kbt);
         let h2 = bias.hills().last().unwrap().height;

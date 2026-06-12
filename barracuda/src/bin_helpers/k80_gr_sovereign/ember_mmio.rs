@@ -27,7 +27,12 @@ pub fn w32(ember: &EmberClient, bdf: &str, offset: u32, value: u32) {
 
 /// Build a CSDATA batch: one DMEMC setup write followed by N DMEMD word writes.
 /// The AINCW flag auto-increments the DMEM address on each DMEMD write.
-pub fn csdata_batch_ops(dmemc: u32, dmemd: u32, words: &[u32], byte_offset: u32) -> Vec<MmioBatchOp> {
+pub fn csdata_batch_ops(
+    dmemc: u32,
+    dmemd: u32,
+    words: &[u32],
+    byte_offset: u32,
+) -> Vec<MmioBatchOp> {
     let mut ops = Vec::with_capacity(1 + words.len());
     ops.push(MmioBatchOp::write(dmemc, DMEMC_AINCW | byte_offset));
     for &w in words {
@@ -50,7 +55,13 @@ pub fn upload_imem(ember: &EmberClient, bdf: &str, base: u32, imem_words: &[u32]
 }
 
 /// PIO-upload firmware data to Falcon DMEM at byte_offset via ember.falcon.upload_dmem.
-pub fn upload_dmem(ember: &EmberClient, bdf: &str, base: u32, byte_offset: u32, data_words: &[u32]) {
+pub fn upload_dmem(
+    ember: &EmberClient,
+    bdf: &str,
+    base: u32,
+    byte_offset: u32,
+    data_words: &[u32],
+) {
     let bytes: Vec<u8> = data_words.iter().flat_map(|w| w.to_le_bytes()).collect();
     match ember.falcon_upload_dmem(bdf, base, byte_offset, &bytes) {
         Ok(r) if r.ok => {}

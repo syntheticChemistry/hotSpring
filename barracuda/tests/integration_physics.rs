@@ -33,7 +33,7 @@ fn binding_energy_l2_light_nucleus_uses_semf() {
     assert!(conv, "light nucleus should converge via SEMF path");
     let b_semf = semf_binding_energy(8, 8, &SLY4_PARAMS);
     assert!(
-        (b - b_semf).abs() < 1e-10,
+        (b - b_semf).abs() < 1e-10_f64,
         "A<56 should use SEMF: l2={b}, semf={b_semf}"
     );
 }
@@ -43,7 +43,7 @@ fn binding_energy_l2_medium_nucleus_uses_hfb() {
     let (b, _conv) = binding_energy_l2(28, 28, &SLY4_PARAMS).expect("L2 solve Ni-56");
     let b_semf = semf_binding_energy(28, 28, &SLY4_PARAMS);
     assert!(
-        (b - b_semf).abs() > 1.0,
+        (b - b_semf).abs() > 1.0_f64,
         "A=56 should use HFB, giving different result from SEMF"
     );
     assert!(b > 300.0, "Ni-56 should have BE > 300 MeV, got {b}");
@@ -100,7 +100,10 @@ fn hamiltonian_build_round_trip() {
     let rho = vec![0.01; nr];
     let h = hfb.build_hamiltonian(&rho, &rho, true, &SLY4_PARAMS, SLY4_PARAMS[9]);
     assert_eq!(h.len(), ns * ns, "Hamiltonian should be ns×ns");
-    assert!(h.iter().all(|v| v.is_finite()), "all H elements finite");
+    assert!(
+        h.iter().all(|v: &f64| v.is_finite()),
+        "all H elements finite"
+    );
 }
 
 #[test]

@@ -49,12 +49,18 @@ fn check_anderson_1d_spectrum(v: &mut ValidationHarness) {
     let all_bounded = evals.iter().all(|&ev| ev.abs() <= bound + 0.01);
     v.check_bool("parity:anderson1d_gershgorin", all_bounded);
 
-    v.check_bool("parity:anderson1d_sorted", evals.windows(2).all(|w| w[0] <= w[1]));
+    v.check_bool(
+        "parity:anderson1d_sorted",
+        evals.windows(2).all(|w| w[0] <= w[1]),
+    );
 
     // Python: e_min ≈ -3.53, e_max ≈ 3.61 (both within [-4,4])
     let e_min = evals[0];
     let e_max = evals[evals.len() - 1];
-    v.check_bool("parity:anderson1d_emin_range", e_min > -bound && e_min < 0.0);
+    v.check_bool(
+        "parity:anderson1d_emin_range",
+        e_min > -bound && e_min < 0.0,
+    );
     v.check_bool("parity:anderson1d_emax_range", e_max > 0.0 && e_max < bound);
 }
 
@@ -66,11 +72,7 @@ fn check_herman_lyapunov(v: &mut ValidationHarness) {
 
     // Python baseline: λ=2 → γ=0.6932, theory=ln(2)=0.6931
     // Rust lyapunov_averaged uses the same transfer-matrix algorithm
-    let test_cases = [
-        (1.5, (1.5_f64).ln()),
-        (2.0, LN2),
-        (3.0, (3.0_f64).ln()),
-    ];
+    let test_cases = [(1.5, (1.5_f64).ln()), (2.0, LN2), (3.0, (3.0_f64).ln())];
 
     for &(lambda, theory) in &test_cases {
         let gamma = lyapunov_averaged(n_sites, lambda, 0.0, n_realizations, 42);

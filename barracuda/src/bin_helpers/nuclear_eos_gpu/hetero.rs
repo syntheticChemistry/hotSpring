@@ -176,7 +176,10 @@ fn evaluate_hfb_parallel(
     (n_initial, init_best)
 }
 
-#[expect(clippy::too_many_arguments, reason = "surrogate refinement requires all physics parameters")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "surrogate refinement requires all physics parameters"
+)]
 fn surrogate_refinement_round(
     round: usize,
     device: Arc<WgpuDevice>,
@@ -205,23 +208,18 @@ fn surrogate_refinement_round(
         return false;
     }
 
-    let surrogate = match RBFSurrogate::train(
-        device,
-        &train_x,
-        &train_y,
-        RBFKernel::ThinPlateSpline,
-        0.0,
-    ) {
-        Ok(s) => s,
-        Err(e) => {
-            println!(
-                "      Round {}: surrogate training failed: {:?}",
-                round + 1,
-                e
-            );
-            return false;
-        }
-    };
+    let surrogate =
+        match RBFSurrogate::train(device, &train_x, &train_y, RBFKernel::ThinPlateSpline, 0.0) {
+            Ok(s) => s,
+            Err(e) => {
+                println!(
+                    "      Round {}: surrogate training failed: {:?}",
+                    round + 1,
+                    e
+                );
+                return false;
+            }
+        };
 
     let surrogate_fn = |x: &[f64]| -> f64 {
         if x.iter()
@@ -240,25 +238,14 @@ fn surrogate_refinement_round(
         let x_vec = vec![x.to_vec()];
         surrogate.predict(&x_vec).map_or(1e6, |v| v[0])
     };
-    let (nm_result, _, _) = multi_start_nelder_mead(
-        surrogate_fn,
-        bounds,
-        8,
-        100,
-        1e-8,
-        42 + round as u64,
-    )
-    .expect("multi_start_nelder_mead failed");
+    let (nm_result, _, _) =
+        multi_start_nelder_mead(surrogate_fn, bounds, 8, 100, 1e-8, 42 + round as u64)
+            .expect("multi_start_nelder_mead failed");
 
     let mut round_candidates = Vec::new();
 
     for _ in 0..candidates_per_round / 4 {
-        round_candidates.push(perturb_params(
-            &nm_result.x_best,
-            bounds,
-            rng_state,
-            0.1,
-        ));
+        round_candidates.push(perturb_params(&nm_result.x_best, bounds, rng_state, 0.1));
     }
 
     if let Some(best_rec) = hfb_cache.lock().expect("hfb_cache lock").best() {
@@ -270,8 +257,8 @@ fn surrogate_refinement_round(
 
     let lhs_budget = candidates_per_round.saturating_sub(round_candidates.len());
     if lhs_budget > 0 {
-        let lhs = latin_hypercube(lhs_budget, bounds, 1000 + round as u64)
-            .expect("LHS sampling failed");
+        let lhs =
+            latin_hypercube(lhs_budget, bounds, 1000 + round as u64).expect("LHS sampling failed");
         for sample in &lhs {
             round_candidates.push(sample.clone());
         }

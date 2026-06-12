@@ -26,7 +26,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 #[path = "../bin_helpers/sovereignty/mod.rs"]
 mod sovereignty;
 use sovereignty::connect::{resolve_target_bdf, try_connect_ember, try_connect_glowplug};
-use sovereignty::lockup_vectors::{ALL_VECTORS, DEFENSE_MECHANISMS, CrashCategory};
+use sovereignty::lockup_vectors::{ALL_VECTORS, CrashCategory, DEFENSE_MECHANISMS};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -156,7 +156,13 @@ fn main() {
                     .and_then(|m| m.get(mechanism))
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                let label = if is_idle { "AVAILABLE" } else if ok { "ARMED" } else { "INACTIVE" };
+                let label = if is_idle {
+                    "AVAILABLE"
+                } else if ok {
+                    "ARMED"
+                } else {
+                    "INACTIVE"
+                };
                 println!("  {mechanism}: {label}");
                 harness.check_bool(&format!("defense.{mechanism}"), ok);
             }
@@ -190,9 +196,15 @@ fn main() {
     // Phase 4: Watchdog heartbeat
     println!("\n── Phase 4: Watchdog heartbeat ─────────────────────────────\n");
 
-    match glowplug.rpc_call("sovereign.watchdog_status", &serde_json::json!({ "bdf": bdf })) {
+    match glowplug.rpc_call(
+        "sovereign.watchdog_status",
+        &serde_json::json!({ "bdf": bdf }),
+    ) {
         Ok(resp) => {
-            let running = resp.get("running").and_then(|v| v.as_bool()).unwrap_or(false);
+            let running = resp
+                .get("running")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             let timeout_s = resp.get("timeout_s").and_then(|v| v.as_u64()).unwrap_or(0);
             println!(
                 "  Watchdog: {} (timeout: {}s)",

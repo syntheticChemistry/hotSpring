@@ -24,7 +24,6 @@
 //! cargo run --release --bin exp154_sec2_acr_pipeline -- [--bdf 0000:03:00.0]
 //! ```
 
-
 use hotspring_barracuda::ember_types::MmioBatchOp;
 use hotspring_barracuda::fleet_client::EmberClient;
 use hotspring_barracuda::glowplug_client::GlowplugClient;
@@ -462,4 +461,3 @@ fn offset_label(offset: u32) -> &'static str {
         _ => "?",
     }
 }
-

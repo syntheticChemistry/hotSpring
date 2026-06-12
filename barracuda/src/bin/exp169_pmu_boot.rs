@@ -78,11 +78,20 @@ const PMU_BASE: u32 = 0x010A_000;
 const PMU_CPUCTL: u32 = PMU_BASE + 0x100;
 const PMU_BOOTVEC: u32 = PMU_BASE + 0x104;
 const PMU_HWCFG: u32 = PMU_BASE + 0x108;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PMU_HWCFG1: u32 = PMU_BASE + 0x10C;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PMU_ITFEN: u32 = PMU_BASE + 0x048;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PMU_DMACTL: u32 = PMU_BASE + 0x10C;
 const PMU_SCTL: u32 = PMU_BASE + 0x240;
 const PMU_MB0: u32 = PMU_BASE + 0x040;
@@ -105,7 +114,10 @@ const PMU_DMATRFCMD: u32 = PMU_BASE + 0x1C8;
 
 // PRAMIN (VRAM staging window)
 const NV_PRAMIN_WIN_BASE: u32 = 0x001700;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const NV_PRAMIN_DATA: u32 = 0x0070_0000;
 
 const SEC2_BASE: u32 = 0x087000;
@@ -242,15 +254,17 @@ fn main() {
                 } else {
                     0
                 };
-                let expected =
-                    u32::from_le_bytes([fw_data[0], fw_data[1], fw_data[2], fw_data[3]]);
+                let expected = u32::from_le_bytes([fw_data[0], fw_data[1], fw_data[2], fw_data[3]]);
                 let ok = first_word == expected;
                 println!("  PRAMIN verify: got={first_word:#010x} want={expected:#010x} ok={ok}");
                 if !ok {
                     eprintln!("WARN: PRAMIN verify failed — VRAM staging may be broken");
                 }
             }
-            Ok(r) => eprintln!("WARN: pramin.write ok=false bytes_written={}", r.bytes_written),
+            Ok(r) => eprintln!(
+                "WARN: pramin.write ok=false bytes_written={}",
+                r.bytes_written
+            ),
             Err(e) => eprintln!("WARN: pramin.write failed: {e}"),
         }
     } else {

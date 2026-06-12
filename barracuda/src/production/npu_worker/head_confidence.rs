@@ -19,7 +19,10 @@ enum HeadMetric {
     /// R² for continuous targets — preferred for all heads (captures gradient).
     Regression,
     /// Accuracy for binary targets — kept for backward compatibility with saved weights.
-    #[expect(dead_code, reason = "backward compatibility with saved weights — deserialized but not constructed at runtime")]
+    #[expect(
+        dead_code,
+        reason = "backward compatibility with saved weights — deserialized but not constructed at runtime"
+    )]
     Classification,
 }
 

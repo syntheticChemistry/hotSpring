@@ -20,7 +20,7 @@ pub use barracuda::ops::lattice::cpu_complex::Complex64;
 
 #[cfg(not(feature = "barracuda-local"))]
 mod ipc_complex {
-    use std::ops::{Add, Sub, Mul, Neg, AddAssign, SubAssign, MulAssign, Div};
+    use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Complex64 {
@@ -31,32 +31,119 @@ mod ipc_complex {
         pub const ZERO: Self = Self { re: 0.0, im: 0.0 };
         pub const ONE: Self = Self { re: 1.0, im: 0.0 };
         pub const I: Self = Self { re: 0.0, im: 1.0 };
-        #[inline] pub fn new(re: f64, im: f64) -> Self { Self { re, im } }
-        #[inline] pub fn conj(self) -> Self { Self { re: self.re, im: -self.im } }
-        #[inline] pub fn abs_sq(self) -> f64 { self.re * self.re + self.im * self.im }
-        #[inline] pub fn abs(self) -> f64 { self.abs_sq().sqrt() }
-        #[inline] pub fn scale(self, s: f64) -> Self { Self { re: self.re * s, im: self.im * s } }
+        #[inline]
+        pub fn new(re: f64, im: f64) -> Self {
+            Self { re, im }
+        }
+        #[inline]
+        pub fn conj(self) -> Self {
+            Self {
+                re: self.re,
+                im: -self.im,
+            }
+        }
+        #[inline]
+        pub fn abs_sq(self) -> f64 {
+            self.re * self.re + self.im * self.im
+        }
+        #[inline]
+        pub fn abs(self) -> f64 {
+            self.abs_sq().sqrt()
+        }
+        #[inline]
+        pub fn scale(self, s: f64) -> Self {
+            Self {
+                re: self.re * s,
+                im: self.im * s,
+            }
+        }
         #[inline]
         pub fn exp(self) -> Self {
             let e = self.re.exp();
-            Self { re: e * self.im.cos(), im: e * self.im.sin() }
+            Self {
+                re: e * self.im.cos(),
+                im: e * self.im.sin(),
+            }
         }
         #[inline]
         pub fn inv(self) -> Self {
             let d = self.abs_sq();
-            Self { re: self.re / d, im: -self.im / d }
+            Self {
+                re: self.re / d,
+                im: -self.im / d,
+            }
         }
     }
-    impl Add for Complex64 { type Output = Self; fn add(self, r: Self) -> Self { Self { re: self.re + r.re, im: self.im + r.im } } }
-    impl Sub for Complex64 { type Output = Self; fn sub(self, r: Self) -> Self { Self { re: self.re - r.re, im: self.im - r.im } } }
-    impl Mul for Complex64 { type Output = Self; fn mul(self, r: Self) -> Self { Self { re: self.re * r.re - self.im * r.im, im: self.re * r.im + self.im * r.re } } }
-    impl Div for Complex64 { type Output = Self; fn div(self, r: Self) -> Self { self * r.conj().scale(1.0 / r.abs_sq()) } }
-    impl Neg for Complex64 { type Output = Self; fn neg(self) -> Self { Self { re: -self.re, im: -self.im } } }
-    impl Mul<f64> for Complex64 { type Output = Self; fn mul(self, s: f64) -> Self { self.scale(s) } }
-    impl AddAssign for Complex64 { fn add_assign(&mut self, r: Self) { self.re += r.re; self.im += r.im; } }
-    impl SubAssign for Complex64 { fn sub_assign(&mut self, r: Self) { self.re -= r.re; self.im -= r.im; } }
-    impl MulAssign for Complex64 { fn mul_assign(&mut self, r: Self) { *self = *self * r; } }
-    impl std::fmt::Display for Complex64 { fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { write!(f, "({} + {}i)", self.re, self.im) } }
+    impl Add for Complex64 {
+        type Output = Self;
+        fn add(self, r: Self) -> Self {
+            Self {
+                re: self.re + r.re,
+                im: self.im + r.im,
+            }
+        }
+    }
+    impl Sub for Complex64 {
+        type Output = Self;
+        fn sub(self, r: Self) -> Self {
+            Self {
+                re: self.re - r.re,
+                im: self.im - r.im,
+            }
+        }
+    }
+    impl Mul for Complex64 {
+        type Output = Self;
+        fn mul(self, r: Self) -> Self {
+            Self {
+                re: self.re * r.re - self.im * r.im,
+                im: self.re * r.im + self.im * r.re,
+            }
+        }
+    }
+    impl Div for Complex64 {
+        type Output = Self;
+        fn div(self, r: Self) -> Self {
+            self * r.conj().scale(1.0 / r.abs_sq())
+        }
+    }
+    impl Neg for Complex64 {
+        type Output = Self;
+        fn neg(self) -> Self {
+            Self {
+                re: -self.re,
+                im: -self.im,
+            }
+        }
+    }
+    impl Mul<f64> for Complex64 {
+        type Output = Self;
+        fn mul(self, s: f64) -> Self {
+            self.scale(s)
+        }
+    }
+    impl AddAssign for Complex64 {
+        fn add_assign(&mut self, r: Self) {
+            self.re += r.re;
+            self.im += r.im;
+        }
+    }
+    impl SubAssign for Complex64 {
+        fn sub_assign(&mut self, r: Self) {
+            self.re -= r.re;
+            self.im -= r.im;
+        }
+    }
+    impl MulAssign for Complex64 {
+        fn mul_assign(&mut self, r: Self) {
+            *self = *self * r;
+        }
+    }
+    impl std::fmt::Display for Complex64 {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "({} + {}i)", self.re, self.im)
+        }
+    }
 }
 #[cfg(not(feature = "barracuda-local"))]
 pub use ipc_complex::Complex64;

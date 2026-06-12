@@ -55,7 +55,10 @@ pub struct RhmcCalibrator {
     strange_mass: Option<f64>,
     beta: f64,
     /// Lattice dimensions — available for volume-dependent heuristics and spectral probing.
-    #[expect(dead_code, reason = "stored for future volume-dependent calibration heuristics")]
+    #[expect(
+        dead_code,
+        reason = "stored for future volume-dependent calibration heuristics"
+    )]
     dims: [usize; 4],
 
     // Discovered state

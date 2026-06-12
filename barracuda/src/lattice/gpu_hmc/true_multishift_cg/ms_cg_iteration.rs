@@ -2,11 +2,11 @@
 
 //! CG iteration encoding for true multi-shift solver.
 
-use super::ms_cg_buffers::CgBuffers;
 use super::TrueMultiShiftPipelines;
+use super::ms_cg_buffers::CgBuffers;
+use crate::lattice::gpu_hmc::GpuF64;
 use crate::lattice::gpu_hmc::dynamical::GpuDynHmcPipelines;
 use crate::lattice::gpu_hmc::resident_cg_buffers::encode_reduce_chain;
-use crate::lattice::gpu_hmc::GpuF64;
 
 impl CgBuffers {
     /// Encode one batch of true multi-shift CG iterations.

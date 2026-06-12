@@ -17,7 +17,6 @@
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
-
 use barracuda::device::WgpuDevice;
 use barracuda::ops::md::forces::{CoulombForce, LennardJonesForce, MorseForce};
 use barracuda::ops::md::integrators::VelocityVerlet;

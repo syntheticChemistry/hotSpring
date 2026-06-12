@@ -4,9 +4,7 @@
 
 use std::time::Instant;
 
-use hotspring_barracuda::bench::{
-    BenchReport, PhaseResult, PowerMonitor, peak_rss_mb,
-};
+use hotspring_barracuda::bench::{BenchReport, PhaseResult, PowerMonitor, peak_rss_mb};
 use hotspring_barracuda::md::brain::MD_NUM_HEADS;
 use hotspring_barracuda::md::config::{self, MdConfig};
 use hotspring_barracuda::md::observables;
@@ -301,8 +299,12 @@ pub async fn run_brain_skin_sweep(report: &mut BenchReport, harness: &mut Valida
                     Ok(gpu) if gpu.has_f64 => Some(gpu.to_wgpu_device()),
                     _ => None,
                 };
-                observables::print_observable_summary_with_gpu(&sim, &case_config, ssf_device.as_ref())
-                    .unwrap_or_else(|e| eprintln!("  VACF GPU failed: {e}"));
+                observables::print_observable_summary_with_gpu(
+                    &sim,
+                    &case_config,
+                    ssf_device.as_ref(),
+                )
+                .unwrap_or_else(|e| eprintln!("  VACF GPU failed: {e}"));
 
                 if let Some(ref bs) = sim.brain_summary {
                     if bs.retrain_count > 0 {

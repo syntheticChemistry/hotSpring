@@ -208,7 +208,10 @@ impl GpuLeaseClient {
 
         match send_jsonrpc(&self.beardog_socket, "crypto.verify_contract", &params) {
             Ok(resp) => {
-                let valid = resp.get("valid").and_then(|v| v.as_bool()).unwrap_or(false);
+                let valid = resp
+                    .get("valid")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
                 LeaseResult::Ok(valid)
             }
             Err(e) => LeaseResult::Failed(format!("verify_contract: {e}")),
@@ -266,9 +269,9 @@ pub fn negotiate_gpu_lease(
 
     match client.verify_lease(&signed) {
         LeaseResult::Ok(true) => Ok(signed),
-        LeaseResult::Ok(false) => {
-            Err(HotSpringError::Ipc("Lease signature verification failed".into()))
-        }
+        LeaseResult::Ok(false) => Err(HotSpringError::Ipc(
+            "Lease signature verification failed".into(),
+        )),
         LeaseResult::Failed(e) => Err(HotSpringError::Ipc(format!("Verify failed: {e}"))),
         LeaseResult::BearDogUnavailable | LeaseResult::Rejected(_) => {
             Err(HotSpringError::Ipc("Verify contract unavailable".into()))

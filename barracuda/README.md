@@ -15,9 +15,9 @@ computation, and GPU acceleration for the [hotSpring](../README.md) project.
 
 | Primal | Provides | Path |
 |--------|----------|------|
-| [barraCuda](../../barraCuda/) | Math, shaders, compilation, ESN, NPU math | `../../barraCuda/crates/barracuda` |
-| [toadStool](../../phase1/toadStool/) | NPU hardware (akida-driver, akida-models) | `../../phase1/toadStool/crates/neuromorphic/` |
-| [coralReef](../../coralReef/) | Sovereign shader compiler (WGSL→native SASS/GFX); **compile-only** in the trio — GPU IPC / dispatch routing lives in **toadStool** | `../../coralReef/` |
+| [barraCuda](../../../primals/barraCuda/) | Math, shaders, compilation, ESN, NPU math | `../../../primals/barraCuda/crates/barracuda` |
+| [toadStool](../../../primals/toadStool/) | NPU hardware (akida-driver, akida-models) | `../../../primals/toadStool/crates/neuromorphic/` |
+| [coralReef](../../../primals/coralReef/) | Sovereign shader compiler (WGSL→native SASS/GFX); **compile-only** in the trio — GPU IPC / dispatch routing lives in **toadStool** | `../../../primals/coralReef/` |
 
 barraCuda knows WHAT to compute. toadStool exposes WHERE hardware exists.
 coralReef compiles HOW (WGSL→native, bypassing wgpu/Vulkan). hotSpring
@@ -53,7 +53,7 @@ cargo doc --no-deps       # Full API docs, 0 warnings
 cargo run --release --bin validate_all  # 64/64 validation suites
 ```
 
-Requires the [barraCuda](../../barraCuda/) primal at `../../barraCuda/crates/barracuda`.
+Requires the [barraCuda](../../../primals/barraCuda/) primal at `../../../primals/barraCuda/crates/barracuda`.
 
 ---
 

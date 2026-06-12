@@ -13,11 +13,11 @@ use crate::lattice::dirac::{FermionField, apply_dirac};
 use crate::lattice::gradient_flow::{self, FlowIntegrator, find_t0, find_w0};
 use crate::lattice::hmc::{self, HmcConfig, IntegratorType};
 use crate::lattice::wilson::Lattice;
+use crate::mcp_tools;
 #[cfg(feature = "barracuda-local")]
 use crate::md::config::MdConfig;
 #[cfg(feature = "barracuda-local")]
 use crate::md::cpu_reference::run_simulation_cpu;
-use crate::mcp_tools;
 use crate::niche;
 use crate::physics;
 use crate::primal_bridge::{self, NucleusContext};
@@ -27,13 +27,14 @@ use hotspring_forge::probe;
 use hotspring_forge::substrate::{Capability, Fp64Rate, Fp64Strategy, SubstrateKind};
 use log::{info, warn};
 use serde_json::{Value, json};
-use std::io::{BufRead, BufReader, Write};
-use std::net::Shutdown;
+use std::io::{BufRead, BufReader};
+use std::net::TcpListener;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
+use std::time::Instant;
 
 /// Dispatch result: either a successful JSON value or a JSON-RPC 2.0 error object.
 enum DispatchResult {
@@ -46,6 +47,7 @@ struct HotSpringState {
     gpu_info: Vec<GpuSummary>,
     nucleus: NucleusContext,
     version: &'static str,
+    start_time: Instant,
 }
 
 struct GpuSummary {
@@ -81,9 +83,19 @@ pub fn run_server(
         gpu_info,
         nucleus,
         version: env!("CARGO_PKG_VERSION"),
+        start_time: Instant::now(),
     });
 
-    serve_listener(state, &socket_path)
+    let bind_mode = std::env::var("PRIMAL_BIND_MODE").unwrap_or_default();
+    if bind_mode == "tcp_only" {
+        let port: u16 = std::env::var("HOTSPRING_PORT")
+            .ok()
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(9800);
+        serve_tcp_listener(state, port)
+    } else {
+        serve_listener(state, &socket_path)
+    }
 }
 
 fn resolve_socket_path(cli_override: Option<&str>) -> PathBuf {
@@ -164,15 +176,14 @@ fn discover_capabilities() -> (Vec<String>, Vec<GpuSummary>) {
 }
 
 fn safe_probe_gpus() -> Vec<hotspring_forge::substrate::Substrate> {
-    match catch_unwind(AssertUnwindSafe(probe::probe_gpus)) {
-        Ok(gpus) => gpus,
-        Err(_) => {
-            warn!(
-                target: "serve",
-                "GPU substrate probe failed — starting without GPU detection"
-            );
-            Vec::new()
-        }
+    if let Ok(gpus) = catch_unwind(AssertUnwindSafe(probe::probe_gpus)) {
+        gpus
+    } else {
+        warn!(
+            target: "serve",
+            "GPU substrate probe failed — starting without GPU detection"
+        );
+        Vec::new()
     }
 }
 
@@ -259,22 +270,17 @@ fn domain_for_routed_method(method: &str) -> Option<&'static str> {
         .find(|d| d.name == *provider)
         .map(|d| d.capability_domain)
         .or_else(|| {
-            method
-                .split('.')
-                .next()
-                .and_then(|prefix| {
-                    niche::DEPENDENCIES
-                        .iter()
-                        .find(|d| d.capability_domain == prefix)
-                        .map(|d| d.capability_domain)
-                })
+            method.split('.').next().and_then(|prefix| {
+                niche::DEPENDENCIES
+                    .iter()
+                    .find(|d| d.capability_domain == prefix)
+                    .map(|d| d.capability_domain)
+            })
         })
 }
 
 fn is_routed_method(method: &str) -> bool {
-    niche::ROUTED_CAPABILITIES
-        .iter()
-        .any(|(m, _)| *m == method)
+    niche::ROUTED_CAPABILITIES.iter().any(|(m, _)| *m == method)
 }
 
 fn route_to_primal(state: &HotSpringState, method: &str, params: &Value) -> DispatchResult {
@@ -305,10 +311,11 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
     }
 
     match method {
-        "health.check" | "health.liveness" => DispatchResult::Ok(json!({
+        "health" | "health.check" | "health.liveness" => DispatchResult::Ok(json!({
             "status": "ok",
             "primal": niche::NICHE_NAME,
             "version": state.version,
+            "uptime_s": state.start_time.elapsed().as_secs(),
             "gpus": state.gpu_info.len(),
         })),
         "health.readiness" => {
@@ -318,6 +325,7 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
                 "status": status,
                 "primal": niche::NICHE_NAME,
                 "version": state.version,
+                "uptime_s": state.start_time.elapsed().as_secs(),
                 "gpu_ready": gpu_ready,
                 "gpu_count": state.gpu_info.len(),
                 "capabilities_count": state.capabilities.len(),
@@ -348,14 +356,10 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
         "composition.health" | "composition.nucleus_health" => {
             DispatchResult::Ok(composition::nucleus_health(&state.nucleus))
         }
-        "composition.tower_health" => {
-            DispatchResult::Ok(composition::tower_health(&state.nucleus))
-        }
+        "composition.tower_health" => DispatchResult::Ok(composition::tower_health(&state.nucleus)),
         "composition.node_health" => DispatchResult::Ok(composition::node_health(&state.nucleus)),
         "composition.nest_health" => DispatchResult::Ok(composition::nest_health(&state.nucleus)),
-        "composition.science_health" => {
-            DispatchResult::Ok(state.nucleus.physics_health())
-        }
+        "composition.science_health" => DispatchResult::Ok(state.nucleus.physics_health()),
         "mcp.tools.list" => DispatchResult::Ok(mcp_tools::tools_list_json()),
         "physics.lattice_qcd" | "physics.lattice_gauge_update" => {
             let Some(m) = params_map(params) else {
@@ -429,11 +433,10 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
         "physics.molecular_dynamics" => {
             #[cfg(not(feature = "barracuda-local"))]
             {
-                return DispatchResult::Err {
+                DispatchResult::Err {
                     code: -32_603,
-                    message: "physics.molecular_dynamics requires barracuda-local build"
-                        .into(),
-                };
+                    message: "physics.molecular_dynamics requires barracuda-local build".into(),
+                }
             }
             #[cfg(feature = "barracuda-local")]
             {
@@ -591,10 +594,10 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
         "compute.gradient_flow" => {
             #[cfg(not(feature = "barracuda-local"))]
             {
-                return DispatchResult::Err {
+                DispatchResult::Err {
                     code: -32_603,
                     message: "compute.gradient_flow requires barracuda-local build".into(),
-                };
+                }
             }
             #[cfg(feature = "barracuda-local")]
             {
@@ -614,8 +617,13 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
                     let eps = parse_f64(m, "eps", 0.01);
                     let t_max = flow_steps as f64 * eps;
                     let mut lat = Lattice::hot_start(dims, beta, seed);
-                    let measurements =
-                        gradient_flow::run_flow(&mut lat, FlowIntegrator::Rk3Luscher, eps, t_max, 1);
+                    let measurements = gradient_flow::run_flow(
+                        &mut lat,
+                        FlowIntegrator::Rk3Luscher,
+                        eps,
+                        t_max,
+                        1,
+                    );
                     let t0 = find_t0(&measurements);
                     let w0 = find_w0(&measurements);
                     let final_energy = measurements.last().map_or(f64::NAN, |x| x.energy_density);
@@ -646,18 +654,7 @@ fn normalize_method(method: &str) -> &str {
     }
 }
 
-fn serve_listener(state: Arc<HotSpringState>, sock: &Path) -> Result<(), HotSpringError> {
-    if let Some(parent) = sock.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let _ = std::fs::remove_file(sock);
-    let listener = UnixListener::bind(sock).map_err(|e| {
-        HotSpringError::Ipc(format!("bind error: {e} at {}", sock.display()))
-    })?;
-
-    niche::register_with_target(sock);
-
-    info!(target: "serve", "listening on {}", sock.display());
+fn log_startup(state: &HotSpringState) {
     info!(
         target: "serve",
         "capabilities: {} ({} GPUs detected)",
@@ -673,6 +670,19 @@ fn serve_listener(state: Arc<HotSpringState>, sock: &Path) -> Result<(), HotSpri
             g.strategy
         );
     }
+}
+
+fn serve_listener(state: Arc<HotSpringState>, sock: &Path) -> Result<(), HotSpringError> {
+    if let Some(parent) = sock.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let _ = std::fs::remove_file(sock);
+    let listener = UnixListener::bind(sock)
+        .map_err(|e| HotSpringError::Ipc(format!("bind error: {e} at {}", sock.display())))?;
+
+    niche::register_with_target(sock);
+    info!(target: "serve", "listening on {} (UDS)", sock.display());
+    log_startup(&state);
 
     loop {
         let (stream, _addr) = match listener.accept() {
@@ -688,7 +698,35 @@ fn serve_listener(state: Arc<HotSpringState>, sock: &Path) -> Result<(), HotSpri
     }
 }
 
+fn serve_tcp_listener(state: Arc<HotSpringState>, port: u16) -> Result<(), HotSpringError> {
+    let bind_addr = std::env::var("HOTSPRING_BIND_ADDRESS").unwrap_or_else(|_| "0.0.0.0".into());
+    let addr = format!("{bind_addr}:{port}");
+    let listener = TcpListener::bind(&addr)
+        .map_err(|e| HotSpringError::Ipc(format!("TCP bind error: {e} at {addr}")))?;
+
+    info!(target: "serve", "listening on {addr} (TCP, PRIMAL_BIND_MODE=tcp_only)");
+    log_startup(&state);
+
+    loop {
+        let (stream, peer) = match listener.accept() {
+            Ok(pair) => pair,
+            Err(e) => {
+                warn!(target: "serve", "TCP accept error: {e}");
+                continue;
+            }
+        };
+
+        info!(target: "serve", "TCP connection from {peer}");
+        let state = Arc::clone(&state);
+        thread::spawn(move || handle_connection_generic(stream, &state));
+    }
+}
+
 fn handle_connection(stream: UnixStream, state: &HotSpringState) {
+    handle_connection_generic(stream, state);
+}
+
+fn handle_connection_generic<S: std::io::Read + std::io::Write>(stream: S, state: &HotSpringState) {
     let mut reader = BufReader::new(stream);
     loop {
         let mut line = String::new();
@@ -733,14 +771,88 @@ fn handle_connection(stream: UnixStream, state: &HotSpringState) {
             break;
         }
     }
-
-    let _ = reader.into_inner().shutdown(Shutdown::Both);
 }
 
-fn write_response(stream: &mut UnixStream, response: &Value) -> Result<(), HotSpringError> {
+fn write_response<W: std::io::Write>(
+    stream: &mut W,
+    response: &Value,
+) -> Result<(), HotSpringError> {
     let mut out = response.to_string();
     out.push('\n');
     stream.write_all(out.as_bytes())?;
     stream.flush()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_state() -> HotSpringState {
+        HotSpringState {
+            capabilities: vec!["compute.physics".into()],
+            gpu_info: vec![],
+            nucleus: NucleusContext::detect(),
+            version: env!("CARGO_PKG_VERSION"),
+            start_time: Instant::now(),
+        }
+    }
+
+    fn dispatch_ok(state: &HotSpringState, method: &str) -> Value {
+        match handle_request(state, method, &Value::Null) {
+            DispatchResult::Ok(v) => v,
+            DispatchResult::Err { code, message } => {
+                panic!("dispatch error {code}: {message}");
+            }
+        }
+    }
+
+    #[test]
+    fn health_bare_alias_returns_guidestone_schema() {
+        let state = test_state();
+        let v = dispatch_ok(&state, "health");
+        assert_eq!(v["status"], "ok");
+        assert_eq!(v["primal"], niche::NICHE_NAME);
+        assert!(v["version"].is_string(), "version must be present");
+        assert!(v["uptime_s"].is_number(), "uptime_s must be present");
+    }
+
+    #[test]
+    fn health_check_returns_guidestone_schema() {
+        let state = test_state();
+        let v = dispatch_ok(&state, "health.check");
+        assert_eq!(v["status"], "ok");
+        assert!(v["uptime_s"].is_number());
+    }
+
+    #[test]
+    fn health_liveness_returns_guidestone_schema() {
+        let state = test_state();
+        let v = dispatch_ok(&state, "health.liveness");
+        assert_eq!(v["status"], "ok");
+        assert!(v["uptime_s"].is_number());
+    }
+
+    #[test]
+    fn health_readiness_returns_uptime() {
+        let state = test_state();
+        let v = dispatch_ok(&state, "health.readiness");
+        assert!(v["uptime_s"].is_number());
+        assert!(v["status"].is_string());
+    }
+
+    #[test]
+    fn health_with_primal_prefix_normalizes() {
+        let state = test_state();
+        let v = dispatch_ok(&state, "hotspring.health");
+        assert_eq!(v["status"], "ok");
+        assert!(v["uptime_s"].is_number());
+    }
+
+    #[test]
+    fn capabilities_list_succeeds() {
+        let state = test_state();
+        let v = dispatch_ok(&state, "capabilities.list");
+        assert!(v["capabilities"].is_array());
+    }
 }

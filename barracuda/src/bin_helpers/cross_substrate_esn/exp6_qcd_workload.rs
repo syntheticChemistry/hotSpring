@@ -9,11 +9,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 use super::INPUT_SIZE;
 
-pub fn run(
-    gpu: &GpuF64,
-    harness: &mut ValidationHarness,
-    jsonl_records: &mut Vec<String>,
-) {
+pub fn run(gpu: &GpuF64, harness: &mut ValidationHarness, jsonl_records: &mut Vec<String>) {
     println!();
     println!("═══ Experiment 6: QCD-Specific Workload Comparison ═══");
 

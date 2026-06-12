@@ -21,8 +21,8 @@ pub const HOT_START_EPSILON: f64 = 1.5;
 
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::lattice::constants::{
-    lcg_gaussian, lcg_step, lcg_uniform_f64, LCG_53_DIVISOR, LCG_INCREMENT,
-    LCG_MULTIPLIER, LATTICE_DIVISION_GUARD,
+    LATTICE_DIVISION_GUARD, LCG_53_DIVISOR, LCG_INCREMENT, LCG_MULTIPLIER, lcg_gaussian, lcg_step,
+    lcg_uniform_f64,
 };
 
 #[cfg(not(feature = "barracuda-local"))]

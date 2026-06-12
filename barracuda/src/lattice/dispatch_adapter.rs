@@ -77,14 +77,13 @@ impl LatticeDispatchAdapter {
             return Ok(cached.clone());
         }
 
-        let wgsl = lattice_shader_source(name).ok_or_else(|| {
-            HotSpringError::Ipc(format!("unknown lattice shader: {name}"))
-        })?;
+        let wgsl = lattice_shader_source(name)
+            .ok_or_else(|| HotSpringError::Ipc(format!("unknown lattice shader: {name}")))?;
 
         let compile_params = serde_json::json!({ "wgsl_source": wgsl });
-        let compile_resp = self
-            .nucleus
-            .call_by_capability("shader", "shader.compile.wgsl", compile_params)?;
+        let compile_resp =
+            self.nucleus
+                .call_by_capability("shader", "shader.compile.wgsl", compile_params)?;
 
         let compile_result = parse_jsonrpc_response(&compile_resp, "shader.compile.wgsl")?;
 
@@ -217,9 +216,7 @@ pub fn make_force_uniform_params(volume: u32, beta: f64) -> Vec<u8> {
 }
 
 /// Serialize QCD bind groups into toadStool `buffers[]` wire format.
-pub fn serialize_lattice_buffers(
-    params: &LatticeDispatchParams,
-) -> Result<Value, HotSpringError> {
+pub fn serialize_lattice_buffers(params: &LatticeDispatchParams) -> Result<Value, HotSpringError> {
     let params_b64 = base64_encode::encode(&params.params);
     let links_bytes = f64_slice_to_bytes(&params.links);
     let links_b64 = base64_encode::encode(&links_bytes);
@@ -279,9 +276,9 @@ fn f64_bytes_to_vec(bytes: &[u8]) -> Result<Vec<f64>, HotSpringError> {
     bytes
         .chunks_exact(size_of::<f64>())
         .map(|chunk| {
-            let arr: [u8; 8] = chunk.try_into().map_err(|_| {
-                HotSpringError::Ipc("invalid f64 chunk".into())
-            })?;
+            let arr: [u8; 8] = chunk
+                .try_into()
+                .map_err(|_| HotSpringError::Ipc("invalid f64 chunk".into()))?;
             Ok(f64::from_le_bytes(arr))
         })
         .collect()
@@ -381,9 +378,7 @@ fn extract_output_from_envelope(
     envelope: &Value,
     output_elements: usize,
 ) -> Result<Option<Vec<f64>>, HotSpringError> {
-    let output = envelope
-        .get("output")
-        .or_else(|| envelope.get("result"));
+    let output = envelope.get("output").or_else(|| envelope.get("result"));
 
     let Some(output) = output else {
         return Ok(None);
@@ -409,10 +404,7 @@ fn extract_output_from_envelope(
     }
 
     if let Some(arr) = output.get("data").and_then(Value::as_array) {
-        let values: Vec<f64> = arr
-            .iter()
-            .filter_map(Value::as_f64)
-            .collect();
+        let values: Vec<f64> = arr.iter().filter_map(Value::as_f64).collect();
         if !values.is_empty() {
             return Ok(Some(values));
         }
@@ -483,13 +475,9 @@ mod tests {
 
         assert_eq!(arr[1]["direction"], "input");
         assert_eq!(arr[1]["size"], 16);
-        let links_decoded = base64_encode::decode(
-            arr[1]["data_b64"]
-                .as_str()
-                .expect("links b64")
-                .as_bytes(),
-        )
-        .expect("decode links");
+        let links_decoded =
+            base64_encode::decode(arr[1]["data_b64"].as_str().expect("links b64").as_bytes())
+                .expect("decode links");
         assert_eq!(links_decoded.len(), 16);
 
         assert_eq!(arr[2]["direction"], "input");

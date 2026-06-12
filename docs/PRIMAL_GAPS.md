@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 10, 2026 (Wave 107: ZERO P1 ecosystem-wide. Lib warning cleanup — removed 2 unused imports, suppressed 3 WIP GPU pipeline dead-code warnings (hfb_gpu_types::GroupResources, gpu::buffers::mapped_bytes_to_f32). `#[cfg(test)]` guard for make_u32x4_params. 0 errors, 0 non-doc warnings, 1089 tests pass. Mesh persistence validated (songbird 1df7ef90). biomeOS v4.17 (supervision) + v4.18 (TCP fallback) rebuilt locally. Depot checksums current.)
+**Last audited:** Jun 11, 2026 (Wave 110: guideStone convergence — HEALTH-01 compliant (bare `"health"` alias + `uptime_s` in all health endpoints). STARTUP contract: `PRIMAL_BIND_MODE=tcp_only` TCP fallback server added. 6 new serve::tests for guideStone schema validation. Niche tables + capability_registry.toml synced with `"health"` entry. 625 lib tests pass, 0 clippy, 0 errors. grapheneGate 13/13 achieved. biomeOS v4.22, sweetGrass v0.7.56, bearDog Wave 109 absorbed upstream.)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1724,7 +1724,7 @@ Next: hardware validation on Titan V and K80.
 - **Documented for future evolution:**
   25 binary targets use `panic!` in unrecoverable paths (tokio runtime, GPU init,
   weight export). Library has zero panic paths. Evolution to `Result` mains is polish.
-- **Validation:** 595 (default) / 1,041 (barracuda-local). Zero clippy. Zero TODO.
+- **Validation:** 625 (default) / 1,045 (barracuda-local). Zero clippy. Zero TODO.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md`
 
 ---
@@ -2022,22 +2022,22 @@ Next: hardware validation on Titan V and K80.
   PC32/PLT32 normalization, ret0 at offset+5). Module loads. Reboot required to test
   full pipeline (zombie module from test oops).
 
-### GAP-HS-108 — biomeGate Hardware Documentation Drift (May 23, 2026)
+### GAP-HS-108 — biomeGate Hardware Documentation Drift (May 23, 2026) — RESOLVED
 
 - **Primal:** Ecosystem documentation
 - **Severity:** Low (documentation only)
-- **Status:** Resolved locally (Wave 60) — upstream pending
+- **Status:** RESOLVED (Wave 60) — upstream docs corrected
 - **Description:** Upstream gate assignment table and `HARDWARE.md` still list
   K80 at biomeGate. K80 was retired Exp 199 (hardware fire), replaced by second
   Titan V. Actual fleet: 2× Titan V (GV100) + RTX 5060 per `glowplug.toml`.
 - **Action:** Update `primalSpring/wateringHole/TEAM_OWNERSHIP_MATRIX.md` and
   any gate assignment tables referencing K80.
 
-### GAP-HS-109 — skunkBat niche-hotspring vs Proto-Nucleate Mismatch (May 23, 2026)
+### GAP-HS-109 — skunkBat niche-hotspring vs Proto-Nucleate Mismatch (May 23, 2026) — RESOLVED
 
 - **Primal:** skunkBat / plasmidBin
 - **Severity:** Low
-- **Status:** Resolved (Wave 60)
+- **Status:** RESOLVED (Wave 60)
 - **Description:** `infra/plasmidBin/ports.env` includes `skunkbat` in
   `niche-hotspring`, but the proto-nucleate `depends_on` list in
   `downstream_manifest.toml` does not include skunkbat. Deploy graphs have
@@ -2067,11 +2067,11 @@ Next: hardware validation on Titan V and K80.
   that probes `sovereign.warm_handoff` status and ember health when running
   on biomeGate hardware.
 
-### GAP-HS-111 — Biomolecular Force Field Evolution for CAZyme FEL (May 24, 2026)
+### GAP-HS-111 — Biomolecular Force Field Evolution for CAZyme FEL (May 24, 2026) — RESOLVED
 
 - **Primal:** barraCuda / hotSpring
 - **Severity:** Medium (feature gap, not regression)
-- **Status:** Resolved locally (Wave 60, strandGate May 29 2026)
+- **Status:** RESOLVED (Wave 60, strandGate May 29 2026)
 - **Description:** barraCuda has full nonbonded MD primitives (LJ, Coulomb,
   PPPM, cell/Verlet lists, VV, thermostats, observables) but lacks bonded
   force field terms (harmonic bonds, harmonic angles, dihedral torsions,
@@ -2205,7 +2205,7 @@ All 5 modified primals compile clean. Test-only `/tmp` usage preserved.
   permanently broken until restart. Now toadStool detects new providers within 10s.
 - **Status**: **RESOLVED** — all three primals integrated. Filed June 1, 2026.
 
-### GAP-HS-120: ~~barraCuda~~ toadStool internal dispatch calls nonexistent method
+### GAP-HS-120: ~~barraCuda~~ toadStool internal dispatch calls nonexistent method — RESOLVED
 
 - **Severity**: P0 → **RESOLVED**
 - **Upstream**: toadStool `shader_dispatch.rs` and `submit.rs` — `coral_client` call

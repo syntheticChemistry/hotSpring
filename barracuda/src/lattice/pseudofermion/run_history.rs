@@ -162,9 +162,8 @@ impl RunHistoryReader {
     /// malformed lines (skipped with a warning).
     #[must_use]
     pub fn from_file(path: &std::path::Path) -> Self {
-        let file = match std::fs::File::open(path) {
-            Ok(f) => f,
-            Err(_) => return Self::default(),
+        let Ok(file) = std::fs::File::open(path) else {
+            return Self::default();
         };
         let reader = std::io::BufReader::new(file);
         let mut trajectories = Vec::new();

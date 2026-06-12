@@ -278,7 +278,9 @@ impl GpuF64 {
         buffer: &wgpu::Buffer,
         count: usize,
     ) -> Result<Vec<f32>, crate::error::HotSpringError> {
-        self.wgpu_device.read_back_f32(buffer, count).map_err(Into::into)
+        self.wgpu_device
+            .read_back_f32(buffer, count)
+            .map_err(Into::into)
     }
 }
 

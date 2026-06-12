@@ -64,7 +64,10 @@ fn check_semf(v: &mut ValidationHarness) {
     v.check_bool("parity:semf_fe56_finite", be_fe56.is_finite());
 
     let be_again = semf_binding_energy(82, 126, &SLY4_PARAMS);
-    v.check_bool("parity:semf_deterministic", be_pb208.total_cmp(&be_again).is_eq());
+    v.check_bool(
+        "parity:semf_deterministic",
+        be_pb208.total_cmp(&be_again).is_eq(),
+    );
 }
 
 fn check_transport(v: &mut ValidationHarness) {
@@ -73,8 +76,14 @@ fn check_transport(v: &mut ValidationHarness) {
     let d_star = d_star_daligault(10.0, 1.0);
     let eta_star = eta_star_stanton_murillo(10.0, 1.0);
 
-    v.check_bool("parity:transport_d_finite", d_star.is_finite() && d_star > 0.0);
-    v.check_bool("parity:transport_eta_finite", eta_star.is_finite() && eta_star > 0.0);
+    v.check_bool(
+        "parity:transport_d_finite",
+        d_star.is_finite() && d_star > 0.0,
+    );
+    v.check_bool(
+        "parity:transport_eta_finite",
+        eta_star.is_finite() && eta_star > 0.0,
+    );
 }
 
 fn check_spectral(v: &mut ValidationHarness) {
@@ -108,8 +117,16 @@ fn check_bgk(v: &mut ValidationHarness) {
     let f2 = maxwellian_1d(&velocities, 1.0, 0.0, 0.5, 4.0);
 
     let mut species = vec![
-        BgkSpecies { f: f1, m: 1.0, nu: 1.0 },
-        BgkSpecies { f: f2, m: 4.0, nu: 1.0 },
+        BgkSpecies {
+            f: f1,
+            m: 1.0,
+            nu: 1.0,
+        },
+        BgkSpecies {
+            f: f2,
+            m: 4.0,
+            nu: 1.0,
+        },
     ];
     let mass_before: f64 = species[0].f.iter().sum::<f64>() * dv;
 
@@ -120,7 +137,10 @@ fn check_bgk(v: &mut ValidationHarness) {
         "parity:bgk_mass_conserved",
         (mass_before - mass_after).abs() < tolerances::KINETIC_FLUID_BGK_MASS_REL,
     );
-    v.check_bool("parity:bgk_all_positive", species[0].f.iter().all(|&fi| fi >= 0.0));
+    v.check_bool(
+        "parity:bgk_all_positive",
+        species[0].f.iter().all(|&fi| fi >= 0.0),
+    );
 }
 
 fn check_euler(v: &mut ValidationHarness) {
@@ -131,7 +151,10 @@ fn check_euler(v: &mut ValidationHarness) {
         "parity:euler_mass_conserved",
         r.mass_err < tolerances::KINETIC_FLUID_BGK_MASS_REL,
     );
-    v.check_bool("parity:euler_rho_physical", r.rho_min > 0.0 && r.rho_max < 2.0);
+    v.check_bool(
+        "parity:euler_rho_physical",
+        r.rho_min > 0.0 && r.rho_max < 2.0,
+    );
 }
 
 fn check_coupled(v: &mut ValidationHarness) {

@@ -64,13 +64,7 @@ async fn main() {
             &mut measurements,
             ts,
         );
-        silicon_saturation::exp_cache::run(
-            device,
-            queue,
-            &gpu.adapter_name,
-            &mut measurements,
-            ts,
-        );
+        silicon_saturation::exp_cache::run(device, queue, &gpu.adapter_name, &mut measurements, ts);
         silicon_saturation::exp_tmu::run(device, queue, &gpu.adapter_name, &mut measurements, ts);
         silicon_saturation::exp_reduce::run(
             device,

@@ -36,9 +36,6 @@
 pub mod abelian_higgs;
 /// Conjugate gradient solver for D-dagger-D on GPU.
 pub mod cg;
-/// Lattice QCD dispatch adapter: QCD bind groups → toadStool IPC wire format.
-#[cfg(feature = "barracuda-local")]
-pub mod dispatch_adapter;
 /// Complex f64 arithmetic (re, im) with WGSL shader template.
 pub mod complex_f64;
 /// LCG PRNG, lattice constants, and shared numerical guards.
@@ -47,6 +44,9 @@ pub mod constants;
 pub mod correlator;
 /// Staggered Dirac operator (GPU SpMV via WGSL).
 pub mod dirac;
+/// Lattice QCD dispatch adapter: QCD bind groups → toadStool IPC wire format.
+#[cfg(feature = "barracuda-local")]
+pub mod dispatch_adapter;
 /// HotQCD EOS tables (Bazavov et al. PRD 90, 094503).
 pub mod eos_tables;
 /// GPU gradient flow — promotes CPU `gradient_flow` to GPU via HMC shader reuse.

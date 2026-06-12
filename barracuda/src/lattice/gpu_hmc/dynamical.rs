@@ -2,6 +2,8 @@
 
 //! Dynamical fermion GPU HMC — full QCD with staggered quarks.
 
+use super::resident_cg_buffers::read_complex_dot_re;
+use super::resident_cg_pipelines::WGSL_SUM_REDUCE;
 #[expect(
     deprecated,
     reason = "gpu_dot_re retained for gpu_cg_solve_internal — legacy per-iteration CG used by streaming.rs"
@@ -10,8 +12,6 @@ use super::{
     GpuF64, GpuHmcPipelines, GpuHmcState, gpu_dirac_dispatch, gpu_dot_re,
     gpu_fermion_force_dispatch, gpu_force_dispatch, gpu_mom_update_dispatch, make_link_mom_params,
 };
-use super::resident_cg_buffers::read_complex_dot_re;
-use super::resident_cg_pipelines::WGSL_SUM_REDUCE;
 use barracuda::ops::lattice::absorbed_shaders::{
     WGSL_PRNG_PCG_F64, WGSL_STAGGERED_FERMION_FORCE_F64, WGSL_SU3_RANDOM_MOMENTA_F64,
     WGSL_SU3_RANDOM_MOMENTA_TMU_F64,
@@ -35,13 +35,11 @@ pub const WGSL_XPAY: &str = super::super::cg::WGSL_XPAY_F64;
 /// WGSL shared PRNG core (PCG hash → uniform f64).
 const WGSL_PRNG_CORE: &str = WGSL_PRNG_PCG_F64;
 /// WGSL shader: GPU-resident PRNG for SU(3) algebra momenta (ALU path).
-pub static WGSL_RANDOM_MOMENTA: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-    format!("{WGSL_PRNG_CORE}\n{WGSL_SU3_RANDOM_MOMENTA_F64}")
-});
+pub static WGSL_RANDOM_MOMENTA: std::sync::LazyLock<String> =
+    std::sync::LazyLock::new(|| format!("{WGSL_PRNG_CORE}\n{WGSL_SU3_RANDOM_MOMENTA_F64}"));
 /// WGSL shader: TMU-accelerated PRNG for SU(3) momenta (Tier 0 silicon routing).
-pub static WGSL_RANDOM_MOMENTA_TMU: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-    format!("{WGSL_PRNG_CORE}\n{WGSL_SU3_RANDOM_MOMENTA_TMU_F64}")
-});
+pub static WGSL_RANDOM_MOMENTA_TMU: std::sync::LazyLock<String> =
+    std::sync::LazyLock::new(|| format!("{WGSL_PRNG_CORE}\n{WGSL_SU3_RANDOM_MOMENTA_TMU_F64}"));
 
 /// Pipelines for GPU dynamical fermion HMC.
 pub struct GpuDynHmcPipelines {

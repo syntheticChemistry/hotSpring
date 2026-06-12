@@ -15,9 +15,6 @@ pub mod average_atom;
 /// BCS pairing gap solver on GPU (bisection in WGSL).
 #[cfg(feature = "barracuda-local")]
 pub mod bcs_gpu;
-/// FES Gaussian summation on GPU (metadynamics CompChem).
-#[cfg(feature = "barracuda-local")]
-pub mod fes_gpu;
 /// Physical constants (CODATA 2018, nuclear, Skyrme).
 pub mod constants;
 /// BGK dielectric functions (Chuna & Murillo 2024, arXiv:2405.07871).
@@ -26,6 +23,9 @@ pub mod dielectric;
 /// Multi-component Mermin dielectric for electron-ion plasmas (Paper 44 extension).
 #[cfg(feature = "barracuda-local")]
 pub mod dielectric_multicomponent;
+/// FES Gaussian summation on GPU (metadynamics CompChem).
+#[cfg(feature = "barracuda-local")]
+pub mod fes_gpu;
 /// Militzer FPEOS database: first-principles EOS tables for WDM (Paper 32).
 pub mod fpeos;
 /// Full GPU coupled kinetic-fluid pipeline (Paper 45).

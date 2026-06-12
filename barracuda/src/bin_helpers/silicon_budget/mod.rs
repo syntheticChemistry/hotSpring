@@ -7,6 +7,6 @@ pub mod specs;
 
 pub use ceiling::print_compound_budget;
 pub use specs::{
-    classify_vendor, lookup_silicon_specs, print_budget, print_precision_tier_analysis,
-    print_working_set_analysis, GpuSiliconBudget, GpuVendor,
+    GpuSiliconBudget, GpuVendor, classify_vendor, lookup_silicon_specs, print_budget,
+    print_precision_tier_analysis, print_working_set_analysis,
 };

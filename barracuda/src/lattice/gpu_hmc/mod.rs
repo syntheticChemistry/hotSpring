@@ -138,8 +138,8 @@ use crate::gpu::GpuF64;
 use barracuda::device::driver_profile::Fp64Strategy;
 use barracuda::ops::lattice::absorbed_shaders::{
     WGSL_SU3_GAUGE_FORCE_DF64, WGSL_SU3_GAUGE_FORCE_F64, WGSL_SU3_KINETIC_ENERGY_DF64,
-    WGSL_SU3_KINETIC_ENERGY_F64, WGSL_SU3_LINK_UPDATE_F64, WGSL_SU3_MOMENTUM_UPDATE_F64,
-    WGSL_SU3_MATH_F64 as WGSL_SU3_MATH_F64_UPSTREAM,
+    WGSL_SU3_KINETIC_ENERGY_F64, WGSL_SU3_LINK_UPDATE_F64,
+    WGSL_SU3_MATH_F64 as WGSL_SU3_MATH_F64_UPSTREAM, WGSL_SU3_MOMENTUM_UPDATE_F64,
 };
 use barracuda::ops::lattice::complex_f64::WGSL_COMPLEX64;
 
@@ -557,7 +557,6 @@ pub(super) fn gpu_link_update_dispatch(
     let bg = gpu.create_bind_group(&p.link_pipeline, &[&param_buf, &s.mom_buf, &s.link_buf]);
     gpu.dispatch(&p.link_pipeline, &bg, s.wg_links);
 }
-
 
 // ═══════════════════════════════════════════════════════════════════
 //  Utility functions

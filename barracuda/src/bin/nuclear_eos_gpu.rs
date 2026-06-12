@@ -139,13 +139,7 @@ fn main() {
     let l1_ds = run_l1_direct_sampler(gpu, &mut report, &sorted_nuclei, bounds);
 
     let l2 = run_l2_hfb_baseline(&mut report, &sorted_nuclei);
-    let l2_opt_chi2 = run_l2_direct_sampler(
-        &mut report,
-        &ctx,
-        bounds,
-        l1_ds.device,
-        l2.l2_count,
-    );
+    let l2_opt_chi2 = run_l2_direct_sampler(&mut report, &ctx, bounds, l1_ds.device, l2.l2_count);
 
     print_summary_table(
         l1_ds.cpu_full_chi2,

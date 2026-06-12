@@ -27,9 +27,9 @@ pub mod s_anderson_parity;
 pub mod s_cold_boot_sentinel;
 pub mod s_composition_health;
 pub mod s_compute_trio;
-pub mod s_dark_forest_gate;
 #[cfg(feature = "barracuda-local")]
 pub mod s_cpu_gpu_parity;
+pub mod s_dark_forest_gate;
 #[cfg(feature = "barracuda-local")]
 pub mod s_dielectric;
 #[cfg(feature = "barracuda-local")]

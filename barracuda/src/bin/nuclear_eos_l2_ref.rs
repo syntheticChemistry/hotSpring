@@ -6,7 +6,7 @@
 //!      [--rounds=5] [--nm-starts=10] [--evals=100] [--patience=3] [--multi=3]
 
 use hotspring_barracuda::bin_helpers::nuclear_eos_gpu::{
-    compute_l2_binding_energies, run_l2_seed_pipeline, L2PipelineCli, SeedResult,
+    L2PipelineCli, SeedResult, compute_l2_binding_energies, run_l2_seed_pipeline,
 };
 use hotspring_barracuda::data;
 use hotspring_barracuda::physics::nuclear_matter_properties;
@@ -274,7 +274,12 @@ fn print_paper_parity(best: &SeedResult, nuclei: &[(usize, usize, f64)]) {
     }
 }
 
-fn save_results(cli: &L2PipelineCli, best: &SeedResult, all_results: &[SeedResult], base: &std::path::Path) {
+fn save_results(
+    cli: &L2PipelineCli,
+    best: &SeedResult,
+    all_results: &[SeedResult],
+    base: &std::path::Path,
+) {
     let results_dir = base.join("results");
     std::fs::create_dir_all(&results_dir).ok();
     let result_json = serde_json::json!({

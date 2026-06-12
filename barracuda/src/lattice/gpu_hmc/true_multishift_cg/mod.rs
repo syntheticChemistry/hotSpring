@@ -16,12 +16,12 @@ use barracuda::ops::lattice::absorbed_shaders::{
     WGSL_MS_X_UPDATE_F64, WGSL_MS_ZETA_UPDATE_F64,
 };
 
-use crate::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
-use crate::lattice::gpu_hmc::resident_cg_buffers::encode_reduce_chain;
-use crate::lattice::gpu_hmc::resident_cg_pipelines::GpuResidentCgPipelines;
 use crate::lattice::gpu_hmc::GpuF64;
+use crate::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 #[cfg(test)]
 use crate::lattice::gpu_hmc::make_u32x4_params;
+use crate::lattice::gpu_hmc::resident_cg_buffers::encode_reduce_chain;
+use crate::lattice::gpu_hmc::resident_cg_pipelines::GpuResidentCgPipelines;
 
 const WGSL_MS_ZETA: &str = WGSL_MS_ZETA_UPDATE_F64;
 const WGSL_MS_X_UPDATE: &str = WGSL_MS_X_UPDATE_F64;
@@ -152,13 +152,7 @@ pub fn gpu_true_multi_shift_cg_solve(
         }
 
         let mut enc = gpu.begin_encoder("ms_batch");
-        bufs.encode_iteration_batch(
-            &mut enc,
-            dyn_pipelines,
-            ms_pipelines,
-            &ms_x_bgs,
-            batch,
-        );
+        bufs.encode_iteration_batch(&mut enc, dyn_pipelines, ms_pipelines, &ms_x_bgs, batch);
         enc.copy_buffer_to_buffer(&bufs.rz_new_buf, 0, &bufs.convergence_staging, 0, 8);
         gpu.submit_encoder(enc);
         total_iters += batch;

@@ -200,7 +200,10 @@ fn main() {
 
             let bc_str = match &bc_result {
                 Some(Ok(r)) => format!("{:.1}", r.steps_per_sec),
-                Some(Err(e)) => { let s = e.to_string(); format!("ERR:{}", &s[..s.len().min(20)]) },
+                Some(Err(e)) => {
+                    let s = e.to_string();
+                    format!("ERR:{}", &s[..s.len().min(20)])
+                }
                 None => "—".to_string(),
             };
             let kk_str = kk_sps.map_or_else(|| "—".to_string(), |s| format!("{s:.1}"));

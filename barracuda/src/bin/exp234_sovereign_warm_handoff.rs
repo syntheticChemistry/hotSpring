@@ -29,9 +29,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 #[path = "../bin_helpers/sovereignty/mod.rs"]
 mod sovereignty;
-use sovereignty::connect::{
-    extract_arg, is_dry_run, resolve_target_bdf, try_connect_ember_probed,
-};
+use sovereignty::connect::{extract_arg, is_dry_run, resolve_target_bdf, try_connect_ember_probed};
 
 fn lock_file_path() -> String {
     let dir = std::env::var("BIOMEOS_SOCKET_DIR")
@@ -56,8 +54,7 @@ fn main() {
         eprintln!("FATAL: no target BDF — pass --bdf or set HOTSPRING_BARRACUDA_TARGET_BDF");
         std::process::exit(1);
     }
-    let strategy = extract_arg(&args, "--strategy")
-        .unwrap_or_else(|| DEFAULT_STRATEGY.to_string());
+    let strategy = extract_arg(&args, "--strategy").unwrap_or_else(|| DEFAULT_STRATEGY.to_string());
     let settle_secs: u64 = extract_arg(&args, "--settle-secs")
         .and_then(|s| s.parse().ok())
         .unwrap_or(DEFAULT_SETTLE_SECS);
@@ -119,7 +116,9 @@ fn main() {
 
     if dry_run {
         println!("\n  DRY RUN — all pre-flight checks passed. Would call:");
-        println!("    sovereign.warm_handoff(bdf={bdf}, strategy={strategy}, settle={settle_secs}s)");
+        println!(
+            "    sovereign.warm_handoff(bdf={bdf}, strategy={strategy}, settle={settle_secs}s)"
+        );
         release_lock();
         harness.check_bool("dry run pre-flight PASS", true);
         println!();
@@ -241,10 +240,7 @@ fn check_nmi_watchdog(harness: &mut ValidationHarness) -> bool {
 
     let active = nmi == "1";
     harness.check_bool("NMI watchdog active", active);
-    harness.check_bool(
-        "softlockup_panic enabled",
-        softlockup == "1",
-    );
+    harness.check_bool("softlockup_panic enabled", softlockup == "1");
 
     active
 }
@@ -336,8 +332,8 @@ fn call_warm_handoff(
     settle_secs: u64,
 ) -> Result<serde_json::Value, String> {
     let port_file = PathBuf::from("/run/toadstool/toadstool-jsonrpc-port");
-    let port_content = fs::read_to_string(&port_file)
-        .map_err(|e| format!("cannot read port file: {e}"))?;
+    let port_content =
+        fs::read_to_string(&port_file).map_err(|e| format!("cannot read port file: {e}"))?;
 
     let addr = port_content.trim().trim_start_matches("tcp:");
     let addr = if addr.is_empty() {
@@ -358,8 +354,8 @@ fn call_warm_handoff(
     });
 
     println!("  Connecting to toadStool at {addr}...");
-    let stream = std::net::TcpStream::connect(&addr)
-        .map_err(|e| format!("TCP connect to {addr}: {e}"))?;
+    let stream =
+        std::net::TcpStream::connect(&addr).map_err(|e| format!("TCP connect to {addr}: {e}"))?;
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(600)))
         .ok();
@@ -370,9 +366,10 @@ fn call_warm_handoff(
     let mut writer = std::io::BufWriter::new(&stream);
     let mut reader = std::io::BufReader::new(&stream);
 
-    serde_json::to_writer(&mut writer, &request)
-        .map_err(|e| format!("write request: {e}"))?;
-    writer.write_all(b"\n").map_err(|e| format!("write newline: {e}"))?;
+    serde_json::to_writer(&mut writer, &request).map_err(|e| format!("write request: {e}"))?;
+    writer
+        .write_all(b"\n")
+        .map_err(|e| format!("write newline: {e}"))?;
     writer.flush().map_err(|e| format!("flush: {e}"))?;
 
     println!("  RPC sent, waiting for response (timeout: 600s)...");

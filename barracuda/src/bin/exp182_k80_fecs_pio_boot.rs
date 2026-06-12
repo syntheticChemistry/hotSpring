@@ -253,7 +253,10 @@ fn main() {
     if !dry_run {
         match ember.falcon_upload_imem(&bdf, FECS_BASE, 0, &fw_inst, 0, false) {
             Ok(r) if r.ok => {
-                println!("  IMEM load complete: {} pages via ember.falcon.upload_imem", inst_pages);
+                println!(
+                    "  IMEM load complete: {} pages via ember.falcon.upload_imem",
+                    inst_pages
+                );
             }
             Ok(r) => {
                 eprintln!("  WARN: falcon.upload_imem ok=false bytes={:?}", r.bytes);
@@ -329,7 +332,9 @@ fn main() {
             let cpuctl = r32(&ember, &bdf, FECS_CPUCTL);
             if cpuctl == 0xFFFF_FFFF {
                 let elapsed_ms = started.elapsed().as_millis();
-                println!("\n  WARN: D3cold sentinel at t={elapsed_ms}ms — ember circuit breaker active");
+                println!(
+                    "\n  WARN: D3cold sentinel at t={elapsed_ms}ms — ember circuit breaker active"
+                );
                 println!("  → journalctl -u coral-ember for recovery status");
                 break;
             }

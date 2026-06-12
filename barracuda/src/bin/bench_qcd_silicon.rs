@@ -4,8 +4,8 @@
 //! precision tiers (FP32 proxy + DF64).
 
 use hotspring_barracuda::bin_helpers::qcd_silicon::{
-    bench_kernel, classify_silicon_opportunity, df64_kernel_specs, fp32_kernel_specs,
-    print_trajectory_cost_model, KernelSpec,
+    KernelSpec, bench_kernel, classify_silicon_opportunity, df64_kernel_specs, fp32_kernel_specs,
+    print_trajectory_cost_model,
 };
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::toadstool_report::{self, PerformanceMeasurement};

@@ -22,7 +22,6 @@ use hotspring_barracuda::physics::{
 use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances;
 
-
 use barracuda::sample::latin_hypercube;
 
 use std::collections::HashMap;

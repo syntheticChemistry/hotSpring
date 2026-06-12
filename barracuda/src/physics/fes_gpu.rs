@@ -88,9 +88,10 @@ impl<'a> FesGaussianSumGpu<'a> {
     pub fn new(gpu: &'a GpuF64) -> Self {
         let device = gpu.device();
 
-        let shader = gpu
-            .to_wgpu_device()
-            .compile_shader_f64(WGSL_FES_GAUSSIAN_SUM, Some("hotSpring FES Gaussian Sum f64"));
+        let shader = gpu.to_wgpu_device().compile_shader_f64(
+            WGSL_FES_GAUSSIAN_SUM,
+            Some("hotSpring FES Gaussian Sum f64"),
+        );
 
         let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("FES BGL"),
@@ -200,9 +201,18 @@ impl<'a> FesGaussianSumGpu<'a> {
             label: Some("FES BG"),
             layout: &self.bgl,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: hills_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: output_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: params_buf.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: hills_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: output_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: params_buf.as_entire_binding(),
+                },
             ],
         });
 

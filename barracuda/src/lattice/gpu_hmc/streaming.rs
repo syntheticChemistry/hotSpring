@@ -322,9 +322,8 @@ fn gpu_streaming_md_encoder(
 /// WGSL shared PRNG core (PCG hash → uniform f64).
 const WGSL_PRNG_CORE: &str = WGSL_PRNG_PCG_F64;
 /// WGSL shader: GPU-resident PRNG for Gaussian fermion fields.
-pub static WGSL_GAUSSIAN_FERMION: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-    format!("{WGSL_PRNG_CORE}\n{WGSL_GAUSSIAN_FERMION_F64}")
-});
+pub static WGSL_GAUSSIAN_FERMION: std::sync::LazyLock<String> =
+    std::sync::LazyLock::new(|| format!("{WGSL_PRNG_CORE}\n{WGSL_GAUSSIAN_FERMION_F64}"));
 
 /// Streaming pipelines for dynamical fermion HMC.
 ///

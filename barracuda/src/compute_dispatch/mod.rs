@@ -30,7 +30,7 @@ use crate::dag_provenance::{DagEvent, DagSession, blake3_hex};
 const B64_CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 fn b64_encode_simple(data: &[u8]) -> String {
-    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
         let b0 = chunk[0] as u32;
         let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
@@ -38,8 +38,16 @@ fn b64_encode_simple(data: &[u8]) -> String {
         let n = (b0 << 16) | (b1 << 8) | b2;
         out.push(B64_CHARS[((n >> 18) & 0x3F) as usize] as char);
         out.push(B64_CHARS[((n >> 12) & 0x3F) as usize] as char);
-        if chunk.len() > 1 { out.push(B64_CHARS[((n >> 6) & 0x3F) as usize] as char); } else { out.push('='); }
-        if chunk.len() > 2 { out.push(B64_CHARS[(n & 0x3F) as usize] as char); } else { out.push('='); }
+        if chunk.len() > 1 {
+            out.push(B64_CHARS[((n >> 6) & 0x3F) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if chunk.len() > 2 {
+            out.push(B64_CHARS[(n & 0x3F) as usize] as char);
+        } else {
+            out.push('=');
+        }
     }
     out
 }
@@ -443,7 +451,7 @@ pub fn validate_dispatch(
 }
 
 /// Minimal WGSL shader for dispatch validation: element-wise vector addition.
-const VALIDATE_VECTOR_ADD_WGSL: &str = r#"
+const VALIDATE_VECTOR_ADD_WGSL: &str = r"
 @group(0) @binding(0) var<storage, read> a: array<f32>;
 @group(0) @binding(1) var<storage, read> b: array<f32>;
 @group(0) @binding(2) var<storage, read_write> out: array<f32>;
@@ -455,7 +463,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         out[i] = a[i] + b[i];
     }
 }
-"#;
+";
 
 /// WGSL shaders that require coralReef's `membar.{cta,gl}` emitter.
 ///
@@ -583,10 +591,7 @@ pub fn validate_barrier_shaders(nucleus: &NucleusContext) -> Vec<BarrierShaderVa
 /// - `"spmv"` — sparse matrix-vector product (placeholder)
 ///
 /// Returns `None` for unsupported workload names.
-pub fn dispatch_cpu_fallback(
-    workload_name: &str,
-    input_data: &[f64],
-) -> Option<serde_json::Value> {
+pub fn dispatch_cpu_fallback(workload_name: &str, input_data: &[f64]) -> Option<serde_json::Value> {
     match workload_name {
         "vector_add" | "vector_add_f64" => {
             let half = input_data.len() / 2;

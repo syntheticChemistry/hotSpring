@@ -89,7 +89,8 @@ fn main() {
     println!("  ── Attribution (sweetGrass) ──");
     if let Some(sg) = ctx.by_domain("attribution") {
         if sg.alive {
-            let health = ctx.call_by_capability("attribution", "health.liveness", serde_json::json!({}));
+            let health =
+                ctx.call_by_capability("attribution", "health.liveness", serde_json::json!({}));
             match health {
                 Ok(resp) => {
                     let ok = resp.get("result").is_some();

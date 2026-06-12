@@ -515,19 +515,35 @@ fn check_nucleus_atomics(harness: &mut ValidationHarness) {
 
     let tower_cpu = AtomicBinding::bind(AtomicType::Tower, &cpu);
     harness.check_bool("nucleus:tower_binds_cpu", tower_cpu.is_some());
-    println!("  Tower → CPU: {}", if tower_cpu.is_some() { "✓" } else { "✗" });
+    println!(
+        "  Tower → CPU: {}",
+        if tower_cpu.is_some() { "✓" } else { "✗" }
+    );
 
     let node_gpu = AtomicBinding::bind(AtomicType::Node, &gpu);
     harness.check_bool("nucleus:node_binds_gpu", node_gpu.is_some());
-    println!("  Node  → GPU: {}", if node_gpu.is_some() { "✓" } else { "✗" });
+    println!(
+        "  Node  → GPU: {}",
+        if node_gpu.is_some() { "✓" } else { "✗" }
+    );
 
     let nest_cpu = AtomicBinding::bind(AtomicType::Nest, &cpu);
     harness.check_bool("nucleus:nest_binds_cpu", nest_cpu.is_some());
-    println!("  Nest  → CPU: {}", if nest_cpu.is_some() { "✓" } else { "✗" });
+    println!(
+        "  Nest  → CPU: {}",
+        if nest_cpu.is_some() { "✓" } else { "✗" }
+    );
 
     let nest_gpu = AtomicBinding::bind(AtomicType::Nest, &gpu);
     harness.check_bool("nucleus:nest_rejects_gpu", nest_gpu.is_none());
-    println!("  Nest  → GPU: {} (expected)", if nest_gpu.is_none() { "✗ rejected" } else { "✓ bound" });
+    println!(
+        "  Nest  → GPU: {} (expected)",
+        if nest_gpu.is_none() {
+            "✗ rejected"
+        } else {
+            "✓ bound"
+        }
+    );
 
     harness.check_bool(
         "nucleus:tower_subset_of_full",
@@ -554,7 +570,10 @@ fn check_pcie_direct_topology(harness: &mut ValidationHarness) {
     harness.check_bool("pcie:stages_count_3", p.stages().len() == 3);
     harness.check_bool("pcie:edges_count_2", p.edges().len() == 2);
 
-    let has_direct = p.edges().iter().any(|e| e.channel == ChannelKind::PcieDirect);
+    let has_direct = p
+        .edges()
+        .iter()
+        .any(|e| e.channel == ChannelKind::PcieDirect);
     harness.check_bool("pcie:has_direct_edge", has_direct);
 
     let has_regular_pcie = p.edges().iter().any(|e| e.channel == ChannelKind::Pcie);
@@ -562,7 +581,10 @@ fn check_pcie_direct_topology(harness: &mut ValidationHarness) {
 
     println!("  Topology: {}", p.name);
     for stage in p.ordered_stages() {
-        println!("    [{:?}] {} on {}", stage.role, stage.name, stage.substrate_kind);
+        println!(
+            "    [{:?}] {} on {}",
+            stage.role, stage.name, stage.substrate_kind
+        );
     }
     for edge in p.edges() {
         let ch = match &edge.channel {
@@ -576,8 +598,11 @@ fn check_pcie_direct_topology(harness: &mut ValidationHarness) {
 
     let nucleus_topo = topologies::nucleus_atomic();
     harness.check_bool("pcie:nucleus_stages_3", nucleus_topo.stages().len() == 3);
-    println!("  NUCLEUS topology: {} stages, {} edges",
-        nucleus_topo.stages().len(), nucleus_topo.edges().len());
+    println!(
+        "  NUCLEUS topology: {} stages, {} edges",
+        nucleus_topo.stages().len(),
+        nucleus_topo.edges().len()
+    );
     println!();
 }
 
@@ -598,9 +623,19 @@ fn check_biome_graph(harness: &mut ValidationHarness) {
 
     let nest_id = g.nodes_by_atomic(AtomicType::Nest)[0].id;
     let reachable = g.reachable_from(nest_id);
-    harness.check_bool("biome:nest_reached_by_cpu", reachable.contains(&SubstrateKind::Cpu));
-    harness.check_bool("biome:nest_reached_by_gpu", reachable.contains(&SubstrateKind::Gpu));
-    println!("  Standard graph: {} nodes, {} edges", g.nodes().len(), g.edges().len());
+    harness.check_bool(
+        "biome:nest_reached_by_cpu",
+        reachable.contains(&SubstrateKind::Cpu),
+    );
+    harness.check_bool(
+        "biome:nest_reached_by_gpu",
+        reachable.contains(&SubstrateKind::Gpu),
+    );
+    println!(
+        "  Standard graph: {} nodes, {} edges",
+        g.nodes().len(),
+        g.edges().len()
+    );
     println!("  Nest reachable from: {:?}", reachable);
 
     let tower_id = g.nodes_by_atomic(AtomicType::Tower)[0].id;
@@ -612,9 +647,17 @@ fn check_biome_graph(harness: &mut ValidationHarness) {
 
     let gd = pcie_direct_nucleus_graph();
     harness.check_bool("biome:direct_nodes_4", gd.nodes().len() == 4);
-    let direct_edges = gd.edges().iter().filter(|e| e.channel == ChannelKind::PcieDirect).count();
+    let direct_edges = gd
+        .edges()
+        .iter()
+        .filter(|e| e.channel == ChannelKind::PcieDirect)
+        .count();
     harness.check_bool("biome:direct_has_p2p", direct_edges == 1);
-    println!("  PCIe Direct graph: {} nodes, {} edges ({direct_edges} P2P)", gd.nodes().len(), gd.edges().len());
+    println!(
+        "  PCIe Direct graph: {} nodes, {} edges ({direct_edges} P2P)",
+        gd.nodes().len(),
+        gd.edges().len()
+    );
 
     let gpu_id = gd.nodes_by_substrate(SubstrateKind::Gpu)[0].id;
     let nest_id_d = gd.nodes_by_atomic(AtomicType::Nest)[0].id;
@@ -623,7 +666,10 @@ fn check_biome_graph(harness: &mut ValidationHarness) {
     if let Some(ref dp) = direct_path {
         let p2p_hops = gd.pcie_direct_hops(dp);
         harness.check_bool("biome:one_p2p_hop", p2p_hops == 1);
-        println!("  GPU → Nest path: {} hops ({p2p_hops} PCIe Direct)", dp.len() - 1);
+        println!(
+            "  GPU → Nest path: {} hops ({p2p_hops} PCIe Direct)",
+            dp.len() - 1
+        );
     }
     println!();
 }

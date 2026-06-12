@@ -84,7 +84,10 @@ pub fn run_guidestone_provenance(
             let output_hash = compute_output_hash(module);
 
             if let Some(ref h) = output_hash {
-                output_hashes.insert(module.name.clone(), serde_json::json!(format!("blake3:{h}")));
+                output_hashes.insert(
+                    module.name.clone(),
+                    serde_json::json!(format!("blake3:{h}")),
+                );
             }
 
             session.append(
@@ -103,7 +106,10 @@ pub fn run_guidestone_provenance(
     } else {
         for module in modules {
             if let Some(ref h) = compute_output_hash(module) {
-                output_hashes.insert(module.name.clone(), serde_json::json!(format!("blake3:{h}")));
+                output_hashes.insert(
+                    module.name.clone(),
+                    serde_json::json!(format!("blake3:{h}")),
+                );
             }
         }
         None
@@ -155,9 +161,7 @@ pub fn run_guidestone_provenance(
         spring_version: Some(version.to_string()),
         braid_id,
         dag_session_id: dag.as_ref().map(|d| d.dag_session_id.clone()),
-        dag_merkle_root: dag
-            .as_ref()
-            .map(|d| format!("blake3:{}", d.merkle_root)),
+        dag_merkle_root: dag.as_ref().map(|d| format!("blake3:{}", d.merkle_root)),
         spine_id,
         timestamp: Some(now),
         computation: Some(computation),
@@ -187,10 +191,7 @@ pub fn write_ferment_transcript(
 
     let braid_filename = format!(
         "{}.json",
-        result
-            .transcript
-            .dataset_id
-            .replace(['/', ' '], "_")
+        result.transcript.dataset_id.replace(['/', ' '], "_")
     );
     let braid_json = serde_json::to_string_pretty(&serde_json::json!({
         "dataset_id": result.transcript.dataset_id,

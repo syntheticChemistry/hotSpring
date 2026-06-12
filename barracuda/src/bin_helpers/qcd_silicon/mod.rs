@@ -7,6 +7,6 @@ pub mod report;
 
 pub use kernels::bench_kernel;
 pub use report::{
-    classify_silicon_opportunity, df64_kernel_specs, fp32_kernel_specs, print_trajectory_cost_model,
-    KernelSpec,
+    KernelSpec, classify_silicon_opportunity, df64_kernel_specs, fp32_kernel_specs,
+    print_trajectory_cost_model,
 };

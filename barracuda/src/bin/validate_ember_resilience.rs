@@ -165,7 +165,9 @@ fn phase1_baseline(
             Ok(g) => g,
             Err(e) => {
                 eprintln!("  Nucleus discovery failed: {e}");
-                eprintln!("  No fallback available — ember resilience test requires live toadStool");
+                eprintln!(
+                    "  No fallback available — ember resilience test requires live toadStool"
+                );
                 std::process::exit(1);
             }
         }

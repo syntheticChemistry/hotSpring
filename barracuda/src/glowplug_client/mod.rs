@@ -499,7 +499,10 @@ fn build_dispatch_params(
     options: &GlowplugDispatchOptions,
 ) -> serde_json::Value {
     let shader_b64 = crate::base64_encode::encode(kernel);
-    let inputs: Vec<String> = buffers.iter().map(|b| crate::base64_encode::encode(b)).collect();
+    let inputs: Vec<String> = buffers
+        .iter()
+        .map(|b| crate::base64_encode::encode(b))
+        .collect();
     serde_json::json!({
         "bdf": bdf,
         "shader": shader_b64,

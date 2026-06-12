@@ -100,10 +100,7 @@ async fn main() {
     println!();
 
     println!("═══════════════════════════════════════════════════════════");
-    println!(
-        "  TOTAL: {} pass, {} fail",
-        counters.pass, counters.fail
-    );
+    println!("  TOTAL: {} pass, {} fail", counters.pass, counters.fail);
     println!("  Live silicon units tested: shader_core, texture_unit");
     println!("  Planned units (need sovereign dispatch): tensor_core,");
     println!("    rt_core, rop, rasterizer, depth_buffer, tessellator,");

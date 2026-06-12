@@ -35,7 +35,8 @@ struct BarraCudaGpuBackend {
 
 impl BarraCudaGpuBackend {
     fn new() -> Result<Self, BenchError> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
         let gpu = rt
             .block_on(GpuF64::new())
             .map_err(|e| BenchError::Gpu(format!("{e}")))?;

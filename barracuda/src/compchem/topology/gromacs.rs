@@ -16,7 +16,10 @@
 //! - `[ system ]`
 //! - `[ molecules ]`
 
-use super::types::*;
+use super::types::{
+    MoleculeCount, MoleculeType, SystemTopology, TopologyAngle, TopologyAtom, TopologyBond,
+    TopologyDihedral,
+};
 
 /// Errors from parsing GROMACS topology files.
 #[derive(Debug)]
@@ -82,10 +85,7 @@ impl GmxTopology {
             let line = strip_comment(raw_line);
             let trimmed = line.trim();
 
-            if trimmed.is_empty()
-                || trimmed.starts_with('#')
-                || trimmed.starts_with(';')
-            {
+            if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with(';') {
                 continue;
             }
 
@@ -182,11 +182,7 @@ fn parse_section_header(line: &str) -> Option<Section> {
     if !line.starts_with('[') || !line.contains(']') {
         return None;
     }
-    let inner = line
-        .trim_start_matches('[')
-        .split(']')
-        .next()?
-        .trim();
+    let inner = line.trim_start_matches('[').split(']').next()?.trim();
     Some(match inner {
         "moleculetype" => Section::MoleculeType,
         "atoms" => Section::Atoms,
@@ -455,7 +451,11 @@ Water   3
         };
 
         let topo = GmxTopology::parse(&content).unwrap();
-        assert_eq!(topo.molecule_types.len(), 1, "should have 1 molecule type (Other)");
+        assert_eq!(
+            topo.molecule_types.len(),
+            1,
+            "should have 1 molecule type (Other)"
+        );
 
         let mol = &topo.molecule_types[0];
         assert_eq!(mol.name, "Other");

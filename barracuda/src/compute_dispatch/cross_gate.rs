@@ -68,7 +68,10 @@ pub fn discover_compute_gates(nucleus: &NucleusContext) -> Vec<RemoteGate> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown");
 
-            let peer_id = peer.get("peer_id").and_then(|v| v.as_str()).map(String::from);
+            let peer_id = peer
+                .get("peer_id")
+                .and_then(|v| v.as_str())
+                .map(String::from);
 
             if let Ok(caps_resp) = capability_call(
                 nucleus,
@@ -147,7 +150,9 @@ pub fn compile_and_submit_remote(
         .or_else(|| compile_resp.get("binary"))
         .and_then(serde_json::Value::as_str)
         .ok_or_else(|| {
-            HotSpringError::Ipc(format!("remote shader compile on {gate}: no binary returned"))
+            HotSpringError::Ipc(format!(
+                "remote shader compile on {gate}: no binary returned"
+            ))
         })?;
 
     let input_hash = blake3_hex(&serde_json::to_vec(&input_data).unwrap_or_default());
@@ -175,9 +180,7 @@ pub fn compile_and_submit_remote(
     let job_id = resp
         .get("job_id")
         .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| {
-            HotSpringError::Ipc(format!("remote dispatch on {gate}: missing job_id"))
-        })?
+        .ok_or_else(|| HotSpringError::Ipc(format!("remote dispatch on {gate}: missing job_id")))?
         .to_string();
 
     Ok(CrossGateResult {
@@ -306,12 +309,18 @@ mod tests {
     #[test]
     fn capability_call_without_nucleus_errs_or_returns_error() {
         let ctx = NucleusContext::detect();
-        let result = capability_call(&ctx, "strandGate", "compute", "test", &serde_json::json!({}));
+        let result = capability_call(
+            &ctx,
+            "strandGate",
+            "compute",
+            "test",
+            &serde_json::json!({}),
+        );
         match &result {
             Err(_) => {}
             Ok(v) => {
-                let is_error_response = v.get("error").is_some()
-                    || v.as_str().map_or(false, |s| s.contains("error"));
+                let is_error_response =
+                    v.get("error").is_some() || v.as_str().map_or(false, |s| s.contains("error"));
                 assert!(
                     is_error_response || result.is_ok(),
                     "expected Err or error response, got: {v}"

@@ -65,9 +65,9 @@ pub fn decode(input: &[u8]) -> Result<Vec<u8>, Base64Error> {
             .collect::<Result<_, _>>()?;
 
         let n = vals.len();
-        let triple = (vals[0] as u32) << 18
-            | vals.get(1).copied().unwrap_or(0) as u32 * (1 << 12)
-            | vals.get(2).copied().unwrap_or(0) as u32 * (1 << 6)
+        let triple = ((vals[0] as u32) << 18)
+            | (vals.get(1).copied().unwrap_or(0) as u32 * (1 << 12))
+            | (vals.get(2).copied().unwrap_or(0) as u32 * (1 << 6))
             | vals.get(3).copied().unwrap_or(0) as u32;
 
         out.push((triple >> 16) as u8);
@@ -108,7 +108,14 @@ mod tests {
 
     #[test]
     fn roundtrip() {
-        for input in &[b"" as &[u8], b"a", b"ab", b"abc", b"hello world", b"\x00\xFF\x80"] {
+        for input in &[
+            b"" as &[u8],
+            b"a",
+            b"ab",
+            b"abc",
+            b"hello world",
+            b"\x00\xFF\x80",
+        ] {
             let encoded = encode(input);
             let decoded = decode(encoded.as_bytes()).unwrap();
             assert_eq!(&decoded, input, "roundtrip failed for {:?}", input);

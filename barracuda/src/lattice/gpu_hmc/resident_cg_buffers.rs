@@ -333,13 +333,7 @@ pub fn read_complex_dot_re(
         chain
     } else {
         owned_chain = build_reduce_chain(
-            gpu,
-            reduce_pl,
-            dot_buf,
-            scratch_a,
-            scratch_b,
-            scalar_buf,
-            n_pairs,
+            gpu, reduce_pl, dot_buf, scratch_a, scratch_b, scalar_buf, n_pairs,
         );
         &owned_chain
     };

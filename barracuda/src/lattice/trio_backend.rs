@@ -130,12 +130,11 @@ impl TrioGpuBackend {
     ) -> Result<&[u8], HotSpringError> {
         if !self.compiled_cache.contains_key(shader_name) {
             let compile_params = serde_json::json!({ "wgsl_source": wgsl_source });
-            let compile_resp = self
-                .nucleus
-                .call_by_capability("shader", "shader.compile.wgsl", compile_params)?;
+            let compile_resp =
+                self.nucleus
+                    .call_by_capability("shader", "shader.compile.wgsl", compile_params)?;
 
-            let compile_result =
-                parse_jsonrpc_response(&compile_resp, "shader.compile.wgsl")?;
+            let compile_result = parse_jsonrpc_response(&compile_resp, "shader.compile.wgsl")?;
 
             let binary_b64 = compile_result
                 .get("binary_b64")
@@ -322,8 +321,7 @@ impl GpuHmcBackend for TrioGpuBackend {
     }
 
     fn readback(&self, buffer: &GpuHmcBuffer) -> Result<Vec<f64>, HotSpringError> {
-        let output_index =
-            output_buffer_index(&self.last_output_bindings.borrow(), buffer)?;
+        let output_index = output_buffer_index(&self.last_output_bindings.borrow(), buffer)?;
         let last = self.last_result.borrow();
         let dispatch_result = last.as_ref().ok_or_else(|| {
             HotSpringError::InvalidOperation("no trio dispatch result to read back".into())
@@ -438,13 +436,7 @@ impl GpuHmcBackend for LocalGpuBackend {
                     .gpu
                     .create_staging_buffer(buf.size as usize, "hmc_readback");
                 let mut copy_encoder = self.gpu.begin_encoder("hmc_readback");
-                copy_encoder.copy_buffer_to_buffer(
-                    wgpu_buf,
-                    0,
-                    &staging,
-                    0,
-                    buf.size,
-                );
+                copy_encoder.copy_buffer_to_buffer(wgpu_buf, 0, &staging, 0, buf.size);
                 self.gpu.submit_encoder(copy_encoder);
                 let values = self.gpu.read_staging_f64_n(&staging, f64_count)?;
                 readbacks.insert(buf.binding, values);
@@ -596,9 +588,8 @@ fn parse_output_buffers(output: &serde_json::Value) -> Result<Vec<Vec<u8>>, HotS
                 .ok_or_else(|| {
                     HotSpringError::Ipc(format!("buffer[{i}] missing data_b64 in result"))
                 })?;
-            let bytes = crate::base64_encode::decode(b64.as_bytes()).map_err(|e| {
-                HotSpringError::Ipc(format!("buffer[{i}] data_b64 decode: {e}"))
-            })?;
+            let bytes = crate::base64_encode::decode(b64.as_bytes())
+                .map_err(|e| HotSpringError::Ipc(format!("buffer[{i}] data_b64 decode: {e}")))?;
             out.push(bytes);
         }
         return Ok(out);
@@ -610,9 +601,8 @@ fn parse_output_buffers(output: &serde_json::Value) -> Result<Vec<Vec<u8>>, HotS
             let b64 = item.as_str().ok_or_else(|| {
                 HotSpringError::Ipc(format!("outputs[{i}] is not a base64 string"))
             })?;
-            let bytes = crate::base64_encode::decode(b64.as_bytes()).map_err(|e| {
-                HotSpringError::Ipc(format!("outputs[{i}] decode: {e}"))
-            })?;
+            let bytes = crate::base64_encode::decode(b64.as_bytes())
+                .map_err(|e| HotSpringError::Ipc(format!("outputs[{i}] decode: {e}")))?;
             out.push(bytes);
         }
         return Ok(out);

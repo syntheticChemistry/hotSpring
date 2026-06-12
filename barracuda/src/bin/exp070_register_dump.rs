@@ -66,10 +66,7 @@ fn main() {
     }
 
     let output_flag = extract_arg(&args, "--output");
-    let output_path = positional
-        .get(1)
-        .copied()
-        .or(output_flag.as_deref());
+    let output_path = positional.get(1).copied().or(output_flag.as_deref());
     let ember_socket = extract_arg(&args, "--ember-socket");
 
     let ember = connect_ember(&bdf, ember_socket.as_deref());

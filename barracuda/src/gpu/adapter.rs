@@ -187,8 +187,8 @@ fn adapter_selector_tokens() -> Vec<String> {
 ///
 /// Tries each token from `HOTSPRING_GPU_ADAPTER` / `BARRACUDA_GPU_ADAPTER`
 /// (comma-separated) via [`WgpuDevice::with_adapter_selector`].
-pub(super) async fn create_wgpu_from_env(
-) -> Result<barracuda::device::WgpuDevice, crate::error::HotSpringError> {
+pub(super) async fn create_wgpu_from_env()
+-> Result<barracuda::device::WgpuDevice, crate::error::HotSpringError> {
     for token in adapter_selector_tokens() {
         match WgpuDevice::with_adapter_selector(&token).await {
             Ok(dev) => return Ok(dev),

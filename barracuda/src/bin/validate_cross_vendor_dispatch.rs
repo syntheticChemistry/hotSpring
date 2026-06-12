@@ -106,10 +106,7 @@ fn compile_wgsl_via_coralreef(
         .call_by_capability("shader", "shader.compile.wgsl", compile_params)
         .map_err(|e| format!("shader.compile.wgsl RPC: {e}"))?;
 
-    let result = resp
-        .get("result")
-        .cloned()
-        .unwrap_or_else(|| resp.clone());
+    let result = resp.get("result").cloned().unwrap_or_else(|| resp.clone());
 
     let binary_b64 = result
         .get("binary_b64")
@@ -289,7 +286,9 @@ fn main() {
 
     println!("\n{passed}/{total} GPUs passed SAXPY validation ({compile_path})");
     if coral_alive {
-        println!("  Compute trio validated: barraCuda WGSL → coralReef compile → toadStool dispatch");
+        println!(
+            "  Compute trio validated: barraCuda WGSL → coralReef compile → toadStool dispatch"
+        );
     }
 
     if total == 0 {

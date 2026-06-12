@@ -79,14 +79,11 @@ impl DagSession {
             .call_by_capability("dag", "dag.session.create", params)
             .ok()?;
         // rhizoCrypt returns session ID as plain UUID string or nested object
-        let session_id = resp
-            .as_str()
-            .map(String::from)
-            .or_else(|| {
-                resp.get("session_id")
-                    .and_then(serde_json::Value::as_str)
-                    .map(String::from)
-            })?;
+        let session_id = resp.as_str().map(String::from).or_else(|| {
+            resp.get("session_id")
+                .and_then(serde_json::Value::as_str)
+                .map(String::from)
+        })?;
 
         println!("  rhizoCrypt: DAG session {session_id}");
 
@@ -280,10 +277,7 @@ pub fn commit_provenance(
         primals_reached.push("sweetGrass");
         return resp.get("result").cloned().map(|mut r| {
             if let serde_json::Value::Object(ref mut m) = r {
-                m.insert(
-                    "primals_reached".into(),
-                    serde_json::json!(primals_reached),
-                );
+                m.insert("primals_reached".into(), serde_json::json!(primals_reached));
             }
             r
         });

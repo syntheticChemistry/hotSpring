@@ -230,8 +230,13 @@ fn main() {
     for i in 0..args.n_meas {
         let traj_start = Instant::now();
         let result = gpu_dynamical_hmc_trajectory_streaming(
-            &gpu, &pipelines, &state, args.n_md, args.dt,
-            (args.n_therm + i) as u32, &mut seed,
+            &gpu,
+            &pipelines,
+            &state,
+            args.n_md,
+            args.dt,
+            (args.n_therm + i) as u32,
+            &mut seed,
         )
         .expect("HMC trajectory failed");
         let wall_us = traj_start.elapsed().as_micros() as u64;

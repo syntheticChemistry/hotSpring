@@ -67,7 +67,10 @@ fn try_stream_meta_jsonl(path: &str) -> Result<Option<Vec<MetaRow>>, HotSpringEr
 
 fn load_summary_json_as_meta(contents: &str, path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
     #[derive(serde::Deserialize)]
-    #[expect(dead_code, reason = "deserialization schema — fields parsed from JSON but not all mapped to MetaRow")]
+    #[expect(
+        dead_code,
+        reason = "deserialization schema — fields parsed from JSON but not all mapped to MetaRow"
+    )]
     struct SummaryPoint {
         beta: f64,
         #[serde(default)]

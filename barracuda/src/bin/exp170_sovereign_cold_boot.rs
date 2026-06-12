@@ -100,11 +100,20 @@ const BF_DMEMD0: u32 = BF_BASE + 0x084; // DMEM[0] boot arg
 const BF_CPUCTL: u32 = BF_BASE + 0x100;
 const BF_ALIAS: u32 = BF_BASE + 0x104;
 const BF_SCTL: u32 = BF_BASE + 0x10c;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const BF_IMEMC: u32 = BF_BASE + 0x180; // IMEM control (page address, mode)
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const BF_IMEMD: u32 = BF_BASE + 0x184; // IMEM data (auto-increment)
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const BF_IMETTAG: u32 = BF_BASE + 0x188; // virtual page tag
 const BF_SIG_CTL: u32 = BF_BASE + 0x1c0; // signature block control
 const BF_SIG_DATA: u32 = BF_BASE + 0x1c4; // signature block data
@@ -113,7 +122,10 @@ const BF_FBIF: u32 = BF_BASE + 0x624; // FBIF config
 // Main PMU (post-DEVINIT)
 const PMU_BASE: u32 = 0x10a000;
 const PMU_CPUCTL: u32 = PMU_BASE + 0x10c;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PMU_IRQSTAT: u32 = PMU_BASE + 0x008;
 const PMU_MB0: u32 = PMU_BASE + 0x450;
 
@@ -127,21 +139,33 @@ const PRIV_RING_MASTER_CONFIG: u32 = 0x012004c;
 
 // PTIMER
 const PTIMER_TIME_HI: u32 = 0x009400;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PTIMER_TIME_LO: u32 = 0x009410;
 
 // FB / PRAMIN
 const FB_NISO: u32 = 0x100c10;
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const PRAMIN_WIN: u32 = 0x001700;
 
 // ROM access
 const ROM_ACCESS_CTL: u32 = 0x088050;
 
 // IMEMC block structure
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const IMEMC_BLOCK0: u32 = 0x01000000; // non-secure, autoincr, page 0
-#[expect(dead_code, reason = "reserved GPU register — retained for sovereign boot documentation")]
+#[expect(
+    dead_code,
+    reason = "reserved GPU register — retained for sovereign boot documentation"
+)]
 const IMEMC_BLOCK1: u32 = 0x11000100; // secure, autoincr, page 1
 const IMEMC_WORDS_PER_BLOCK: usize = 64;
 const DMACTL_MAGIC: u32 = 0xcafe_beef;
@@ -215,7 +239,7 @@ fn main() {
     }
 
     // ── Connect to ember ───────────────────────────────────────────────────
-    let ember = connect_ember(&bdf,  ember_socket.as_deref());
+    let ember = connect_ember(&bdf, ember_socket.as_deref());
     println!("  Ember:     {}\n", ember.socket_path().display());
 
     // ── Phase 1: Identity + State Baseline ──────────────────────────────────

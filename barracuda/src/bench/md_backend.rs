@@ -300,7 +300,8 @@ pub struct BarraCudaMdBackend {
 impl BarraCudaMdBackend {
     /// Create a new barraCuda MD backend, probing the default GPU.
     pub fn new() -> Result<Self, BenchError> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
         let gpu = rt
             .block_on(crate::gpu::GpuF64::new())
             .map_err(|e| BenchError::Gpu(format!("{e}")))?;
@@ -327,7 +328,8 @@ impl MdBenchmarkBackend for BarraCudaMdBackend {
     }
 
     fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, BenchError> {
-        let rt = tokio::runtime::Runtime::new().map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
         let config = spec.to_md_config();
         let adapter_name = self.adapter_name.clone();
         let driver_info = self.driver_info.clone();
@@ -406,7 +408,8 @@ impl GenericMdBackend {
             }
         }
 
-        let rt = tokio::runtime::Runtime::new().map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| BenchError::Runtime(format!("runtime: {e}")))?;
         let dev = rt
             .block_on(barracuda::device::WgpuDevice::new())
             .map_err(|e| BenchError::Gpu(format!("no GPU available: {e}")))?;
@@ -580,9 +583,8 @@ run {total_steps}
             n = spec.n_particles,
         );
 
-        std::fs::write(path, input).map_err(|e| {
-            BenchError::Runtime(format!("Failed to write LAMMPS input: {e}"))
-        })
+        std::fs::write(path, input)
+            .map_err(|e| BenchError::Runtime(format!("Failed to write LAMMPS input: {e}")))
     }
 
     /// Parse LAMMPS log output for performance metrics.
@@ -659,14 +661,14 @@ impl MdBenchmarkBackend for KokkosLammpsBackend {
     }
 
     fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, BenchError> {
-        let lmp = self.lmp_path.as_ref().ok_or_else(|| {
-            BenchError::Config("LAMMPS not installed".into())
-        })?;
+        let lmp = self
+            .lmp_path
+            .as_ref()
+            .ok_or_else(|| BenchError::Config("LAMMPS not installed".into()))?;
 
         let tmp_dir = std::env::temp_dir().join(format!("hotspring_kokkos_{}", spec.label));
-        std::fs::create_dir_all(&tmp_dir).map_err(|e| {
-            BenchError::Runtime(format!("Failed to create temp dir: {e}"))
-        })?;
+        std::fs::create_dir_all(&tmp_dir)
+            .map_err(|e| BenchError::Runtime(format!("Failed to create temp dir: {e}")))?;
 
         let input_path = tmp_dir.join("input.lammps");
         Self::write_lammps_input(spec, &input_path)?;

@@ -6,8 +6,7 @@ use hotspring_barracuda::toadstool_report::PerformanceMeasurement;
 
 use super::dispatch::{create_compute_pipeline, timed_dispatch};
 
-const SHADER_TMU_FLOOD: &str =
-    include_str!("../../bin/shaders/silicon_saturation/tmu_flood.wgsl");
+const SHADER_TMU_FLOOD: &str = include_str!("../../bin/shaders/silicon_saturation/tmu_flood.wgsl");
 
 pub fn run(
     device: &wgpu::Device,

@@ -17,9 +17,7 @@ fn main() {
     let ctx = NucleusContext::detect();
     let mut result = CompositionResult::new("validate_squirrel_roundtrip");
 
-    let squirrel_alive = ctx
-        .get_by_capability("ai")
-        .is_some_and(|ep| ep.alive);
+    let squirrel_alive = ctx.get_by_capability("ai").is_some_and(|ep| ep.alive);
 
     result.section("Squirrel Discovery");
     if squirrel_alive {

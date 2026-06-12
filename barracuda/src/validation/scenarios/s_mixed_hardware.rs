@@ -55,7 +55,10 @@ fn check_dispatch_routing(v: &mut ValidationHarness) {
 
     let md = profiles::md_force();
     let d = route(&md, &subs);
-    v.check_bool("mixed:md_routes_to_gpu", d.is_some_and(|d| d.substrate.kind == SubstrateKind::Gpu));
+    v.check_bool(
+        "mixed:md_routes_to_gpu",
+        d.is_some_and(|d| d.substrate.kind == SubstrateKind::Gpu),
+    );
 
     let val = profiles::cpu_validation();
     let d2 = route(&val, &subs);
@@ -84,11 +87,20 @@ fn check_pipeline_topologies(v: &mut ValidationHarness) {
     v.check_bool("mixed:oracle_ordered_4", ordered.len() == 4);
 
     let counts = oracle.substrate_counts();
-    v.check_bool("mixed:oracle_has_gpu", counts.contains_key(&SubstrateKind::Gpu));
-    v.check_bool("mixed:oracle_has_npu", counts.contains_key(&SubstrateKind::Npu));
+    v.check_bool(
+        "mixed:oracle_has_gpu",
+        counts.contains_key(&SubstrateKind::Gpu),
+    );
+    v.check_bool(
+        "mixed:oracle_has_npu",
+        counts.contains_key(&SubstrateKind::Npu),
+    );
 
     let direct = topologies::mixed_pcie_direct();
-    let has_p2p = direct.edges().iter().any(|e| e.channel == ChannelKind::PcieDirect);
+    let has_p2p = direct
+        .edges()
+        .iter()
+        .any(|e| e.channel == ChannelKind::PcieDirect);
     v.check_bool("mixed:direct_has_p2p", has_p2p);
 
     let nucleus = topologies::nucleus_atomic();
@@ -97,7 +109,10 @@ fn check_pipeline_topologies(v: &mut ValidationHarness) {
     let baseline = topologies::qcd_cpu_baseline();
     v.check_bool(
         "mixed:baseline_all_local",
-        baseline.edges().iter().all(|e| e.channel == ChannelKind::Local),
+        baseline
+            .edges()
+            .iter()
+            .all(|e| e.channel == ChannelKind::Local),
     );
 }
 
@@ -173,8 +188,14 @@ fn check_biome_graph(v: &mut ValidationHarness) {
     v.check_bool("mixed:tower_reaches_nest", path.is_some());
 
     let reachable = g.reachable_from(nest_id);
-    v.check_bool("mixed:nest_from_cpu", reachable.contains(&SubstrateKind::Cpu));
-    v.check_bool("mixed:nest_from_gpu", reachable.contains(&SubstrateKind::Gpu));
+    v.check_bool(
+        "mixed:nest_from_cpu",
+        reachable.contains(&SubstrateKind::Cpu),
+    );
+    v.check_bool(
+        "mixed:nest_from_gpu",
+        reachable.contains(&SubstrateKind::Gpu),
+    );
 
     let gd = pcie_direct_nucleus_graph();
     v.check_bool("mixed:direct_4_nodes", gd.nodes().len() == 4);

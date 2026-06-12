@@ -100,17 +100,20 @@ pub const SHADER_KINETIC_ENERGY: &str = include_str!("shaders/kinetic_energy_f64
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_CELLLIST;
 #[cfg(not(feature = "barracuda-local"))]
-pub const SHADER_YUKAWA_FORCE_CELLLIST: &str = include_str!("shaders/yukawa_force_celllist_f64.wgsl");
+pub const SHADER_YUKAWA_FORCE_CELLLIST: &str =
+    include_str!("shaders/yukawa_force_celllist_f64.wgsl");
 
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_CELLLIST_V2;
 #[cfg(not(feature = "barracuda-local"))]
-pub const SHADER_YUKAWA_FORCE_CELLLIST_V2: &str = include_str!("shaders/yukawa_force_celllist_v2_f64.wgsl");
+pub const SHADER_YUKAWA_FORCE_CELLLIST_V2: &str =
+    include_str!("shaders/yukawa_force_celllist_v2_f64.wgsl");
 
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_INDIRECT;
 #[cfg(not(feature = "barracuda-local"))]
-pub const SHADER_YUKAWA_FORCE_INDIRECT: &str = include_str!("shaders/yukawa_force_celllist_indirect_f64.wgsl");
+pub const SHADER_YUKAWA_FORCE_INDIRECT: &str =
+    include_str!("shaders/yukawa_force_celllist_indirect_f64.wgsl");
 
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_DF64;
@@ -120,7 +123,8 @@ pub const SHADER_YUKAWA_FORCE_DF64: &str = include_str!("shaders/yukawa_force_df
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_INDIRECT_DF64;
 #[cfg(not(feature = "barracuda-local"))]
-pub const SHADER_YUKAWA_FORCE_INDIRECT_DF64: &str = include_str!("shaders/yukawa_force_celllist_indirect_df64.wgsl");
+pub const SHADER_YUKAWA_FORCE_INDIRECT_DF64: &str =
+    include_str!("shaders/yukawa_force_celllist_indirect_df64.wgsl");
 
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_VERLET;
@@ -130,7 +134,8 @@ pub const SHADER_YUKAWA_FORCE_VERLET: &str = include_str!("shaders/yukawa_force_
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::md::SHADER_YUKAWA_FORCE_VERLET_DF64;
 #[cfg(not(feature = "barracuda-local"))]
-pub const SHADER_YUKAWA_FORCE_VERLET_DF64: &str = include_str!("shaders/yukawa_force_verlet_df64.wgsl");
+pub const SHADER_YUKAWA_FORCE_VERLET_DF64: &str =
+    include_str!("shaders/yukawa_force_verlet_df64.wgsl");
 
 #[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::md::SHADER_RDF_HISTOGRAM;

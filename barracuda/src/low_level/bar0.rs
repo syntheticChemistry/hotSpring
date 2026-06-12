@@ -2,7 +2,10 @@
 
 // Suppress dead-code warnings when included via `#[path]` by experiment binaries
 // that only use a subset of Bar0View / Bar0Map / SafeBar0.
-#![expect(dead_code, reason = "experiment binaries include via #[path] and use subsets of Bar0View/Bar0Map/SafeBar0")]
+#![expect(
+    dead_code,
+    reason = "experiment binaries include via #[path] and use subsets of Bar0View/Bar0Map/SafeBar0"
+)]
 
 //! Safe RAII wrappers for PCI BAR0 MMIO via Linux `sysfs` resource files.
 //!
@@ -71,16 +74,7 @@ impl MmioRegion {
     fn map(file: &std::fs::File, len: usize, prot: ProtFlags) -> Result<Self, rustix::io::Errno> {
         // SAFETY: `resource0` is a kernel-exported PCI BAR mmap. `ptr` is null
         // so the kernel picks the address; `len` is derived from file metadata.
-        let base = unsafe {
-            mmap(
-                std::ptr::null_mut(),
-                len,
-                prot,
-                MapFlags::SHARED,
-                file,
-                0,
-            )
-        }?;
+        let base = unsafe { mmap(std::ptr::null_mut(), len, prot, MapFlags::SHARED, file, 0) }?;
         Ok(Self {
             base: SendPtr(base.cast()),
             len,
@@ -132,7 +126,11 @@ pub enum Bar0Error {
     /// Register offset is not 4-byte aligned.
     Unaligned { offset: u32 },
     /// Register offset falls outside all allowed domains.
-    OutOfDomain { offset: u32, end: u32, domains: Vec<&'static str> },
+    OutOfDomain {
+        offset: u32,
+        end: u32,
+        domains: Vec<&'static str>,
+    },
     /// Write to a deny-listed register offset was rejected.
     DenyListed { offset: u32, reason: &'static str },
     /// Offset arithmetic overflow.
@@ -146,18 +144,25 @@ impl fmt::Display for Bar0Error {
         match self {
             Self::Open(e) => write!(f, "cannot open BAR0 resource0: {e}"),
             Self::Mmap(e) => write!(f, "mmap of BAR0 resource0 failed: {e}"),
-            Self::DeadLink { offset } =>
-                write!(f, "BAR0 dead link at {offset:#x} (0xFFFFFFFF)"),
-            Self::Unaligned { offset } =>
-                write!(f, "BAR0 offset {offset:#x} is not 4-byte aligned"),
-            Self::OutOfDomain { offset, end, domains } =>
-                write!(f, "offset {offset:#x}..{end:#x} outside allowed domains: {domains:?}"),
-            Self::DenyListed { offset, reason } =>
-                write!(f, "write to {offset:#x} denied: {reason}"),
-            Self::Overflow { offset, width } =>
-                write!(f, "offset {offset:#x} + {width} overflows"),
-            Self::OutOfBounds { offset, map_len } =>
-                write!(f, "offset {offset:#x} out of BAR0 range (len={map_len:#x})"),
+            Self::DeadLink { offset } => write!(f, "BAR0 dead link at {offset:#x} (0xFFFFFFFF)"),
+            Self::Unaligned { offset } => {
+                write!(f, "BAR0 offset {offset:#x} is not 4-byte aligned")
+            }
+            Self::OutOfDomain {
+                offset,
+                end,
+                domains,
+            } => write!(
+                f,
+                "offset {offset:#x}..{end:#x} outside allowed domains: {domains:?}"
+            ),
+            Self::DenyListed { offset, reason } => {
+                write!(f, "write to {offset:#x} denied: {reason}")
+            }
+            Self::Overflow { offset, width } => write!(f, "offset {offset:#x} + {width} overflows"),
+            Self::OutOfBounds { offset, map_len } => {
+                write!(f, "offset {offset:#x} out of BAR0 range (len={map_len:#x})")
+            }
         }
     }
 }
@@ -202,7 +207,10 @@ impl Bar0View {
     pub fn read_u32(&self, offset: u32) -> Result<u32, Bar0Error> {
         let end = (offset as usize).saturating_add(4);
         if end > self.region.len() {
-            return Err(Bar0Error::OutOfBounds { offset, map_len: self.region.len() });
+            return Err(Bar0Error::OutOfBounds {
+                offset,
+                map_len: self.region.len(),
+            });
         }
         Ok(self.region.read_u32(offset as usize))
     }
@@ -253,7 +261,10 @@ impl Bar0Map {
     /// Panics if `offset` is not 4-byte aligned or `offset + 4 > mapping length`.
     #[must_use]
     pub fn r32(&self, offset: u32) -> u32 {
-        assert!(offset % 4 == 0, "r32: offset {offset:#x} is not 4-byte aligned");
+        assert!(
+            offset % 4 == 0,
+            "r32: offset {offset:#x} is not 4-byte aligned"
+        );
         assert!(
             (offset as usize + 4) <= self.region.len(),
             "r32 out-of-bounds: {offset:#x}"
@@ -276,7 +287,10 @@ impl Bar0Map {
             return Err(Bar0Error::Unaligned { offset });
         }
         if (offset as usize + 4) > self.region.len() {
-            return Err(Bar0Error::OutOfBounds { offset, map_len: self.region.len() });
+            return Err(Bar0Error::OutOfBounds {
+                offset,
+                map_len: self.region.len(),
+            });
         }
         let val = self.region.read_u32(offset as usize);
         if val == 0xFFFF_FFFF {
@@ -297,7 +311,10 @@ impl Bar0Map {
     ///
     /// Panics if `offset` is not 4-byte aligned or `offset + 4 > mapping length`.
     pub fn w32(&self, offset: u32, val: u32) {
-        assert!(offset % 4 == 0, "w32: offset {offset:#x} is not 4-byte aligned");
+        assert!(
+            offset % 4 == 0,
+            "w32: offset {offset:#x} is not 4-byte aligned"
+        );
         assert!(
             (offset as usize + 4) <= self.region.len(),
             "w32 out-of-bounds: {offset:#x}"
@@ -343,21 +360,30 @@ impl OffsetValidator {
         if offset % 4 != 0 {
             return Err(Bar0Error::Unaligned { offset });
         }
-        let end = offset.checked_add(width).ok_or(Bar0Error::Overflow { offset, width })?;
+        let end = offset
+            .checked_add(width)
+            .ok_or(Bar0Error::Overflow { offset, width })?;
         for d in &self.domains {
             if offset >= d.start && end <= d.end {
                 return Ok(());
             }
         }
         let domain_list: Vec<&str> = self.domains.iter().map(|d| d.name).collect();
-        Err(Bar0Error::OutOfDomain { offset, end, domains: domain_list })
+        Err(Bar0Error::OutOfDomain {
+            offset,
+            end,
+            domains: domain_list,
+        })
     }
 
     /// Check whether `offset` is on the write deny-list.
     pub fn check_deny_list(&self, offset: u32) -> Result<(), Bar0Error> {
         for entry in &self.deny_list {
             if offset == entry.offset {
-                return Err(Bar0Error::DenyListed { offset, reason: entry.reason });
+                return Err(Bar0Error::DenyListed {
+                    offset,
+                    reason: entry.reason,
+                });
             }
         }
         Ok(())
@@ -483,8 +509,16 @@ mod tests {
 
     fn test_domains() -> Vec<Bar0Domain> {
         vec![
-            Bar0Domain { name: "PMC", start: 0x0000, end: 0x1000 },
-            Bar0Domain { name: "PMU", start: 0x10_A000, end: 0x10_A400 },
+            Bar0Domain {
+                name: "PMC",
+                start: 0x0000,
+                end: 0x1000,
+            },
+            Bar0Domain {
+                name: "PMU",
+                start: 0x10_A000,
+                end: 0x10_A400,
+            },
         ]
     }
 
@@ -542,7 +576,13 @@ mod tests {
         }];
         let v = make_validator(test_domains(), deny);
         let err = v.check_deny_list(0x10_A3C0);
-        assert!(matches!(err, Err(Bar0Error::DenyListed { offset: 0x10_A3C0, .. })));
+        assert!(matches!(
+            err,
+            Err(Bar0Error::DenyListed {
+                offset: 0x10_A3C0,
+                ..
+            })
+        ));
 
         // Other offsets pass
         assert!(v.check_deny_list(0x10_A100).is_ok());
@@ -581,7 +621,10 @@ mod tests {
         let e = Bar0Error::Unaligned { offset: 0x201 };
         assert!(format!("{e}").contains("not 4-byte aligned"));
 
-        let e = Bar0Error::DenyListed { offset: 0x3C0, reason: "ENGCTL" };
+        let e = Bar0Error::DenyListed {
+            offset: 0x3C0,
+            reason: "ENGCTL",
+        };
         assert!(format!("{e}").contains("denied"));
     }
 }

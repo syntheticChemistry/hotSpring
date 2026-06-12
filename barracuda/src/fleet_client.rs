@@ -273,15 +273,14 @@ fn toadstool_compute_socket() -> PathBuf {
             return candidate;
         }
     }
-    dirs.first()
-        .map(|d| d.join("compute.sock"))
-        .unwrap_or_else(|| {
-            // Fallback for environments without NUCLEUS: generic compute socket location.
+    dirs.first().map_or_else(
+        || {
             let base = std::env::var("TOADSTOOL_RUN_DIR")
-                .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("/run/biomeos"));
+                .map_or_else(|_| PathBuf::from("/run/biomeos"), PathBuf::from);
             base.join("compute.sock")
-        })
+        },
+        |d| d.join("compute.sock"),
+    )
 }
 
 /// Resolve the compute runtime directory for per-BDF ember sockets.

@@ -6,7 +6,7 @@
 //! construction, DispatchValidation struct logic, and barrier shader
 //! path enumeration without requiring live IPC.
 
-use crate::compute_dispatch::{BarrierShaderValidation, DispatchValidation, BARRIER_SHADERS};
+use crate::compute_dispatch::{BARRIER_SHADERS, BarrierShaderValidation, DispatchValidation};
 use crate::dag_provenance::{DagProvenance, blake3_hex};
 use crate::validation::ValidationHarness;
 use crate::validation::scenarios::registry::{Scenario, ScenarioMeta, Tier, Track};
@@ -63,7 +63,10 @@ fn check_input_hashing(v: &mut ValidationHarness) {
     let hash = blake3_hex(&bytes);
 
     v.check_bool("dispatch:hash_length_64", hash.len() == 64);
-    v.check_bool("dispatch:hash_hex_chars", hash.chars().all(|c| c.is_ascii_hexdigit()));
+    v.check_bool(
+        "dispatch:hash_hex_chars",
+        hash.chars().all(|c| c.is_ascii_hexdigit()),
+    );
 
     let hash2 = blake3_hex(&bytes);
     v.check_bool("dispatch:hash_deterministic", hash == hash2);
@@ -75,15 +78,19 @@ fn check_input_hashing(v: &mut ValidationHarness) {
 }
 
 fn check_barrier_shader_paths(v: &mut ValidationHarness) {
-    v.check_bool("dispatch:barrier_shaders_nonempty", !BARRIER_SHADERS.is_empty());
+    v.check_bool(
+        "dispatch:barrier_shaders_nonempty",
+        !BARRIER_SHADERS.is_empty(),
+    );
     v.check_bool(
         "dispatch:barrier_shaders_all_wgsl",
-        BARRIER_SHADERS.iter().all(|p| p.ends_with(".wgsl")),
+        BARRIER_SHADERS.iter().all(|p| {
+            std::path::Path::new(p)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("wgsl"))
+        }),
     );
-    v.check_bool(
-        "dispatch:barrier_shaders_count",
-        BARRIER_SHADERS.len() >= 8,
-    );
+    v.check_bool("dispatch:barrier_shaders_count", BARRIER_SHADERS.len() >= 8);
 }
 
 fn check_witness_construction(v: &mut ValidationHarness) {
@@ -119,7 +126,10 @@ fn check_dispatch_serialization(v: &mut ValidationHarness) {
         gpr_count: Some(16),
     };
     let bsv_json = serde_json::to_string(&bsv).unwrap_or_default();
-    v.check_bool("dispatch:barrier_serializes", bsv_json.contains("test.wgsl"));
+    v.check_bool(
+        "dispatch:barrier_serializes",
+        bsv_json.contains("test.wgsl"),
+    );
     v.check_bool("dispatch:barrier_size", bsv_json.contains("1024"));
 }
 
@@ -137,10 +147,19 @@ fn check_commit_provenance_params(v: &mut ValidationHarness) {
         ],
     };
 
-    v.check_bool("provenance:session_id", !provenance.dag_session_id.is_empty());
-    v.check_bool("provenance:merkle_root_len", provenance.merkle_root.len() == 64);
+    v.check_bool(
+        "provenance:session_id",
+        !provenance.dag_session_id.is_empty(),
+    );
+    v.check_bool(
+        "provenance:merkle_root_len",
+        provenance.merkle_root.len() == 64,
+    );
     v.check_bool("provenance:events_count", provenance.events_count == 5);
-    v.check_bool("provenance:witnesses_count", provenance.witnesses.len() == 2);
+    v.check_bool(
+        "provenance:witnesses_count",
+        provenance.witnesses.len() == 2,
+    );
 
     let json = serde_json::to_string(&provenance).unwrap_or_default();
     v.check_bool("provenance:serializes", json.contains("test-session-001"));

@@ -1094,3 +1094,28 @@ path = "src/bin/exp184_k80_gr_sovereign.rs"
 [[bin]]
 name = "exp227_pmu_acr_revalidation"
 path = "src/bin/exp227_pmu_acr_revalidation.rs"
+
+# ── Integration tests requiring barracuda-local feature ──────────────────────
+[[test]]
+name = "integration_physics"
+required-features = ["barracuda-local"]
+
+[[test]]
+name = "integration_pipeline"
+required-features = ["barracuda-local"]
+
+[[test]]
+name = "integration_dielectric"
+required-features = ["barracuda-local"]
+
+[[test]]
+name = "integration_prescreen"
+required-features = ["barracuda-local"]
+
+[[test]]
+name = "integration_proxy"
+required-features = ["barracuda-local"]
+
+[[test]]
+name = "integration_spectral"
+required-features = ["barracuda-local"]

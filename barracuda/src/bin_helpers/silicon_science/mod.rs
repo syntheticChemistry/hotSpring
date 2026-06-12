@@ -8,8 +8,10 @@ use hotspring_barracuda::toadstool_report::PerformanceMeasurement;
 use std::time::Instant;
 
 const SHADER_EXP_COMPUTE: &str = include_str!("../../bin/shaders/silicon_science/exp_compute.wgsl");
-const SHADER_EXP_TMU_LOAD: &str = include_str!("../../bin/shaders/silicon_science/exp_tmu_load.wgsl");
-const SHADER_DF64_TWO_PROD: &str = include_str!("../../bin/shaders/silicon_science/df64_two_prod.wgsl");
+const SHADER_EXP_TMU_LOAD: &str =
+    include_str!("../../bin/shaders/silicon_science/exp_tmu_load.wgsl");
+const SHADER_DF64_TWO_PROD: &str =
+    include_str!("../../bin/shaders/silicon_science/df64_two_prod.wgsl");
 const SHADER_PLAQUETTE_PROXY: &str =
     include_str!("../../bin/shaders/silicon_science/plaquette_proxy.wgsl");
 const SHADER_DOT_REDUCE: &str = include_str!("../../bin/shaders/silicon_science/dot_reduce.wgsl");

@@ -7,6 +7,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## guideStone Convergence + Deep Debt Resolution — Waves 106–110 (June 11, 2026)
+
+### Added
+- **guideStone HEALTH-01 compliance:** Bare `"health"` method alias added to JSON-RPC
+  handler. All health endpoints return `{status, primal, version, uptime_s}`.
+- **TCP fallback server:** `PRIMAL_BIND_MODE=tcp_only` startup contract implemented in
+  `serve.rs` — TCP listener on `HOTSPRING_PORT` (default 9800) when UDS unavailable.
+- **6 new guideStone compliance tests:** `health_bare_alias_returns_guidestone_schema`,
+  `health_check_returns_guidestone_schema`, `health_liveness_returns_guidestone_schema`,
+  `health_readiness_returns_uptime`, `health_with_primal_prefix_normalizes`,
+  `capabilities_list_succeeds`.
+- **`"health"` capability** added to `capability_registry.toml` and `niche/tables.rs`.
+- **Integration test gates:** 6 integration tests gated with
+  `required-features = ["barracuda-local"]` in Cargo.toml.
+- **AAR:** `AAR_STRANDGATE_WAVE110_GUIDESTONE_CONVERGENCE_JUN11_2026.md` documenting
+  Waves 106–110 shipped items.
+
+### Fixed
+- **22 bin target crate alias conflicts:** `use hotspring_barracuda as barracuda`
+  shadowed the `barracuda` primal dependency — resolved by removing alias.
+- **GlowplugClient API mismatches:** `experiment_start`/`experiment_end` → single
+  `experiment_lifecycle` call; `device_swap` 3-arg → 2-arg.
+- **21 clippy pedantic warnings:** `needless_range_loop`, `manual_let_else`,
+  `map_unwrap_or`, float comparison in while loops, `manual_memcpy`,
+  `case_sensitive_extension`.
+- **DH-1 `/tmp` hardcode elimination:** `main.rs` and `exp234_sovereign_warm_handoff.rs`
+  now use `BIOMEOS_SOCKET_DIR` 3-tier resolution instead of hardcoded `/tmp` paths.
+- **Lib warnings:** Removed unused imports, `#[allow(dead_code)]` for WIP GPU scaffolding.
+- **Type inference errors:** `E0282` in `integration_physics.rs` resolved with explicit
+  `_f64` suffixes and `&f64` type annotations.
+- **Niche semantic naming test:** Updated to allow guideStone-mandated bare aliases.
+- **Stale relative paths:** `barracuda/README.md` primal paths updated from
+  `../../barraCuda/` to `../../../primals/barraCuda/`.
+
+### Changed
+- **Test count:** 625 lib tests (up from 619). 0 clippy. 0 errors.
+- **PRIMAL_GAPS.md:** 4 GAPs promoted to RESOLVED (108, 109, 111, 120).
+- **Connection handling:** `handle_connection` / `write_response` generalized over
+  `Read + Write` trait bounds for UDS + TCP transport.
+
 ## Sovereign Pipeline Validation + First VFIO Dispatch — S284 (June 1, 2026)
 
 ### Added

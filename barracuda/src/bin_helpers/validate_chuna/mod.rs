@@ -8,6 +8,6 @@ mod paper_44;
 mod paper_45;
 
 pub use gpu_parity::gpu_substrate_validation;
-pub use paper_43::{paper_43_gradient_flow, CpuReferenceValues};
+pub use paper_43::{CpuReferenceValues, paper_43_gradient_flow};
 pub use paper_44::paper_44_dielectric;
 pub use paper_45::paper_45_kinetic_fluid;

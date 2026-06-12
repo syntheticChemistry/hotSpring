@@ -41,7 +41,11 @@ fn main() {
     println!("═══ Phase 1: NUCLEUS Discovery (Node atomic) ═══");
     let node = validate_atomic(&ctx, AtomicType::Node, &mut harness);
     let required = AtomicType::Node.required_primals();
-    println!("  Required primals ({}): {}", required.len(), required.join(", "));
+    println!(
+        "  Required primals ({}): {}",
+        required.len(),
+        required.join(", ")
+    );
     harness.check_bool("node:five_primals_required", required.len() == 5);
     println!();
 
@@ -52,12 +56,9 @@ fn main() {
 
     // ── Phase 2: Capability routing ──
     println!("═══ Phase 2: Capability Routing ═══");
-    let compile_ok =
-        validate_capability(&ctx, "shader", "shader.compile.wgsl", &mut harness);
-    let submit_ok =
-        validate_capability(&ctx, "compute", "compute.dispatch.submit", &mut harness);
-    let result_ok =
-        validate_capability(&ctx, "compute", "compute.dispatch.result", &mut harness);
+    let compile_ok = validate_capability(&ctx, "shader", "shader.compile.wgsl", &mut harness);
+    let submit_ok = validate_capability(&ctx, "compute", "compute.dispatch.submit", &mut harness);
+    let result_ok = validate_capability(&ctx, "compute", "compute.dispatch.result", &mut harness);
     println!();
 
     if !(compile_ok && submit_ok && result_ok && node.passed) {
@@ -74,9 +75,7 @@ fn main() {
 
     let lat = Lattice::cold_start(dims_usize, beta);
     let cpu_plaq = lat.average_plaquette();
-    println!(
-        "  CPU reference ⟨P⟩ (oracle for barracuda::ops::lattice::plaquette): {cpu_plaq:.15}"
-    );
+    println!("  CPU reference ⟨P⟩ (oracle for barracuda::ops::lattice::plaquette): {cpu_plaq:.15}");
     harness.check_abs(
         "cpu_cold_plaquette",
         cpu_plaq,

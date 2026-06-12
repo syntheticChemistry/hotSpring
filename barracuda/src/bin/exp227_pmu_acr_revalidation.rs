@@ -184,7 +184,9 @@ impl FalconState {
         }
     }
 
-    fn sec_mode(&self) -> u32 { self.sctl & 0x3 }
+    fn sec_mode(&self) -> u32 {
+        self.sctl & 0x3
+    }
     fn sec_mode_str(&self) -> &'static str {
         match self.sec_mode() {
             0 => "NS",
@@ -197,9 +199,20 @@ impl FalconState {
 
     fn print(&self, label: &str) {
         println!("  {label}:");
-        println!("    CPUCTL={:#010x} ALIAS={:#010x}", self.cpuctl, self.cpuctl_alias);
-        println!("    SEC_MODE={} ({}) PC={:#010x}", self.sec_mode(), self.sec_mode_str(), self.pc);
-        println!("    MB0={:#010x} MB1={:#010x} EXCI={:#010x}", self.mailbox0, self.mailbox1, self.exci);
+        println!(
+            "    CPUCTL={:#010x} ALIAS={:#010x}",
+            self.cpuctl, self.cpuctl_alias
+        );
+        println!(
+            "    SEC_MODE={} ({}) PC={:#010x}",
+            self.sec_mode(),
+            self.sec_mode_str(),
+            self.pc
+        );
+        println!(
+            "    MB0={:#010x} MB1={:#010x} EXCI={:#010x}",
+            self.mailbox0, self.mailbox1, self.exci
+        );
     }
 }
 
@@ -215,11 +228,15 @@ fn try_boot_alias(ember: &EmberClient, bdf: &str, base: u32, bootvec_val: u32) -
     println!("    readback: ALIAS={alias_rb:#010x} CPUCTL={cpuctl_rb:#010x}");
 
     println!("  BOOTVEC <- {bootvec_val:#x}");
-    batch(ember, bdf, &[
-        MmioBatchOp::write(base + BOOTVEC, bootvec_val),
-        MmioBatchOp::write(base + MAILBOX0, 0),
-        MmioBatchOp::write(base + MAILBOX1, 0),
-    ]);
+    batch(
+        ember,
+        bdf,
+        &[
+            MmioBatchOp::write(base + BOOTVEC, bootvec_val),
+            MmioBatchOp::write(base + MAILBOX0, 0),
+            MmioBatchOp::write(base + MAILBOX1, 0),
+        ],
+    );
 
     println!("  CPUCTL_ALIAS <- {CPUCTL_IINVAL:#x} (IINVAL)");
     w32(ember, bdf, base + CPUCTL_ALIAS, CPUCTL_IINVAL);
@@ -236,10 +253,14 @@ fn try_boot_cpuctl(ember: &EmberClient, bdf: &str, base: u32, bootvec_val: u32) 
     w32(ember, bdf, base + CPUCTL, CPUCTL_HRESET);
     std::thread::sleep(Duration::from_millis(10));
 
-    batch(ember, bdf, &[
-        MmioBatchOp::write(base + BOOTVEC, bootvec_val),
-        MmioBatchOp::write(base + MAILBOX0, 0),
-    ]);
+    batch(
+        ember,
+        bdf,
+        &[
+            MmioBatchOp::write(base + BOOTVEC, bootvec_val),
+            MmioBatchOp::write(base + MAILBOX0, 0),
+        ],
+    );
 
     println!("  CPUCTL <- {CPUCTL_IINVAL:#x} (IINVAL)");
     w32(ember, bdf, base + CPUCTL, CPUCTL_IINVAL);
@@ -266,14 +287,23 @@ fn poll_for_boot(ember: &EmberClient, bdf: &str, base: u32) -> bool {
         let exci = r32(ember, bdf, base + EXCI);
 
         if cpuctl == 0xDEAD_DEAD || alias == 0xDEAD_DEAD {
-            println!("    t={:>6.1}ms: EMBER CIRCUIT BREAKER — BAR0 dead", elapsed.as_secs_f64() * 1000.0);
+            println!(
+                "    t={:>6.1}ms: EMBER CIRCUIT BREAKER — BAR0 dead",
+                elapsed.as_secs_f64() * 1000.0
+            );
             return false;
         }
 
         let sec = sctl & 0x3;
         let halted = (cpuctl | alias) & CPUCTL_HALTED != 0;
         let hreset = (cpuctl | alias) & CPUCTL_HRESET != 0;
-        let state = if halted { "HALT" } else if hreset { "HRESET" } else { "RUN?" };
+        let state = if halted {
+            "HALT"
+        } else if hreset {
+            "HRESET"
+        } else {
+            "RUN?"
+        };
 
         println!(
             "    t={:>6.1}ms: {state:<6} CPUCTL={cpuctl:#010x} ALIAS={alias:#010x} \
@@ -329,8 +359,14 @@ fn main() {
     let pmc_t = r32(&ember, &target_bdf, PMC_ENABLE);
     let pmc_c = r32(&ember, &control_bdf, PMC_ENABLE);
 
-    println!("  Target  BOOT0={boot0_t:#010x}  PMC={pmc_t:#010x} (pop={})", pmc_t.count_ones());
-    println!("  Control BOOT0={boot0_c:#010x}  PMC={pmc_c:#010x} (pop={})", pmc_c.count_ones());
+    println!(
+        "  Target  BOOT0={boot0_t:#010x}  PMC={pmc_t:#010x} (pop={})",
+        pmc_t.count_ones()
+    );
+    println!(
+        "  Control BOOT0={boot0_c:#010x}  PMC={pmc_c:#010x} (pop={})",
+        pmc_c.count_ones()
+    );
 
     if boot0_t == DEAD_LINK || boot0_c == DEAD_LINK {
         eprintln!("FATAL: GPU link dead (0xFFFFFFFF) — check VFIO/ember status");
@@ -350,7 +386,8 @@ fn main() {
     if t_snap.sec_mode() != 2 {
         eprintln!(
             "\n  WARNING: Target SEC_MODE={} ({}), expected 2 (HS).",
-            t_snap.sec_mode(), t_snap.sec_mode_str(),
+            t_snap.sec_mode(),
+            t_snap.sec_mode_str(),
         );
         eprintln!("  GPU may need a power cycle to restore VBIOS state.");
     }
@@ -376,24 +413,43 @@ fn main() {
     let sentinel: u32 = 0xCAFE_BEEF;
     let test_off: u32 = 0x1F00;
 
-    batch(&ember, &target_bdf, &[
-        MmioBatchOp::write(PMU_BASE + DMEMC, DMEMC_AINCW | test_off),
-        MmioBatchOp::write(PMU_BASE + DMEMD, sentinel),
-    ]);
-    w32(&ember, &target_bdf, PMU_BASE + DMEMC, DMEMC_AINCR | test_off);
+    batch(
+        &ember,
+        &target_bdf,
+        &[
+            MmioBatchOp::write(PMU_BASE + DMEMC, DMEMC_AINCW | test_off),
+            MmioBatchOp::write(PMU_BASE + DMEMD, sentinel),
+        ],
+    );
+    w32(
+        &ember,
+        &target_bdf,
+        PMU_BASE + DMEMC,
+        DMEMC_AINCR | test_off,
+    );
     let rb = r32(&ember, &target_bdf, PMU_BASE + DMEMD);
     let dmem_ok = rb == sentinel;
-    println!("  DMEM write test: {sentinel:#010x} at {test_off:#x} -> {rb:#010x} {}", tag(dmem_ok));
+    println!(
+        "  DMEM write test: {sentinel:#010x} at {test_off:#x} -> {rb:#010x} {}",
+        tag(dmem_ok)
+    );
 
     let imem_test_off: u32 = 0x0800;
-    batch(&ember, &target_bdf, &[
-        MmioBatchOp::write(PMU_BASE + IMEMC, IMEMC_AINCW | imem_test_off),
-        MmioBatchOp::write(PMU_BASE + IMEMD, sentinel),
-    ]);
+    batch(
+        &ember,
+        &target_bdf,
+        &[
+            MmioBatchOp::write(PMU_BASE + IMEMC, IMEMC_AINCW | imem_test_off),
+            MmioBatchOp::write(PMU_BASE + IMEMD, sentinel),
+        ],
+    );
     w32(&ember, &target_bdf, PMU_BASE + IMEMC, imem_test_off);
     let rb_i = r32(&ember, &target_bdf, PMU_BASE + IMEMD);
     let imem_ok = rb_i == sentinel;
-    println!("  IMEM write test: {sentinel:#010x} at {imem_test_off:#x} -> {rb_i:#010x} {}", tag(imem_ok));
+    println!(
+        "  IMEM write test: {sentinel:#010x} at {imem_test_off:#x} -> {rb_i:#010x} {}",
+        tag(imem_ok)
+    );
 
     if !dmem_ok && !imem_ok {
         println!("\n  PIO blocked in HS mode 2 (expected on GV100 pre-DEVINIT).");
@@ -423,16 +479,31 @@ fn main() {
     println!("\n━━━ Phase 4: Firmware PIO Load (via ember) ━━━\n");
 
     let imem_bytes: Vec<u8> = ACR_BL_IMEM.iter().flat_map(|w| w.to_le_bytes()).collect();
-    match ember.falcon_upload_imem(&target_bdf, PMU_BASE, ACR_BL_IMEM_OFFSET, &imem_bytes, 0, false) {
+    match ember.falcon_upload_imem(
+        &target_bdf,
+        PMU_BASE,
+        ACR_BL_IMEM_OFFSET,
+        &imem_bytes,
+        0,
+        false,
+    ) {
         Ok(r) if r.ok => println!("  IMEM: {:?} bytes uploaded {}", r.bytes, tag(true)),
-        Ok(r) => println!("  IMEM: upload returned ok=false, bytes={:?} {}", r.bytes, tag(false)),
+        Ok(r) => println!(
+            "  IMEM: upload returned ok=false, bytes={:?} {}",
+            r.bytes,
+            tag(false)
+        ),
         Err(e) => println!("  IMEM: upload failed: {e} {}", tag(false)),
     }
 
     let dmem_bytes: Vec<u8> = ACR_DMEM_DESC.iter().flat_map(|w| w.to_le_bytes()).collect();
     match ember.falcon_upload_dmem(&target_bdf, PMU_BASE, 0, &dmem_bytes) {
         Ok(r) if r.ok => println!("  DMEM: {:?} bytes uploaded {}", r.bytes, tag(true)),
-        Ok(r) => println!("  DMEM: upload returned ok=false, bytes={:?} {}", r.bytes, tag(false)),
+        Ok(r) => println!(
+            "  DMEM: upload returned ok=false, bytes={:?} {}",
+            r.bytes,
+            tag(false)
+        ),
         Err(e) => println!("  DMEM: upload failed: {e} {}", tag(false)),
     }
 
@@ -456,7 +527,12 @@ fn main() {
         println!("\n  Trying nvidia CPUCTL=0x12 (HS ROM) trigger...\n");
         w32(&ember, &target_bdf, PMU_BASE + CPUCTL, CPUCTL_HRESET);
         std::thread::sleep(Duration::from_millis(10));
-        w32(&ember, &target_bdf, PMU_BASE + CPUCTL, CPUCTL_STARTCPU | CPUCTL_HRESET);
+        w32(
+            &ember,
+            &target_bdf,
+            PMU_BASE + CPUCTL,
+            CPUCTL_STARTCPU | CPUCTL_HRESET,
+        );
         for _ in 0..10 {
             std::thread::sleep(Duration::from_millis(200));
             let cpuctl = r32(&ember, &target_bdf, PMU_BASE + CPUCTL);
@@ -492,13 +568,34 @@ fn main() {
     println!();
     println!("  ┌──────────────────────────────────────────────┐");
     println!("  │  EXP 227: PMU ACR Revalidation Score          │");
-    println!("  │  PMU CPU started:       {}                   │", yn(success));
-    println!("  │  PIO DMEM accessible:   {}                   │", yn(dmem_ok));
-    println!("  │  PIO IMEM accessible:   {}                   │", yn(imem_ok));
-    println!("  │  ALIAS responsive:      {}                   │", yn(alias_responsive));
-    println!("  │  Control GPU unchanged: {}                   │", yn(ctrl_ok));
-    println!("  │  Target GPU alive:      {}                   │", yn(pmu_alive));
-    println!("  │  ENGCTL blocked:        {}                   │", yn(engctl_blocked));
+    println!(
+        "  │  PMU CPU started:       {}                   │",
+        yn(success)
+    );
+    println!(
+        "  │  PIO DMEM accessible:   {}                   │",
+        yn(dmem_ok)
+    );
+    println!(
+        "  │  PIO IMEM accessible:   {}                   │",
+        yn(imem_ok)
+    );
+    println!(
+        "  │  ALIAS responsive:      {}                   │",
+        yn(alias_responsive)
+    );
+    println!(
+        "  │  Control GPU unchanged: {}                   │",
+        yn(ctrl_ok)
+    );
+    println!(
+        "  │  Target GPU alive:      {}                   │",
+        yn(pmu_alive)
+    );
+    println!(
+        "  │  ENGCTL blocked:        {}                   │",
+        yn(engctl_blocked)
+    );
     println!("  │  Wiring:                ember RPC            │");
     println!("  └──────────────────────────────────────────────┘");
 
@@ -508,7 +605,11 @@ fn main() {
     } else {
         println!("\n  PMU CPU did not start. Analysis:");
         println!("  - ALIAS responsive: {}", yn(alias_responsive));
-        println!("  - SEC_MODE: {} ({})", t_final.sec_mode(), t_final.sec_mode_str());
+        println!(
+            "  - SEC_MODE: {} ({})",
+            t_final.sec_mode(),
+            t_final.sec_mode_str()
+        );
         if t_final.sec_mode() == 0 {
             println!("  - GPU fell to NS mode — UNRECOVERABLE without power cycle");
         }
@@ -525,6 +626,9 @@ fn main() {
     println!("═══════════════════════════════════════");
 }
 
-
-fn tag(b: bool) -> &'static str { if b { "[OK]" } else { "[FAIL]" } }
-fn yn(b: bool) -> &'static str { if b { "YES" } else { "NO " } }
+fn tag(b: bool) -> &'static str {
+    if b { "[OK]" } else { "[FAIL]" }
+}
+fn yn(b: bool) -> &'static str {
+    if b { "YES" } else { "NO " }
+}

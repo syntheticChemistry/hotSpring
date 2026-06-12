@@ -334,4 +334,3 @@ fn mmio_rd(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
         .mmio_read(bdf, offset)
         .map_or(0xDEAD_DEAD, |r| r.value)
 }
-

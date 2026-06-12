@@ -24,7 +24,6 @@ use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
-
 use barracuda::pipeline::ReduceScalarPipeline;
 
 // ── GPU buffer parameter structs ────────────────────────────────────

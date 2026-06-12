@@ -21,7 +21,6 @@ use hotspring_barracuda::nuclear_eos_helpers::{
 use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energy};
 use hotspring_barracuda::provenance;
 
-
 // ALL from barracuda native — no hotspring_barracuda::surrogate or ::stats
 use barracuda::sample::direct::{DirectSamplerConfig, direct_sampler};
 use barracuda::sample::sparsity::{PenaltyFilter, SparsitySamplerConfig, sparsity_sampler};

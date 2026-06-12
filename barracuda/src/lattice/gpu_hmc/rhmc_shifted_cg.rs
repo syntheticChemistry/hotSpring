@@ -3,7 +3,10 @@
     deprecated,
     reason = "legacy shifted CG validation module — gpu_dot_re per iteration; production uses gpu_shifted_cg_solve_resident"
 )]
-#![expect(dead_code, reason = "legacy multi-shift CG retained for RHMC validation; migration pending")]
+#![expect(
+    dead_code,
+    reason = "legacy multi-shift CG retained for RHMC validation; migration pending"
+)]
 
 //! Legacy multi-shift CG with per-iteration CPU readback of dot products.
 //!

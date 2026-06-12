@@ -7,11 +7,11 @@ use super::resident_cg_buffers::{
     GpuResidentCgBuffers, encode_cg_batch, encode_reduce_chain, read_complex_dot_re,
 };
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
-use super::streaming::{GpuDynHmcStreamingPipelines, make_ferm_prng_params};
-use super::{GpuF64, gpu_dirac_dispatch, make_link_mom_params, make_prng_params};
 use super::resident_observables::{
     ResidentObservableBuffers, gauge_ke_resident, plaquette_resident,
 };
+use super::streaming::{GpuDynHmcStreamingPipelines, make_ferm_prng_params};
+use super::{GpuF64, gpu_dirac_dispatch, make_link_mom_params, make_prng_params};
 
 use super::GpuHmcPipelines;
 use super::GpuHmcState;
@@ -484,9 +484,14 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
     }
 
     let obs = ResidentObservableBuffers::new(gpu, &streaming_pipelines.reduce_pipeline, gs);
-    let (plaq_sum_old, ke_old) =
-        gauge_ke_resident(gpu, &dp.gauge, gs, &streaming_pipelines.reduce_pipeline, &obs)
-            .expect("gauge_ke_resident readback failed");
+    let (plaq_sum_old, ke_old) = gauge_ke_resident(
+        gpu,
+        &dp.gauge,
+        gs,
+        &streaming_pipelines.reduce_pipeline,
+        &obs,
+    )
+    .expect("gauge_ke_resident readback failed");
     let s_gauge_old = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_sum_old);
     let cg_beta = gs.beta;
     let cg_mass = state.mass;
@@ -558,9 +563,14 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         total_cg += cg1 + cg2 + cg3;
     }
 
-    let (plaq_sum_new, ke_new) =
-        gauge_ke_resident(gpu, &dp.gauge, gs, &streaming_pipelines.reduce_pipeline, &obs)
-            .expect("gauge_ke_resident readback failed");
+    let (plaq_sum_new, ke_new) = gauge_ke_resident(
+        gpu,
+        &dp.gauge,
+        gs,
+        &streaming_pipelines.reduce_pipeline,
+        &obs,
+    )
+    .expect("gauge_ke_resident readback failed");
     let s_gauge_new = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_sum_new);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_brain_all(
         gpu,
@@ -595,8 +605,14 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gpu.submit_encoder(enc);
     }
 
-    let plaquette = plaquette_resident(gpu, &dp.gauge, gs, &streaming_pipelines.reduce_pipeline, &obs)
-        .expect("plaquette_resident readback failed");
+    let plaquette = plaquette_resident(
+        gpu,
+        &dp.gauge,
+        gs,
+        &streaming_pipelines.reduce_pipeline,
+        &obs,
+    )
+    .expect("plaquette_resident readback failed");
 
     GpuDynHmcResult {
         accepted,

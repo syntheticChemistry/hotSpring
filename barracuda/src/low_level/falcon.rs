@@ -91,32 +91,56 @@ const FALCON_WINDOW: u32 = 0x400;
 impl Bar0Domain {
     #[must_use]
     pub fn pmc() -> Self {
-        Self { name: "PMC", start: 0x00_0000, end: 0x00_1000 }
+        Self {
+            name: "PMC",
+            start: 0x00_0000,
+            end: 0x00_1000,
+        }
     }
 
     #[must_use]
     pub fn pmu_falcon() -> Self {
-        Self { name: "PMU", start: PMU_BASE, end: PMU_BASE + FALCON_WINDOW }
+        Self {
+            name: "PMU",
+            start: PMU_BASE,
+            end: PMU_BASE + FALCON_WINDOW,
+        }
     }
 
     #[must_use]
     pub fn fecs_falcon() -> Self {
-        Self { name: "FECS", start: FECS_BASE, end: FECS_BASE + FALCON_WINDOW }
+        Self {
+            name: "FECS",
+            start: FECS_BASE,
+            end: FECS_BASE + FALCON_WINDOW,
+        }
     }
 
     #[must_use]
     pub fn gpccs_falcon() -> Self {
-        Self { name: "GPCCS", start: GPCCS_BASE, end: GPCCS_BASE + FALCON_WINDOW }
+        Self {
+            name: "GPCCS",
+            start: GPCCS_BASE,
+            end: GPCCS_BASE + FALCON_WINDOW,
+        }
     }
 
     #[must_use]
     pub fn sec2_falcon() -> Self {
-        Self { name: "SEC2", start: SEC2_BASE, end: SEC2_BASE + FALCON_WINDOW }
+        Self {
+            name: "SEC2",
+            start: SEC2_BASE,
+            end: SEC2_BASE + FALCON_WINDOW,
+        }
     }
 
     #[must_use]
     pub fn nvdec_falcon() -> Self {
-        Self { name: "NVDEC", start: NVDEC_BASE, end: NVDEC_BASE + FALCON_WINDOW }
+        Self {
+            name: "NVDEC",
+            start: NVDEC_BASE,
+            end: NVDEC_BASE + FALCON_WINDOW,
+        }
     }
 }
 
@@ -160,11 +184,33 @@ impl FalconSnapshot {
     /// Construct from raw field values (for testing without hardware).
     #[cfg(test)]
     pub fn from_raw(
-        cpuctl: u32, alias: u32, sctl: u32, bootvec: u32,
-        hwcfg: u32, dmactl: u32, exci: u32, pc: u32,
-        mb0: u32, mb1: u32, itfen: u32, engctl: u32,
+        cpuctl: u32,
+        alias: u32,
+        sctl: u32,
+        bootvec: u32,
+        hwcfg: u32,
+        dmactl: u32,
+        exci: u32,
+        pc: u32,
+        mb0: u32,
+        mb1: u32,
+        itfen: u32,
+        engctl: u32,
     ) -> Self {
-        Self { cpuctl, alias, sctl, bootvec, hwcfg, dmactl, exci, pc, mb0, mb1, itfen, engctl }
+        Self {
+            cpuctl,
+            alias,
+            sctl,
+            bootvec,
+            hwcfg,
+            dmactl,
+            exci,
+            pc,
+            mb0,
+            mb1,
+            itfen,
+            engctl,
+        }
     }
 
     /// SEC_MODE from SCTL bits [1:0]: 0=NS, 1=LS, 2=HS.
@@ -211,16 +257,24 @@ impl FalconSnapshot {
         println!("  {label}:");
         println!(
             "    CPUCTL={:#010x} ({})  ALIAS={:#010x}",
-            self.cpuctl, self.cpu_state(), self.alias,
+            self.cpuctl,
+            self.cpu_state(),
+            self.alias,
         );
         println!(
             "    SCTL={:#010x} (SEC_MODE={} {})  ENGCTL={:#010x}",
-            self.sctl, self.sec_mode(), self.sec_mode_str(), self.engctl,
+            self.sctl,
+            self.sec_mode(),
+            self.sec_mode_str(),
+            self.engctl,
         );
         println!("    BOOTVEC={:#010x}  PC={:#010x}", self.bootvec, self.pc);
         println!(
             "    HWCFG={:#010x} (IMEM={}B DMEM={}B)  DMACTL={:#010x}",
-            self.hwcfg, self.imem_size(), self.dmem_size(), self.dmactl,
+            self.hwcfg,
+            self.imem_size(),
+            self.dmem_size(),
+            self.dmactl,
         );
         println!(
             "    EXCI={:#010x}  MB0={:#010x}  MB1={:#010x}  ITFEN={:#010x}",
@@ -234,9 +288,12 @@ impl fmt::Display for FalconSnapshot {
         write!(
             f,
             "CPUCTL={:#010x}({}) SEC={}{} PC={:#010x} MB0={:#010x}",
-            self.cpuctl, self.cpu_state(),
-            self.sec_mode(), self.sec_mode_str(),
-            self.pc, self.mb0,
+            self.cpuctl,
+            self.cpu_state(),
+            self.sec_mode(),
+            self.sec_mode_str(),
+            self.pc,
+            self.mb0,
         )
     }
 }
@@ -344,7 +401,18 @@ mod tests {
 
         // HALTED takes priority over HRESET
         let snap = FalconSnapshot::from_raw(
-            CPUCTL_HALTED | CPUCTL_HRESET, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            CPUCTL_HALTED | CPUCTL_HRESET,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
         );
         assert_eq!(snap.cpu_state(), "HALT");
     }
@@ -407,7 +475,18 @@ mod tests {
     #[test]
     fn display_impl() {
         let snap = FalconSnapshot::from_raw(
-            CPUCTL_HALTED, 0, 0x3002, 0, 0x400e_0100, 0, 0, 0x2E, 0x300, 0, 0, 0,
+            CPUCTL_HALTED,
+            0,
+            0x3002,
+            0,
+            0x400e_0100,
+            0,
+            0,
+            0x2E,
+            0x300,
+            0,
+            0,
+            0,
         );
         let s = format!("{snap}");
         assert!(s.contains("HALT"));

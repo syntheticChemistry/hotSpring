@@ -128,8 +128,11 @@ pub fn require_glowplug(harness: &mut ValidationHarness) -> GlowplugClient {
 /// Check coralReef (shader compiler) liveness via NUCLEUS.
 pub fn check_coralreef_liveness() -> bool {
     let nucleus = NucleusContext::detect();
-    match nucleus.call_by_capability("shader", "shader.compile.capabilities", serde_json::json!({}))
-    {
+    match nucleus.call_by_capability(
+        "shader",
+        "shader.compile.capabilities",
+        serde_json::json!({}),
+    ) {
         Ok(resp) => {
             if let Some(result) = resp.get("result") {
                 eprintln!(

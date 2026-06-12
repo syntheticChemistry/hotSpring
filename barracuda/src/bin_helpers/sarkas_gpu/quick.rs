@@ -53,12 +53,7 @@ pub async fn run_long_sweep(report: &mut BenchReport, harness: &mut ValidationHa
         harness,
         &cases,
         "long_sweep_case",
-        |i, total, case| {
-            format!(
-                "  Case {i}/{total}: {} (80k production steps)",
-                case.label
-            )
-        },
+        |i, total, case| format!("  Case {i}/{total}: {} (80k production steps)", case.label),
         "LONG SWEEP RESULTS",
     )
     .await;

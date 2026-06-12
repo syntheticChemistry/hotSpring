@@ -67,30 +67,25 @@ impl CremerPople {
         // Step 2: Compute R' and R'' reference vectors
         let mut r_prime = [0.0f64; 3];
         let mut r_double_prime = [0.0f64; 3];
-        for j in 0..n {
+        for (j, rj_vec) in r.iter().enumerate() {
             let angle_p = 2.0 * PI * (j as f64) / (n as f64);
             let angle_dp = 2.0 * angle_p;
             let sin_p = angle_p.sin();
-            let cos_p = angle_p.cos();
-            let sin_dp = angle_dp.sin();
             let cos_dp = angle_dp.cos();
             for d in 0..3 {
-                let rj = r[j][d] - center[d];
+                let rj = rj_vec[d] - center[d];
                 r_prime[d] += rj * sin_p;
                 r_double_prime[d] += rj * cos_dp;
-                // Also accumulate for R'' with cos
-                let _ = sin_dp; // used below
-                let _ = cos_p;
             }
         }
 
         // Recompute properly: R' = Σ r_j sin(2πj/N), R'' = Σ r_j cos(2πj/N)
         r_prime = [0.0; 3];
         r_double_prime = [0.0; 3];
-        for j in 0..n {
+        for (j, rj_vec) in r.iter().enumerate() {
             let angle = 2.0 * PI * (j as f64) / (n as f64);
             for d in 0..3 {
-                let rj = r[j][d] - center[d];
+                let rj = rj_vec[d] - center[d];
                 r_prime[d] += rj * angle.sin();
                 r_double_prime[d] += rj * angle.cos();
             }
@@ -130,11 +125,11 @@ impl CremerPople {
         let mut q2_sin_phi = 0.0f64;
         let mut q3_val = 0.0f64;
 
-        for j in 0..n {
+        for (j, &zj) in z.iter().enumerate() {
             let angle = 2.0 * PI * 2.0 * (j as f64) / (n as f64);
-            q2_cos_phi += z[j] * angle.cos();
-            q2_sin_phi += z[j] * angle.sin();
-            q3_val += z[j] * if j % 2 == 0 { 1.0 } else { -1.0 };
+            q2_cos_phi += zj * angle.cos();
+            q2_sin_phi += zj * angle.sin();
+            q3_val += zj * if j % 2 == 0 { 1.0 } else { -1.0 };
         }
 
         q2_cos_phi *= inv_sqrt3;
@@ -285,8 +280,16 @@ mod tests {
         } else {
             (cp_b.theta, cp_a.theta)
         };
-        assert!(theta_min < 0.3, "one chair should have θ near 0, got {:.2}°", theta_min.to_degrees());
-        assert!(theta_max > 2.8, "other chair should have θ near π, got {:.2}°", theta_max.to_degrees());
+        assert!(
+            theta_min < 0.3,
+            "one chair should have θ near 0, got {:.2}°",
+            theta_min.to_degrees()
+        );
+        assert!(
+            theta_max > 2.8,
+            "other chair should have θ near π, got {:.2}°",
+            theta_max.to_degrees()
+        );
     }
 
     #[test]

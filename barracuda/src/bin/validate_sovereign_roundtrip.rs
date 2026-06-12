@@ -22,7 +22,6 @@ use hotspring_barracuda::tolerances::{
     SOVEREIGN_ROUNTRIP_GPU_PARITY_ABS, SOVEREIGN_ROUNTRIP_RAW_VS_EXPECTED_ABS,
 };
 
-
 use barracuda::device::capabilities::DeviceCapabilities;
 use barracuda::shaders::sovereign::SovereignCompiler;
 

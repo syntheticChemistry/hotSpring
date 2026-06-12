@@ -4,9 +4,7 @@
 
 use std::time::Instant;
 
-use hotspring_barracuda::bench::{
-    BenchReport, PhaseResult, PowerMonitor, peak_rss_mb,
-};
+use hotspring_barracuda::bench::{BenchReport, PhaseResult, PowerMonitor, peak_rss_mb};
 use hotspring_barracuda::md::config::MdConfig;
 use hotspring_barracuda::md::observables;
 use hotspring_barracuda::md::sarkas_harness::{print_n_scaling_summary, run_single_case};

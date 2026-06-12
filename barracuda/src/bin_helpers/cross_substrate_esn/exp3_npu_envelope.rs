@@ -10,11 +10,7 @@ use std::time::Instant;
 
 use super::{INPUT_SIZE, N_REPS, N_WARMUP, SEQUENCE_LENGTH};
 
-pub fn run(
-    gpu: &GpuF64,
-    harness: &mut ValidationHarness,
-    jsonl_records: &mut Vec<String>,
-) {
+pub fn run(gpu: &GpuF64, harness: &mut ValidationHarness, jsonl_records: &mut Vec<String>) {
     println!("═══ Experiment 3: NPU Capability Envelope ═══");
     println!();
 

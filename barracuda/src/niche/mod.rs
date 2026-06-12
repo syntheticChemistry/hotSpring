@@ -392,11 +392,13 @@ mod tests {
 
     #[test]
     fn all_capabilities_follow_semantic_naming() {
+        const BARE_ALIASES: &[&str] = &["health"];
         let all = all_capabilities();
         for cap in &all {
             assert!(
-                cap.contains('.'),
-                "capability '{cap}' should follow domain.operation format"
+                cap.contains('.') || BARE_ALIASES.contains(&cap.as_ref()),
+                "capability '{cap}' should follow domain.operation format \
+                 (or be a guideStone-mandated bare alias)"
             );
         }
     }

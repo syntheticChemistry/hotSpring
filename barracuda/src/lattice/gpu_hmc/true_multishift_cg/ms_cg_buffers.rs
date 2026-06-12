@@ -4,7 +4,7 @@
 
 use super::TrueMultiShiftPipelines;
 use crate::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
-use crate::lattice::gpu_hmc::resident_cg_buffers::{build_reduce_chain_pub, ReduceChain};
+use crate::lattice::gpu_hmc::resident_cg_buffers::{ReduceChain, build_reduce_chain_pub};
 use crate::lattice::gpu_hmc::{GpuF64, make_u32x4_params};
 
 fn make_dirac_bg(

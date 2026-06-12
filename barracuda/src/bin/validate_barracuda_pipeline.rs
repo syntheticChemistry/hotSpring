@@ -21,7 +21,6 @@ use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
-
 use barracuda::ops::md::forces::YukawaForceF64;
 use barracuda::ops::md::integrators::{VelocityVerletHalfKick, VelocityVerletKickDrift};
 use barracuda::ops::md::observables::KineticEnergy;
