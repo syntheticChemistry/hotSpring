@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 13, 2026 (Wave 111 riboCipher convergence: server-side signal detection + client-side [0xEC, 0x01] prepend shipped in serve.rs, primal_bridge.rs, fleet_ember.rs, toadstool_report.rs. 627 lib tests pass (2 new riboCipher tests). Legacy JSON connections warn per deprecation schedule. strandGate riboCipher: COMPLIANT (Tier 1 clear signal, NDJSON only).)
+**Last audited:** Jun 13, 2026 (Wave 112 kickoff: riboCipher deprecation escalated WARN→ERROR per schedule. 627 lib tests pass, 0 clippy. strandGate riboCipher: COMPLIANT, ERROR on unsignalled. No new assigned work — holding pattern.)
 **License:** AGPL-3.0-or-later
 
 ---

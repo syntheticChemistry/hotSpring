@@ -25,7 +25,7 @@ use crate::provenance::SLY4_PARAMS;
 
 use hotspring_forge::probe;
 use hotspring_forge::substrate::{Capability, Fp64Rate, Fp64Strategy, SubstrateKind};
-use log::{info, warn};
+use log::{error, info, warn};
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Read};
 use std::net::TcpListener;
@@ -745,11 +745,11 @@ fn handle_connection_generic<S: std::io::Read + std::io::Write>(mut stream: S, s
             handle_ndjson_loop(stream, state);
         }
         b'{' | b'[' => {
-            warn!(target: "serve", "DEPRECATED: unsignalled connection (legacy JSON). Prepend [0xEC, 0x01] per riboCipher standard.");
+            error!(target: "serve", "DEPRECATED: unsignalled connection (legacy JSON). Prepend [0xEC, 0x01] per riboCipher standard.");
             handle_ndjson_loop_with_prefix(stream, state, first_byte[0]);
         }
         _ => {
-            warn!(target: "serve", "DEPRECATED: unsignalled connection (first byte 0x{:02X}). Prepend [0xEC, 0x01] per riboCipher standard.", first_byte[0]);
+            error!(target: "serve", "DEPRECATED: unsignalled connection (first byte 0x{:02X}). Prepend [0xEC, 0x01] per riboCipher standard.", first_byte[0]);
             handle_ndjson_loop_with_prefix(stream, state, first_byte[0]);
         }
     }
