@@ -543,6 +543,8 @@ pub fn send_jsonrpc(
         .set_read_timeout(Some(JSONRPC_SOCKET_READ_TIMEOUT))
         .map_err(|e| crate::error::HotSpringError::Ipc(format!("timeout: {e}")))?;
 
+    stream.write_all(&[0xEC, 0x01])?;
+
     let request = jsonrpc_request(method, params.clone());
 
     let mut request_bytes = serde_json::to_vec(&request)?;

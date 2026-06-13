@@ -27,7 +27,7 @@ use hotspring_forge::probe;
 use hotspring_forge::substrate::{Capability, Fp64Rate, Fp64Strategy, SubstrateKind};
 use log::{info, warn};
 use serde_json::{Value, json};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::net::TcpListener;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -726,7 +726,36 @@ fn handle_connection(stream: UnixStream, state: &HotSpringState) {
     handle_connection_generic(stream, state);
 }
 
-fn handle_connection_generic<S: std::io::Read + std::io::Write>(stream: S, state: &HotSpringState) {
+fn handle_connection_generic<S: std::io::Read + std::io::Write>(mut stream: S, state: &HotSpringState) {
+    let mut first_byte = [0u8; 1];
+    if stream.read_exact(&mut first_byte).is_err() {
+        return;
+    }
+
+    match first_byte[0] {
+        0xEC => {
+            let mut protocol_type = [0u8; 1];
+            if stream.read_exact(&mut protocol_type).is_err() {
+                return;
+            }
+            if protocol_type[0] != 0x01 {
+                warn!(target: "serve", "riboCipher: unsupported protocol type 0x{:02X}", protocol_type[0]);
+                return;
+            }
+            handle_ndjson_loop(stream, state);
+        }
+        b'{' | b'[' => {
+            warn!(target: "serve", "DEPRECATED: unsignalled connection (legacy JSON). Prepend [0xEC, 0x01] per riboCipher standard.");
+            handle_ndjson_loop_with_prefix(stream, state, first_byte[0]);
+        }
+        _ => {
+            warn!(target: "serve", "DEPRECATED: unsignalled connection (first byte 0x{:02X}). Prepend [0xEC, 0x01] per riboCipher standard.", first_byte[0]);
+            handle_ndjson_loop_with_prefix(stream, state, first_byte[0]);
+        }
+    }
+}
+
+fn handle_ndjson_loop<S: std::io::Read + std::io::Write>(stream: S, state: &HotSpringState) {
     let mut reader = BufReader::new(stream);
     loop {
         let mut line = String::new();
@@ -770,6 +799,41 @@ fn handle_connection_generic<S: std::io::Read + std::io::Write>(stream: S, state
         if write_response(reader.get_mut(), &response).is_err() {
             break;
         }
+    }
+}
+
+fn handle_ndjson_loop_with_prefix<S: std::io::Read + std::io::Write>(stream: S, state: &HotSpringState, prefix_byte: u8) {
+    let combined = PrefixedStream { prefix: Some(prefix_byte), inner: stream };
+    handle_ndjson_loop(combined, state);
+}
+
+struct PrefixedStream<S> {
+    prefix: Option<u8>,
+    inner: S,
+}
+
+impl<S: Read> Read for PrefixedStream<S> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if let Some(b) = self.prefix.take() {
+            if !buf.is_empty() {
+                buf[0] = b;
+                if buf.len() > 1 {
+                    let n = self.inner.read(&mut buf[1..])?;
+                    return Ok(n + 1);
+                }
+                return Ok(1);
+            }
+        }
+        self.inner.read(buf)
+    }
+}
+
+impl<S: std::io::Write> std::io::Write for PrefixedStream<S> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.inner.write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
     }
 }
 
@@ -854,5 +918,56 @@ mod tests {
         let state = test_state();
         let v = dispatch_ok(&state, "capabilities.list");
         assert!(v["capabilities"].is_array());
+    }
+
+    #[test]
+    fn ribocipher_clear_signal_routes_ndjson() {
+        use std::io::Cursor;
+        let state = test_state();
+        let request = r#"{"jsonrpc":"2.0","method":"health","params":null,"id":1}"#;
+        let mut input: Vec<u8> = vec![0xEC, 0x01];
+        input.extend_from_slice(request.as_bytes());
+        input.push(b'\n');
+        let mut output: Vec<u8> = Vec::new();
+        let mut stream = Cursor::new(input);
+        let combined = TestDuplex { read: &mut stream, write: &mut output };
+        handle_connection_generic(combined, &state);
+        let resp: Value = serde_json::from_slice(&output.split(|&b| b == b'\n').next().unwrap()).unwrap();
+        assert_eq!(resp["result"]["status"], "ok");
+    }
+
+    #[test]
+    fn ribocipher_legacy_json_still_works() {
+        use std::io::Cursor;
+        let state = test_state();
+        let request = r#"{"jsonrpc":"2.0","method":"health","params":null,"id":1}"#;
+        let mut input = request.as_bytes().to_vec();
+        input.push(b'\n');
+        let mut output: Vec<u8> = Vec::new();
+        let mut stream = Cursor::new(input);
+        let combined = TestDuplex { read: &mut stream, write: &mut output };
+        handle_connection_generic(combined, &state);
+        let resp: Value = serde_json::from_slice(&output.split(|&b| b == b'\n').next().unwrap()).unwrap();
+        assert_eq!(resp["result"]["status"], "ok");
+    }
+
+    struct TestDuplex<'a> {
+        read: &'a mut dyn std::io::Read,
+        write: &'a mut dyn std::io::Write,
+    }
+
+    impl std::io::Read for TestDuplex<'_> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.read.read(buf)
+        }
+    }
+
+    impl std::io::Write for TestDuplex<'_> {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.write.write(buf)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.write.flush()
+        }
     }
 }

@@ -491,6 +491,8 @@ fn adopt_device_recv_scm_rights_impl(
     let mut stream = UnixStream::connect(socket_path)?;
     stream.set_read_timeout(Some(EMBER_ADOPT_TIMEOUT))?;
 
+    stream.write_all(&[0xEC, 0x01])?;
+
     let request = serde_json::json!({
         "jsonrpc": "2.0",
         "method": "ember.adopt_device",
@@ -738,6 +740,8 @@ fn send_rpc_with_timeout(
     let stream = UnixStream::connect(socket_path)?;
     stream.set_read_timeout(Some(timeout))?;
     stream.set_write_timeout(Some(timeout))?;
+
+    (&stream).write_all(&[0xEC, 0x01])?;
 
     let req = serde_json::json!({
         "jsonrpc": "2.0",

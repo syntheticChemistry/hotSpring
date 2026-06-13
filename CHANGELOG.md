@@ -7,6 +7,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## riboCipher Transport Signal Convergence — Wave 111 (June 13, 2026)
+
+### Added
+- **riboCipher server-side detection:** `serve.rs` accept loop now reads the first byte
+  before routing. `0xEC 0x01` → direct NDJSON route. Legacy `{`/`[` → fallback with WARN.
+  Unsupported protocol types are rejected.
+- **riboCipher client-side signal:** All IPC client paths (`primal_bridge.rs`,
+  `fleet_ember.rs`, `toadstool_report.rs`) prepend `[0xEC, 0x01]` before JSON payload.
+- **2 new riboCipher tests:** `ribocipher_clear_signal_routes_ndjson`,
+  `ribocipher_legacy_json_still_works`.
+- **PrefixedStream adapter:** Zero-copy stream wrapper that re-injects the consumed first
+  byte for legacy connections without buffering the entire stream.
+
+### Changed
+- `handle_connection_generic` now peeks 1 byte and routes via riboCipher signal envelope
+  before falling through to NDJSON.
+- Test count: 627 lib tests (was 625).
+
 ## guideStone Convergence + Deep Debt Resolution — Waves 106–110 (June 11, 2026)
 
 ### Added

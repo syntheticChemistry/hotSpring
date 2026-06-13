@@ -87,6 +87,9 @@ fn rpc_call(sock: &std::path::Path, method: &str) -> Result<serde_json::Value, S
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
         .ok();
 
+    use std::io::Write;
+    stream.write_all(&[0xEC, 0x01]).map_err(|e| format!("riboCipher: {e}"))?;
+
     let req = serde_json::json!({
         "jsonrpc": "2.0",
         "id": 1,

@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 12, 2026 (Wave 111 pre-sync: GAP header hygiene — 3 mislabeled GAPs promoted to RESOLVED headers (050, 103, 117). 625 lib tests pass, 0 clippy, 0 errors. strandGate STANDBY — no new assigned Wave 111 work items. All 6 FRAGO streams owned by cellMembrane/songBird/primalSpring/biomeOS/ops. Convergence gate 3/7 GREEN. biomeGate kernel recovery LOW carry.)
+**Last audited:** Jun 13, 2026 (Wave 111 riboCipher convergence: server-side signal detection + client-side [0xEC, 0x01] prepend shipped in serve.rs, primal_bridge.rs, fleet_ember.rs, toadstool_report.rs. 627 lib tests pass (2 new riboCipher tests). Legacy JSON connections warn per deprecation schedule. strandGate riboCipher: COMPLIANT (Tier 1 clear signal, NDJSON only).)
 **License:** AGPL-3.0-or-later
 
 ---
