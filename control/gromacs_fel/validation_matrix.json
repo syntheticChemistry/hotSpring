@@ -1,0 +1,91 @@
+{
+  "version": "0.8.0",
+  "generated": "2026-05-25",
+  "description": "Systematic validation matrix: systems x CV dimensions x tiers",
+  "systems": ["ala-dipeptide", "free-xylose", "enzyme-bound-2d24"],
+  "cv_dims": ["1D-theta", "2D-qx-qy"],
+  "tiers": [0, 1, 2],
+  "tolerance_1d_kJmol": 1.0,
+  "tolerance_2d_kJmol": 2.0,
+  "results": [
+    {
+      "system": "free-xylose",
+      "cv": "1D-theta",
+      "tier0_reference": "modules/xylose-puckering-fel/fes_theta.dat",
+      "tier0_status": "PASS",
+      "tier0_n_gaussians": 10000,
+      "tier0_duration_ns": 10,
+      "tier1_max_dev_kJmol": 0.7304,
+      "tier1_status": "MATCH",
+      "tier2_max_dev_kJmol": 0.7869,
+      "tier2_status": "MATCH",
+      "ground_state": "1C4",
+      "n_basins": 3,
+      "barriers_kJmol": [37.6, 46.2]
+    },
+    {
+      "system": "enzyme-bound-2d24",
+      "cv": "1D-theta",
+      "tier0_reference": "modules/enzyme-bound-puckering/fes_theta.dat",
+      "tier0_status": "PASS",
+      "tier0_n_gaussians": 10000,
+      "tier0_duration_ns": 10,
+      "tier1_max_dev_kJmol": 0.7585,
+      "tier1_status": "MATCH",
+      "tier2_max_dev_kJmol": 0.7681,
+      "tier2_status": "MATCH",
+      "ground_state": "1C4",
+      "n_basins": 3,
+      "barriers_kJmol": [36.7, 42.1]
+    },
+    {
+      "system": "ala-dipeptide",
+      "cv": "2D-phi-psi",
+      "tier0_reference": "modules/ala-dipeptide-fel/fes_2d.dat",
+      "tier0_status": "PASS",
+      "tier0_n_gaussians": 20000,
+      "tier0_duration_ns": 10,
+      "tier1_max_dev_kJmol": 0.5192,
+      "tier1_status": "MATCH",
+      "tier2_max_dev_kJmol": null,
+      "tier2_status": "NOT_RUN",
+      "note": "HILLS file not in handoff (size); reference FES only"
+    },
+    {
+      "system": "free-xylose",
+      "cv": "2D-qx-qy",
+      "tier0_reference": "cazyme_gh10_v2/fes_2d.dat",
+      "tier0_status": "PASS",
+      "tier0_n_gaussians": 20000,
+      "tier0_duration_ns": 20,
+      "tier1_max_dev_kJmol": 1.7148,
+      "tier1_status": "MATCH",
+      "tier2_max_dev_kJmol": 1.7148,
+      "tier2_status": "MATCH",
+      "note": "Cremer-Pople (qx, qy) — full Stoddart landscape"
+    },
+    {
+      "system": "enzyme-bound-2d24",
+      "cv": "2D-qx-qy",
+      "tier0_reference": "cazyme_2d24/fes_2d.dat",
+      "tier0_status": "PASS",
+      "tier0_n_gaussians": 20000,
+      "tier0_duration_ns": 20,
+      "tier1_max_dev_kJmol": 1.7227,
+      "tier1_status": "MATCH",
+      "tier2_max_dev_kJmol": 1.7227,
+      "tier2_status": "MATCH",
+      "note": "Cremer-Pople (qx, qy) — full Stoddart landscape, enzyme-bound"
+    }
+  ],
+  "summary": {
+    "total_entries": 5,
+    "tier0_pass": 5,
+    "tier0_in_flight": 0,
+    "tier1_match": 5,
+    "tier1_pending": 0,
+    "tier2_match": 4,
+    "tier2_not_run": 1,
+    "all_parity_pass": true
+  }
+}

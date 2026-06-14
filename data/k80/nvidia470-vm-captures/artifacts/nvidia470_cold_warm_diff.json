@@ -1,0 +1,36 @@
+{
+  "bdf": "0000:06:00.0",
+  "diff_type": "nvidia470_cold_warm_vm_passthrough",
+  "regions": {
+    "PBUS": {
+      "changed": {
+        "0x001100": {
+          "cold": "0x00000008",
+          "warm": "0x0000000e"
+        }
+      },
+      "new": {},
+      "removed": {}
+    },
+    "PPCI": {
+      "changed": {
+        "0x088004": {
+          "cold": "0x00100103",
+          "warm": "0x00100107"
+        }
+      },
+      "new": {
+        "0x0880b8": "0x80100001",
+        "0x0880c0": "0x00000801",
+        "0x088480": "0x00000002",
+        "0x0888cc": "0x00000002"
+      },
+      "removed": {}
+    }
+  },
+  "summary": {
+    "total_changed": 2,
+    "total_new": 4,
+    "total_removed": 0
+  }
+}

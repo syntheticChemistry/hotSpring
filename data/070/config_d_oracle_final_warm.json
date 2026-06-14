@@ -1,0 +1,1040 @@
+{
+  "bdf": "0000:03:00.0",
+  "boot0": "0x140000a1",
+  "gpu_temp_c": 47,
+  "registers": [
+    {
+      "group": "PMC",
+      "name": "BOOT0",
+      "offset": "0x000000",
+      "raw": 335544481,
+      "status": "ok",
+      "value": "0x140000a1"
+    },
+    {
+      "group": "PMC",
+      "name": "BOOT1",
+      "offset": "0x000004",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PMC",
+      "name": "PMC_ENABLE",
+      "offset": "0x000200",
+      "raw": 1609359345,
+      "status": "ok",
+      "value": "0x5fecdff1"
+    },
+    {
+      "group": "PMC",
+      "name": "PMC_DEVICE_ENABLE",
+      "offset": "0x000204",
+      "raw": 16383,
+      "status": "ok",
+      "value": "0x00003fff"
+    },
+    {
+      "group": "PBUS",
+      "name": "PBUS_EXT_CG",
+      "offset": "0x001c00",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBUS",
+      "name": "PBUS_EXT_CG1",
+      "offset": "0x001c04",
+      "raw": 1022,
+      "status": "ok",
+      "value": "0x000003fe"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PFIFO_PBDMA_MAP",
+      "offset": "0x002004",
+      "raw": 2097166,
+      "status": "ok",
+      "value": "0x0020000e"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PFIFO_INTR",
+      "offset": "0x002100",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PFIFO_INTR_EN",
+      "offset": "0x002140",
+      "raw": 1635844353,
+      "status": "ok",
+      "value": "0x61810101"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PFIFO_ENABLE",
+      "offset": "0x002200",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PFIFO_FB_TIMEOUT",
+      "offset": "0x002254",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "RUNLIST_BASE",
+      "offset": "0x002270",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "RUNLIST_SUBMIT",
+      "offset": "0x002274",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "RUNLIST0_BASE",
+      "offset": "0x002280",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "RUNLIST0_INFO",
+      "offset": "0x002284",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "RUNLIST1_INFO",
+      "offset": "0x00228c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PBDMA_RUNL_MAP_0",
+      "offset": "0x002390",
+      "raw": 1,
+      "status": "ok",
+      "value": "0x00000001"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PBDMA_RUNL_MAP_1",
+      "offset": "0x002394",
+      "raw": 1,
+      "status": "ok",
+      "value": "0x00000001"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PBDMA_RUNL_MAP_2",
+      "offset": "0x002398",
+      "raw": 2,
+      "status": "ok",
+      "value": "0x00000002"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PBDMA_RUNL_MAP_3",
+      "offset": "0x00239c",
+      "raw": 4,
+      "status": "ok",
+      "value": "0x00000004"
+    },
+    {
+      "group": "PFIFO",
+      "name": "SCHED_EN",
+      "offset": "0x002504",
+      "raw": 3134194176,
+      "status": "ok",
+      "value": "0xbad00200"
+    },
+    {
+      "group": "PFIFO",
+      "name": "SCHED_STATUS",
+      "offset": "0x002508",
+      "raw": 3134194176,
+      "status": "ok",
+      "value": "0xbad00200"
+    },
+    {
+      "group": "PFIFO",
+      "name": "BIND_ERROR",
+      "offset": "0x00252c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "SCHED_DISABLE",
+      "offset": "0x002630",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PREEMPT",
+      "offset": "0x002634",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PREEMPT_PENDING",
+      "offset": "0x002638",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "ENGN0_STATUS",
+      "offset": "0x002640",
+      "raw": 286068870,
+      "status": "ok",
+      "value": "0x110d1086"
+    },
+    {
+      "group": "PFIFO",
+      "name": "RUNLIST_ACK",
+      "offset": "0x002a00",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PFIFO",
+      "name": "PBDMA_INTR_EN",
+      "offset": "0x002a04",
+      "raw": 3221225471,
+      "status": "ok",
+      "value": "0xbfffffff"
+    },
+    {
+      "group": "PBDMA_IDLE",
+      "name": "PBDMA0_IDLE",
+      "offset": "0x003080",
+      "raw": 268439552,
+      "status": "ok",
+      "value": "0x10001000"
+    },
+    {
+      "group": "PBDMA_IDLE",
+      "name": "PBDMA1_IDLE",
+      "offset": "0x003084",
+      "raw": 405872057,
+      "status": "ok",
+      "value": "0x18311db9"
+    },
+    {
+      "group": "PBDMA_IDLE",
+      "name": "PBDMA2_IDLE",
+      "offset": "0x003088",
+      "raw": 335614209,
+      "status": "ok",
+      "value": "0x14011101"
+    },
+    {
+      "group": "PBDMA_IDLE",
+      "name": "PBDMA3_IDLE",
+      "offset": "0x00308c",
+      "raw": 412684300,
+      "status": "ok",
+      "value": "0x1899100c"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_GP_BASE_LO",
+      "offset": "0x040040",
+      "raw": 32819,
+      "status": "ok",
+      "value": "0x00008033"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_GP_BASE_HI",
+      "offset": "0x040044",
+      "raw": 1,
+      "status": "ok",
+      "value": "0x00000001"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_GP_FETCH",
+      "offset": "0x040048",
+      "raw": 69632,
+      "status": "ok",
+      "value": "0x00011000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_GP_STATE",
+      "offset": "0x04004c",
+      "raw": 655360,
+      "status": "ok",
+      "value": "0x000a0000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_GP_PUT_HI",
+      "offset": "0x040050",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_GP_PUT_LO",
+      "offset": "0x040054",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_TARGET",
+      "offset": "0x0400a8",
+      "raw": 3134194176,
+      "status": "ok",
+      "value": "0xbad00200"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_SET_CHANNEL_INFO",
+      "offset": "0x0400ac",
+      "raw": 50331648,
+      "status": "ok",
+      "value": "0x03000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_CHANNEL_STATE",
+      "offset": "0x0400b0",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_SIGNATURE",
+      "offset": "0x0400c0",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_USERD_LO",
+      "offset": "0x0400d0",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_USERD_HI",
+      "offset": "0x0400d4",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_INTR",
+      "offset": "0x040108",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_INTR_EN",
+      "offset": "0x04010c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_HCE",
+      "offset": "0x040148",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA0",
+      "name": "PBDMA0_HCE_EN",
+      "offset": "0x04014c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_GP_BASE_LO",
+      "offset": "0x044040",
+      "raw": 3424282,
+      "status": "ok",
+      "value": "0x0034401a"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_GP_BASE_HI",
+      "offset": "0x044044",
+      "raw": 2147483648,
+      "status": "ok",
+      "value": "0x80000000"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_GP_FETCH",
+      "offset": "0x044048",
+      "raw": 77726720,
+      "status": "ok",
+      "value": "0x04a20400"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_GP_STATE",
+      "offset": "0x04404c",
+      "raw": 260,
+      "status": "ok",
+      "value": "0x00000104"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_GP_PUT_LO",
+      "offset": "0x044054",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_TARGET",
+      "offset": "0x0440a8",
+      "raw": 3134194176,
+      "status": "ok",
+      "value": "0xbad00200"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_SET_CHANNEL_INFO",
+      "offset": "0x0440ac",
+      "raw": 16973824,
+      "status": "ok",
+      "value": "0x01030000"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_CHANNEL_STATE",
+      "offset": "0x0440b0",
+      "raw": 2222985762,
+      "status": "ok",
+      "value": "0x84801222"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_SIGNATURE",
+      "offset": "0x0440c0",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_USERD_LO",
+      "offset": "0x0440d0",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_USERD_HI",
+      "offset": "0x0440d4",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_INTR",
+      "offset": "0x044108",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PBDMA2",
+      "name": "PBDMA2_INTR_EN",
+      "offset": "0x04410c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PRIV",
+      "name": "PRIV_RING_INTR",
+      "offset": "0x012070",
+      "raw": 3134193920,
+      "status": "ok",
+      "value": "0xbad00100"
+    },
+    {
+      "group": "THERM",
+      "name": "GPU_TEMP",
+      "offset": "0x020460",
+      "raw": 536883104,
+      "status": "ok",
+      "value": "0x20002fa0"
+    },
+    {
+      "group": "PTOP",
+      "name": "PTOP_INFO_0",
+      "offset": "0x022700",
+      "raw": 2147883070,
+      "status": "ok",
+      "value": "0x8006183e"
+    },
+    {
+      "group": "PTOP",
+      "name": "PTOP_INFO_1",
+      "offset": "0x022704",
+      "raw": 2147483651,
+      "status": "ok",
+      "value": "0x80000003"
+    },
+    {
+      "group": "PTOP",
+      "name": "PTOP_INFO_2",
+      "offset": "0x022708",
+      "raw": 4194821,
+      "status": "ok",
+      "value": "0x00400205"
+    },
+    {
+      "group": "PTOP",
+      "name": "PTOP_INFO_3",
+      "offset": "0x02270c",
+      "raw": 3020065854,
+      "status": "ok",
+      "value": "0xb4028c3e"
+    },
+    {
+      "group": "SEC2",
+      "name": "SEC2_CPUCTL",
+      "offset": "0x087100",
+      "raw": 16,
+      "status": "ok",
+      "value": "0x00000010"
+    },
+    {
+      "group": "SEC2",
+      "name": "SEC2_BOOTVEC",
+      "offset": "0x087104",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "SEC2",
+      "name": "SEC2_SCTL",
+      "offset": "0x087240",
+      "raw": 12288,
+      "status": "ok",
+      "value": "0x00003000"
+    },
+    {
+      "group": "FECS",
+      "name": "FECS_CPUCTL",
+      "offset": "0x409100",
+      "raw": 16,
+      "status": "ok",
+      "value": "0x00000010"
+    },
+    {
+      "group": "FECS",
+      "name": "FECS_BOOTVEC",
+      "offset": "0x409104",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "FECS",
+      "name": "FECS_PC",
+      "offset": "0x409110",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "FECS",
+      "name": "FECS_SCTL",
+      "offset": "0x409240",
+      "raw": 12288,
+      "status": "ok",
+      "value": "0x00003000"
+    },
+    {
+      "group": "PMU",
+      "name": "PMU_CPUCTL",
+      "offset": "0x10a100",
+      "raw": 16,
+      "status": "ok",
+      "value": "0x00000010"
+    },
+    {
+      "group": "PMU",
+      "name": "PMU_BOOTVEC",
+      "offset": "0x10a104",
+      "raw": 65536,
+      "status": "ok",
+      "value": "0x00010000"
+    },
+    {
+      "group": "PMU",
+      "name": "PMU_SCTL",
+      "offset": "0x10a240",
+      "raw": 12288,
+      "status": "ok",
+      "value": "0x00003000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_STATUS",
+      "offset": "0x100a2c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_ADDR_LO",
+      "offset": "0x100a30",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_ADDR_HI",
+      "offset": "0x100a34",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_INST_LO",
+      "offset": "0x100a38",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_INST_HI",
+      "offset": "0x100a3c",
+      "raw": 3,
+      "status": "ok",
+      "value": "0x00000003"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_INFO",
+      "offset": "0x100a40",
+      "raw": 3135197248,
+      "status": "ok",
+      "value": "0xbadf5040"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_PRI_CTRL",
+      "offset": "0x100c80",
+      "raw": 2129921,
+      "status": "ok",
+      "value": "0x00208001"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_TLB_FLUSH",
+      "offset": "0x100cbc",
+      "raw": 5,
+      "status": "ok",
+      "value": "0x00000005"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF0_LO",
+      "offset": "0x100e24",
+      "raw": 73728,
+      "status": "ok",
+      "value": "0x00012000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF0_HI",
+      "offset": "0x100e28",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF0_SIZE",
+      "offset": "0x100e2c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF0_GET",
+      "offset": "0x100e30",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF0_PUT",
+      "offset": "0x100e34",
+      "raw": 1073750113,
+      "status": "ok",
+      "value": "0x40002061"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF1_LO",
+      "offset": "0x100e44",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF1_HI",
+      "offset": "0x100e48",
+      "raw": 1073747968,
+      "status": "ok",
+      "value": "0x40001800"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF1_SIZE",
+      "offset": "0x100e4c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF1_GET",
+      "offset": "0x100e50",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "MMU",
+      "name": "MMU_FAULT_BUF1_PUT",
+      "offset": "0x100e54",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "BAR",
+      "name": "BAR1_BLOCK",
+      "offset": "0x001704",
+      "raw": 3145418,
+      "status": "ok",
+      "value": "0x002ffeca"
+    },
+    {
+      "group": "BAR",
+      "name": "BIND_STATUS",
+      "offset": "0x001710",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "BAR",
+      "name": "BAR2_BLOCK",
+      "offset": "0x001714",
+      "raw": 3145439,
+      "status": "ok",
+      "value": "0x002ffedf"
+    },
+    {
+      "group": "PCCSR",
+      "name": "PCCSR_INST_0",
+      "offset": "0x800000",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PCCSR",
+      "name": "PCCSR_CHAN_0",
+      "offset": "0x800004",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PCCSR",
+      "name": "PCCSR_INST_1",
+      "offset": "0x800008",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "PCCSR",
+      "name": "PCCSR_CHAN_1",
+      "offset": "0x80000c",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "USERMODE",
+      "name": "USERMODE_CFG",
+      "offset": "0x810000",
+      "raw": 50017,
+      "status": "ok",
+      "value": "0x0000c361"
+    },
+    {
+      "group": "USERMODE",
+      "name": "USERMODE_4",
+      "offset": "0x810004",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "USERMODE",
+      "name": "USERMODE_TIME_LO",
+      "offset": "0x810010",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "USERMODE",
+      "name": "USERMODE_TIME_HI",
+      "offset": "0x810014",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "USERMODE",
+      "name": "USERMODE_NOTIFY_CHAN_PENDING",
+      "offset": "0x810090",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC0_BOOT0",
+      "offset": "0x400000",
+      "raw": 3135197248,
+      "status": "ok",
+      "value": "0xbadf5040"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC0_GR_BOOT0",
+      "offset": "0x410000",
+      "raw": 839387648,
+      "status": "ok",
+      "value": "0x32080a00"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC0_GPCCS_BOOT0",
+      "offset": "0x418000",
+      "raw": 2273313439,
+      "status": "ok",
+      "value": "0x8780029f"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC0_GPCCS_CPUCTL",
+      "offset": "0x418100",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC0_GPCCS_PC",
+      "offset": "0x418110",
+      "raw": 0,
+      "status": "ok",
+      "value": "0x00000000"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC0_GPCCS_SCTL",
+      "offset": "0x418240",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC1_BOOT0",
+      "offset": "0x420000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC1_GPCCS_BOOT0",
+      "offset": "0x428000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC1_GPCCS_CPUCTL",
+      "offset": "0x428100",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC1_GPCCS_PC",
+      "offset": "0x428110",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC1_GPCCS_SCTL",
+      "offset": "0x428240",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC2_BOOT0",
+      "offset": "0x430000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC2_GPCCS_BOOT0",
+      "offset": "0x438000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC2_GPCCS_CPUCTL",
+      "offset": "0x438100",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC3_BOOT0",
+      "offset": "0x440000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC3_GPCCS_BOOT0",
+      "offset": "0x448000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC3_GPCCS_CPUCTL",
+      "offset": "0x448100",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC4_BOOT0",
+      "offset": "0x450000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC4_GPCCS_BOOT0",
+      "offset": "0x458000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC5_BOOT0",
+      "offset": "0x460000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    },
+    {
+      "group": "GPCCS_SCAN",
+      "name": "GPC5_GPCCS_BOOT0",
+      "offset": "0x468000",
+      "raw": 3135181056,
+      "status": "ok",
+      "value": "0xbadf1100"
+    }
+  ],
+  "timestamp": "2026-03-19T16:46:36Z"
+}

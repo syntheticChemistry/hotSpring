@@ -1,0 +1,1891 @@
+# Changelog
+
+All notable changes to the hotSpring BarraCuda validation crate.
+
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## Unreleased — coralReef Sprint 9 GEMM + Wire Compat Rewire (May 13, 2026)
+
+### Added
+- **GlowplugClient::compile_gemm()**: IPC wrapper for coralReef `shader.compile.gemm` — tensor-core GEMM kernel compilation (SM80+ `mma.sync.aligned`). f16→f32, f16→f16, TF32 precision modes.
+- **Capability registry**: +1 entry: `shader.compile.gemm` in both `niche.rs` and `capability_registry.toml`.
+
+### Fixed
+- **GPR field name**: `compute_dispatch.rs` now reads `"gprs"` (canonical wire name) in addition to `"gpr_count"` (legacy) from `shader_info` in compile responses. Aligns with coralReef's `CompilationInfoResponse` wire contract.
+
+### Changed
+- **fleet_toadstool.rs**: Doc comments updated to describe E2E compute kernel pipeline (coralReef compile → toadStool PBDMA submit).
+- **PRIMAL_GAPS.md**: HMMA GEMM codegen marked as SHIPPED. Wire compat alias support documented.
+
+## Unreleased — toadStool S258 PBDMA Dispatch Rewire (May 13, 2026)
+
+### Added
+- **GlowplugClient PBDMA surface**: `device_vfio_open()`, `device_vfio_alloc()`, `device_vfio_roundtrip()` — IPC wrappers for toadStool S258 VFIO PBDMA dispatch (DMA alloc, upload, readback, GPFIFO submission).
+- **WarmCatchResult.vfio_open/channel_id**: S258 fields — `vfio_open` indicates PBDMA channel ready, `channel_id` contains PFIFO channel ID.
+- **s_vfio_dispatch.rs PBDMA validation**: After warm catch, probes `device.vfio.open` + `device.vfio.roundtrip` for DMA buffer roundtrip verification.
+- **s_sovereign_dispatch.rs PBDMA routability**: Added `pbdma_open_routable` and `pbdma_roundtrip_routable` checks.
+- **Capability registry**: +3 entries: `device.vfio.open`, `device.vfio.alloc`, `device.vfio.roundtrip` in both `niche.rs` and `capability_registry.toml`.
+- **PRIMAL_GAPS.md**: NVIDIA PBDMA dispatch marked WIRED (S258). Phase D status updated to WIRED for both AMD and NVIDIA. Hardware validation checklist added (DMA roundtrip, GPFIFO NOP, warm channel, sync timing).
+
+### Changed
+- **fleet_toadstool.rs**: Doc comments updated to reflect S258 full `ComputeDevice` trait impl (alloc → upload → dispatch → sync → readback).
+- **GlowplugClient::dispatch()**: Doc updated to reference S258 PBDMA dispatch wiring.
+- **s_vfio_dispatch.rs header**: Updated to S258 PBDMA pipeline documentation.
+
+## Unreleased — Sovereign Compute Evolution (May 13, 2026)
+
+### Added
+- **GlowplugClient::device_warm_catch()**: New method for toadStool S252+ `device.warm_catch` RPC — catches warm GPU after driver handoff, probes FECS state. `WarmCatchResult` struct with `fecs_ready`, `chip_id`, `capabilities`. +3 tests.
+- **PrecisionAdvisory.dispatch_path**: New field from barraCuda Sprint 64 — `"wgpu"` | `"sovereign"` | `"unavailable"`. Consumed in `s_compute_trio` and `s_hotqcd_dispatch` validation checks.
+- **BarrierShaderValidation.binary_size/gpr_count**: Compile response metadata from coralReef `size`/`binary_b64` and `shader_info.gpr_count` fields.
+- **s_sovereign_dispatch.rs evolved**: Added `dispatch_path` validity checks, `device.warm_catch` routability, Phase D local dispatch probe (feature-gated).
+- **s_vfio_dispatch.rs evolved**: Replaced excised `coral-gpu` GpuContext path with toadStool IPC: `ember.fecs.state` probe, `device.warm_catch` with `expected_sm`, Phase D dispatch probe. No longer depends on `sovereign-dispatch` feature for sysfs/FECS checks.
+- **Capability registry**: +8 entries: `ember.swap`, `auth.peer_info`, `provenance.get`, `shader.compile.wgsl.multi`, `shader.compile.status`, `shader.compile.capabilities` in both `niche.rs` and `capability_registry.toml`.
+
+### Fixed
+- **IPC param mismatch**: hotSpring sent `"source"` to `shader.compile.wgsl` but coralReef expects `"wgsl_source"`. Fixed in 4 call sites: `s_compute_trio.rs`, `s_hotqcd_dispatch.rs` (×2), `compute_dispatch.rs`. Stale `format`/`source_type`/`target` params removed.
+- **CORALREEF_SOCKET deprecation**: `precision_brain.rs` now emits `log::warn!` when legacy `CORALREEF_SOCKET` is detected, directing to `TOADSTOOL_SOCKET`. `CORALREEF_MANIFEST` fallback removed.
+
+### Changed
+- **fleet_toadstool.rs docs**: Reflect Phase D completion (S254), `NvVfioComputeDevice` FECS-gated warm probe (S256), PBDMA next.
+- **GAP-HS-041 RESOLVED**: `stats.entropy` available as alias of `stats.shannon` since barraCuda Sprint 50.
+- **GAP-HS-027 updated**: `TensorSession::sub()`/`negate()` shipped (Sprint 66). Momentum-update primitives complete for HMC leapfrog.
+
+## Unreleased — Trio Modern Rewire (May 13, 2026)
+
+### Changed
+- **coral-gpu dependency removed**: coralReef Sprint 9 excised `coral-gpu`, `coral-ember`, `coral-glowplug`, and `coral-driver` source. The `coral-gpu` path dependency in `Cargo.toml` is now commented out. `sovereign-dispatch` feature no longer pulls `dep:coral-gpu`. All 590/590 lib tests pass.
+- **sovereign-dispatch feature**: Now a stub feature — `coral_sovereign` bin_helpers and VFIO validation bins will not compile until the dependency is rewired to toadStool's equivalent (Phase C/D). The IPC path is now via barraCuda v0.4.0's `sovereign_dispatch_wire.rs` → `compute.dispatch.submit`.
+- **fleet_client.rs rewired to toadStool**: Discovery chain now: (1) NUCLEUS `compute` domain, (2) toadStool `compute.sock` direct probe, (3) legacy coralReef diesel. Added `toadstool_compute_socket()` resolver (`$TOADSTOOL_SOCKET` → `$XDG_RUNTIME_DIR/biomeos/compute.sock`).
+- **primal_bridge.rs PRIMAL_ALIASES expanded**: Added `toadstool → [toadstool-server, compute]` and `barracuda → [barracuda-core, math]` alongside existing `coralreef → [coral-glowplug, shader]`.
+- **niche.rs ROUTED_CAPABILITIES expanded**: Added `compute.dispatch.status/forward`, `gpu.query_info/memory/telemetry`, `compute.hardware.observe/status/vfio_devices`, `shader.dispatch`, `ember.list`. Phase C pending methods annotated in comments.
+- **capability_registry.toml aligned with toadStool S243**: New `phase-c-pending` served status for ember lifecycle methods not yet implemented. Added `gpu.*`, `compute.hardware.*`, `shader.dispatch` entries. Matches niche.rs routing table.
+- **PrecisionAdvisory struct aligned with barraCuda v0.4.0**: Added `fma_safe`, `requires_compiler`, `rationale`, `needs_sovereign_compile`, `adapter` fields. Removed `gpu_preferred`, `notes`. `precision_advisory()` now takes `domain` only (barraCuda v0.4.0 contract: `{"domain": "<snake_case>"}`).
+- **Validation scenarios updated**: `s_hotqcd_dispatch`, `s_compute_trio`, `s_sovereign_dispatch` use updated `precision_advisory()` signature and `PrecisionAdvisory` fields.
+
+### Noted (upstream evolution since last audit)
+- **coralReef Sprint 8–9**: Feature freeze → full excision of diesel engine stack. coralReef is now a pure compiler primal (7 crates: coral-reef, coral-reef-isa, coral-reef-stubs, coral-reef-bitview, coralreef-core, nak-ir-proc, primal-rpc-client). FECS cold silicon init landed (Sprint 6: retry with PMC GR reset). Compiler domain clean.
+- **toadStool S237–S243**: Phase A (ember) and Phase B (glowplug) absorbed. Daemon serves `ember.list`/`ember.status`. Phase C (cylinder + coral-driver absorption) still planned — `toadstool-cylinder` crate does not exist yet. VFIO fd holding is metadata-only (`Option<i32>`), not `OwnedFd`. No `device.swap`, `warm_catch`, `ember.mmio.*`, `ember.falcon.*` RPCs. No CLI warm-fecs/swap commands. Split plan documented in `PHASE_C_CORAL_DRIVER_SPLIT_PLAN.md`.
+- **barraCuda v0.4.0**: `sovereign_dispatch_wire.rs` extracts IPC transport for `compute.dispatch.submit`. `precision.route` method wired. 15-tier precision ladder. Method gate auth. Trio E2E tests. Fleet/discovery drift toward toadStool names documented.
+
+## Unreleased — Ember/Glowplug Ownership Audit (May 12, 2026)
+
+### Fixed
+- **Stale coral-ember binary crash**: Rebuilt `coral-ember`, `coral-glowplug`, `coralctl` from current coralReef source. Zombie `<defunct>` processes eliminated (GAP-HS-096)
+- **Cylinder device.swap translation**: Diesel engine ECU routes `device.swap` to cylinder→ember, but ember only knows `ember.swap`. Added `device.*` → `ember.*` method translation in `cylinder.rs` catch-all handler
+
+### Validated
+- **Titan V warm VFIO dispatch pipeline** (3/4 tests PASS):
+  - VFIO warm open: PASS (Nvidia Sm70)
+  - WGSL compile (write_constant): PASS (192 bytes, 22 GPRs)
+  - WGSL compile (wilson_plaquette_f64): PASS (6000 bytes, 38 GPRs)
+  - WGSL compile (su3_gauge_force_f64): PASS (20096 bytes, 54 GPRs)
+  - Dispatch + readback: FAIL (FECS compute context not initialized)
+
+### Documented
+- **Dual-existence audit**: Mapped ember/glowplug/cylinder ownership across coralReef and toadStool. Phase A+B absorbed types/traits but NOT daemon runtime. toadStool daemon mode lacks: `device.swap` RPC, cylinder subprocess, VFIO fd holding, warm-catch pipeline, coralctl CLI parity
+
+## Unreleased — Warm VFIO Dispatch Evolution (May 12, 2026)
+
+### Added
+- **`coral-gpu` warm VFIO API**: `from_vfio_warm()`, `from_vfio_warm_with_sm()`, `from_vfio_warm_legacy()` — warm-aware VFIO entry points that preserve GPU state from `coralctl warm-catch`, fixing cold-vs-warm init mismatch (GAP-HS-095 cont)
+
+### Changed
+- **`validate_vfio_sovereign` binary**: Defaults to warm mode; `--cold` flag for cold init; K80 targets use `WarmLegacy` mode automatically (PLX 8747 safe); `--legacy` flag for explicit legacy VFIO group path
+- **`s_vfio_dispatch` scenario**: `VfioTarget` gains `use_legacy` field; K80 uses `from_vfio_warm_legacy()`, Titan V uses `from_vfio_warm_with_sm()`
+
+## Unreleased — VFIO Sovereign Dispatch Wiring (May 12, 2026)
+
+### Added
+- **`coral-gpu` VFIO feature enabled**: `Cargo.toml` now includes `features = ["vfio"]` on `coral-gpu`, unlocking `GpuContext::from_vfio()`, `from_vfio_with_sm()`, and VFIO backend preference in `auto()` (GAP-HS-095)
+- **`validate_vfio_sovereign` binary**: In-process VFIO dispatch validation — sysfs GPU discovery, per-GPU open/compile/dispatch/readback on Titan V (SM70), K80 die0/die1 (SM37). CLI `--bdf`/`--sm` for hardware targeting
+- **`s_vfio_dispatch` scenario**: `GpuCompute`-track Live-tier scenario — VFIO driver presence, sysfs binding, full dispatch pipeline with sentinel verification. Graceful `sovereign-dispatch` feature degradation
+
+### Changed
+- **Scenario count**: 14 default + 3 feature-gated = 17 total (was 13 + 3 = 16)
+
+## Unreleased — Compute Trio Pipeline Wiring (May 12, 2026)
+
+### Added
+- **`s_compute_trio` scenario**: `GpuCompute`-track Live-tier scenario exercising full barraCuda→coralReef→toadStool pipeline: precision advisory, shader compilation, workload preflight, dispatch probe, per-GPU hardware readiness (RTX 5060/Titan V/K80) (GAP-HS-094)
+- **`s_hotqcd_dispatch` scenario**: `GpuCompute`-track Live-tier scenario for lattice QCD dispatch — 6 core QCD shader compilation through coralReef IPC, 3 silicon routing shader compilation, precision advisory f64/mixed/df64 confirmation, toadStool dispatch with QCD workload metadata (GAP-HS-094)
+- **`GlowplugClient` NUCLEUS evolution**: `call_with_nucleus_fallback()` helper — 7 lifecycle methods (`list_devices`, `dispatch_with_options`, `device_swap`, `device_health`, `device_resurrect`, `sovereign_boot`) now prefer `call_by_capability("compute", ...)` with glowplug socket fallback
+- **Expanded ROUTED_CAPABILITIES**: `ember.device.health`, `ember.device.recover`, `device.list`, `sovereign.boot` added to niche routing table + `capability_registry.toml`
+
+## Unreleased — Sovereign GPU Validation Niche Wiring (May 12, 2026)
+
+### Added
+- **`s_sovereign_dispatch` scenario**: First `GpuCompute`-track, `Live`-tier validation scenario exercising toadStool.validate preflight, precision.route advisory, compute.dispatch.submit probe, ember.fecs.state sentinel, and ember.warm_cycle routable check (GAP-HS-093)
+- **`s_cold_boot_sentinel` scenario**: Second `GpuCompute`-track scenario for coralReef FECS sentinel — typed `FecsState` parsing, device health/recovery routing, dispatch result routable checks
+- **`FusedPipeline`** (`compute_dispatch.rs`): Multi-op session dispatch with `compute.dispatch.submit_fused` + sequential fallback, dependency graph, per-op results (TensorSession evolution, GAP-HS-027)
+- **`FecsState` typed struct** (`ember_types.rs`): Replaces untyped `serde_json::Value` for `ember.fecs.state` — structured `running`, `pc`, `cpuctl`, `mailbox0`, `sctl`, `error`, `timed_out` fields with `is_faulted()` helper for coralReef sentinel feedback
+- **`try_local_dispatch()`** (`fleet_toadstool.rs`): Phase D local dispatch function + `LocalDispatchResult` struct for parity validation with coralReef-forwarded dispatch
+- **`local-dispatch` feature flag**: Enables Phase D `try_local_dispatch()` (depends on `toadstool-dispatch`)
+- **Sovereign lifecycle ROUTED_CAPABILITIES**: `compute.dispatch.result`, `ember.status`, `ember.warm_cycle`, `ember.adopt_device`, `ember.fecs.state` added to niche routing table + `capability_registry.toml`
+- **Tier 2 in `hotspring_unibin status`**: Shows toadStool/barraCuda Tier 2 readiness and `fully_wired` status
+- **Workload preflight in scenario runner**: `workload_preflight("hotspring-scenarios")` called before validation run
+
+### Changed
+- **`fleet_ember.rs`**: `status()`, `warm_cycle()`, `adopt_device()`, `fecs_state()`, `device_health()`, `device_recover()` now prefer `call_by_capability("compute", ...)` via NUCLEUS with direct socket fallback
+- **`fecs_state()` return type**: `serde_json::Value` → typed `FecsState` struct
+
+### Tests
+- 1,042 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
+- 3 new `FecsState` tests: `fecs_state_deserializes_running`, `fecs_state_faulted_on_timeout`, `fecs_state_minimal_deserializes`
+- 3 new `FusedPipeline` tests: `fused_pipeline_builds_ops`, `fused_pipeline_serializes`, `fused_result_all_succeeded_logic`
+
+## Unreleased — Compute Trio Rewire + Deep Debt Capability Discovery (May 12, 2026)
+
+### Added
+- **`fleet_toadstool.rs`** (`toadstool-dispatch` feature): `ToadStoolDispatchClient` for IPC with toadStool — parallel migration path for Phase C ember→toadStool cutover
+- **`validate_compute_trio_pipeline` binary**: End-to-end validation of barraCuda→coralReef→toadStool→hardware chain (Yukawa force, Wilson plaquette, barrier shader compilation)
+- **`validate_barrier_shaders()`** (`compute_dispatch.rs`): Catalogues 9 WGSL shaders using `workgroupBarrier()` for coralReef `membar.{cta,gl}` emitter validation
+- **`HardwareHint` field** on `PrecisionRoute` with domain-based defaults (`hardware_hint_for_domain()`)
+- **PCI vendor ID constants** (`register_maps/mod.rs`): `PCI_VENDOR_NVIDIA`, `PCI_VENDOR_AMD`
+- **`bar0_map_size()`** (`low_level/bar0.rs`): Discovers BAR0 mapping size from file metadata instead of hardcoded 16 MiB
+
+### Changed
+- **`PrecisionTier` / `PhysicsDomain`** (`precision_routing.rs`): Now re-exported from upstream barraCuda (15-tier, 15-variant canonical enums); local 4/12-variant definitions removed
+- **`detect_sovereign_available()`** (`precision_brain.rs`): Inverted to NUCLEUS `by_domain("shader")`-first discovery; env vars (`CORALREEF_SOCKET`, `CORALREEF_MANIFEST`) are CI/lab fallbacks; removed XDG_DATA_DIRS filesystem scan
+- **IPC provenance clients** (`sweetgrass.rs`, `rhizocrypt.rs`, `loamspine.rs`): Evolved from `niche::socket_dirs()` + hardcoded `biomeos/*.sock` paths to NUCLEUS `by_domain()` capability discovery
+- **`skunkbat.rs`**: Evolved from hardcoded `skunkbat/skunkbat.sock` path to `by_domain("security")` NUCLEUS discovery
+- **`certification/deployment.rs`**: `REQUIRED_PRIMALS` constant replaced with `required_primals()` derived from `niche::DEPENDENCIES`
+- **`compute_dispatch.rs`**: Barrier shader validation uses `call_by_capability("shader", ...)` instead of direct `send_jsonrpc` on coralReef socket
+- **`toadstool_report.rs`**: `toadstool_socket()` prefers NUCLEUS `by_domain("compute")`; `report_to_toadstool_with_nucleus()` prefers `call_by_capability` over direct IPC
+- **`fleet_client.rs`**: `Vec<&String>` → `Vec<&str>` with `sort_unstable()`
+- **`low_level/bar0.rs`**: Sysfs PCI base path overridable via `HOTSPRING_SYSFS_PCI` env var
+
+### Tests
+- 1,039 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
+
+## Unreleased — Composition Evolution (April 11, 2026; April 17, 2026 work is logged in the repository root `CHANGELOG.md`)
+
+### Added
+- **Science composition probes** (`composition.rs`): `validate_science_probes()` executes `probe_compute_health`, `probe_math_capability`, and `probe_provenance_trio` — validates IPC-composed NUCLEUS patterns against local Rust baselines
+- **biomeOS scheduling metadata** (`niche.rs`): `operation_dependencies()`, `cost_estimates()`, `SEMANTIC_MAPPINGS`, `socket_dirs()`, `resolve_server_socket()`, `resolve_neural_api_socket()` — matches sibling spring patterns for biomeOS orchestration
+- **Brain persistence module** (`lattice/gpu_hmc/brain_persistence.rs`): `BrainState`, `SerializableWeights`, and persistence functions extracted from `brain_rhmc.rs` to stay under 1000 LOC
+- **Squirrel in proto-nucleate**: Optional node (Phase 3) in `downstream_manifest.toml` with `inference.*` capabilities
+
+### Changed
+- **Capability-based routing** (`primal_bridge.rs`): `by_domain()` is now the preferred lookup; named accessors (`toadstool()`, `beardog()`, etc.) route through `by_domain()` first, falling back to name-based lookup
+- **JSON-RPC 2.0 compliance** (`hotspring_primal.rs`): Method-not-found responses now use proper top-level `error` objects with `code`/`message` fields via `DispatchResult` enum
+- **Unsafe code audit**: `bench_silicon_profile.rs` rewritten with `std::thread::scope` (was raw pointer cast); `validate_5060_dual_use.rs` and `exp070_register_dump.rs` documented with explicit `#![allow(unsafe_code)]` and feature-gating rationale
+
+### Fixed
+- `validation_matrix.rs`: Removed unused `CliArgs` import
+- `exp157_k80_devinit_replay.rs`: Removed redundant `alias = "mask"` (unreachable pattern)
+- `validate_nucleus_composition.rs`: Redundant closure → `Vec::len`
+- `niche.rs` tests: Removed unfulfilled `#[expect(clippy::unwrap_used)]`
+- `composition.rs`: `too_long_first_doc_paragraph` + `vec![]` initialization
+
+## Unreleased — Silicon Tier Routing Sprint (March 28, 2026)
+
+### Added
+- **True multi-shift CG** (`true_multishift_cg.rs`): Shared Krylov subspace across all shifts — single D†D per iteration instead of N_shifts. Exponential back-off convergence with `std::hint::black_box` to prevent optimizer interference. Pre-created bind groups for zero allocation in hot loop. 3 new WGSL shaders: `ms_zeta_update_f64.wgsl`, `ms_x_update_f64.wgsl`, `ms_p_update_f64.wgsl`. 3 unit tests
+- **Shifted-base CG** (`cg_compute_alpha_shifted_f64.wgsl`, `cg_update_xr_shifted_f64.wgsl`): Base system uses smallest shift σ_min for faster convergence
+- **Resident shifted CG** (`resident_shifted_cg.rs`): Sequential multi-shift CG with GPU-resident scalars, exponential back-off, zero CPU sync in hot loop
+- **GPU-resident Hamiltonian + Metropolis (B2+B3)**: Eliminates all CPU-side Hamiltonian assembly and Metropolis readbacks from the RHMC hot path. Three new WGSL kernels:
+  - `hamiltonian_assembly_f64.wgsl` — assembles H = β(6V - plaq) + T + S_f from GPU-resident scalars
+  - `fermion_action_sum_f64.wgsl` — computes weighted dot-product sum S_f = α₀⟨φ|φ⟩ + Σαₛ⟨φ|xₛ⟩ on GPU, accumulates across sectors
+  - `metropolis_f64.wgsl` — accept/reject + diagnostics in one 56-byte readback
+  - `UniHamiltonianBuffers` extended with `h_old_buf`, `h_new_buf`, `s_ferm_buf`, `dots_buf`, `diag_old_buf`, `diag_new_buf`, `metropolis_staging`
+  - `UniPipelines` extended with `hamiltonian_assembly_pipeline`, `fermion_action_sum_pipeline`, `metropolis_pipeline`
+  - `compute_h_gpu()` orchestrates GPU-only H computation (zero readback)
+  - `gpu_metropolis()` runs accept/reject + link-restore on GPU with single readback
+  - `gpu_rhmc_trajectory_unidirectional` rewired to use fully GPU-resident path
+  - 5 new unit tests: `f64_pipeline_basic_sanity`, `f64_pipeline_passthrough`, `hamiltonian_assembly_kernel_roundtrip`, `fermion_action_sum_kernel_roundtrip`, `metropolis_kernel_roundtrip`
+  - Readback budget reduced from ~(2×(1+n_sectors)+1) sync points to 1 Metropolis readback
+- **`GpuF64::zero_buffer`** and **`GpuF64::create_storage_buffer_init`**: Buffer utilities for GPU-resident scalar workflows
+- **`SiliconProfile`** (`bench/silicon_profile.rs`): Persistent per-GPU personality with theoretical + measured throughput for 9 silicon units, composition multipliers, QCD kernel → tier routing table, serde serialization to `profiles/silicon/*.json`. 8 unit tests
+- **`bench_silicon_profile` binary**: Characterizes all GPUs (FP32, DF64, TMU, ROP, shared memory, ALU+TMU composition), saves profiles to disk
+- **`GpuTelemetry`** (`bench/telemetry.rs`): Non-blocking background poller for GPU util%, power, temperature, VRAM. Supports NVIDIA (nvidia-smi) and AMD (sysfs). Lock-free snapshots
+- **`specs/SILICON_TIER_ROUTING.md`**: Full tier routing architecture spec — 7-tier philosophy, per-kernel routing table, measured data, coralReef integration points, bottleneck roadmap (B1-B5)
+- **Silicon Energy Efficiency Map**: Per-unit energy characterization via differential power measurement. `UnitThroughput` now carries `idle_watts`, `loaded_watts`, `delta_watts`, `ops_per_watt` (all `#[serde(default)]` for backward compat with existing JSON). `CompositionEntry` carries `idle_watts`, `compound_watts`, `delta_watts` for compound energy analysis. `SiliconProfile::set_measured_energy()` computes marginal cost and ops/watt. `bench_silicon_profile` wraps each micro-benchmark with `GpuTelemetry` idle/loaded power snapshots. `print_summary` conditionally shows energy columns (ΔW, Ops/W). 3 new tests: backward compat, ops/watt computation, negative delta clamping
+
+- **GPU-resident Gradient Flow (B4+B5)**: Eliminates the `gpu_links_to_lattice` readback (37+ MB at 8^4) and CPU-side `run_flow`. All flow physics now runs on GPU:
+  - `GpuFlowState::from_gpu_gauge()` — GPU-GPU link copy, no PCI-e round-trip
+  - `FlowReduceBuffers` — reduce chain for O(1) plaquette readback (8 bytes per measurement vs O(V))
+  - `gpu_gradient_flow_resident()` — full LSCFRK 2N-storage flow on GPU with `zero_buffer()` optimization
+  - `GpuFlowPipelines` extended with `reduce_pipeline` for sum-reduce chain
+  - Plaquette measurement via `gpu_flow_plaquette_reduced()` replaces O(V) readback with single scalar
+  - `find_t0`/`find_w0` remain on CPU (trivial post-processing on small measurement vec)
+- **Metropolis s_ferm diagnostics**: `metropolis_f64.wgsl` now exports 9 f64s (was 7): adds `s_ferm_old` and `s_ferm_new` from GPU diag buffers. Readback: 72 bytes (was 56)
+- **CG exponential back-off convergence (B6)**: Both `gpu_cg_solve_resident` and `gpu_shifted_cg_solve_resident` now use exponential back-off — check interval starts at configured value, doubles after each non-converged check, caps at 2000. Reduces sync points from O(I/C) to O(log(I/C)): ~820 → ~25 for typical RHMC trajectories
+- **Zero-fill optimization**: Replaced CPU `Vec<0.0>` allocation + `upload_f64` with `GpuF64::zero_buffer()` in 7 CG init paths: `resident_cg`, `resident_shifted_cg`, `resident_cg_async`, `resident_cg_brain`, `unidirectional_rhmc`, `gpu_rhmc` (2 sites), `dynamical`. Eliminates per-solve CPU heap allocation
+
+### Changed
+- **Fermion force sign convention** (`staggered_fermion_force_f64.wgsl`, `pseudofermion_force_f64.wgsl`, `pseudofermion/mod.rs`): Fixed overall sign from +η/2 to −η. The gauge force convention outputs ∂S/∂U (positive gradient), requiring the fermion per-pole force F = −η·TA[U·(x⊗y†−y⊗x†)]. Original +η/2 caused ΔH~1500; fix produces ΔH=O(1) with all trajectories accepted. Both GPU shaders and CPU reference corrected
+- **CG convergence optimizer fix** (`true_multishift_cg.rs`): `std::hint::black_box(rz_new)` prevents release-mode optimizer from eliminating convergence check comparison. Without this, the GPU staging buffer readback value was optimized away, causing infinite CG loops
+- **`production_silicon_qcd.rs`**: Both `run_gradient_flow_uni` and `run_quenched_gradient_flow` now use `gpu_gradient_flow_resident` instead of `gpu_links_to_lattice + run_flow`. Rewired from `gpu_rhmc_trajectory` (sync-heavy) to `gpu_rhmc_trajectory_unidirectional` (GPU-resident CG). Integrated `GpuTelemetry` for live hardware signals. Performance: RTX 3090 **3.79x speedup** (7997ms → 2111ms), RX 6950 XT **2.06x speedup** (4790ms → 2322ms)
+- **`production_rhmc_flow.rs`**: Flow path rewired from CPU `run_flow` to `gpu_gradient_flow_resident`. Pre-flow plaquette extracted from GPU flow t=0 measurement. The B4/B5 TODO is resolved
+- **`gpu_flow.rs`**: `zero_k_buffer` now uses `GpuF64::zero_buffer()` (queue write) instead of allocating + uploading a zero Vec
+- **CG solvers**: `resident_cg.rs` and `resident_shifted_cg.rs` use exponential back-off internally. The `check_interval` parameter becomes the initial interval; it doubles until convergence or `CG_BACKOFF_CAP` (2000)
+- **CG zero-fill**: All CG init paths use `zero_buffer()` instead of `Vec::new()` + `upload_f64()`
+
+### Deprecated
+- **`gpu_rhmc_trajectory`** — use `gpu_rhmc_trajectory_unidirectional` (~50x fewer sync points)
+- **`gpu_shifted_cg_solve`** — use `gpu_shifted_cg_solve_resident`
+- **`gpu_multi_shift_cg_solve`** — use `gpu_multi_shift_cg_solve_resident`
+- **`gpu_dot_re`** — per-call GPU→CPU readback; modern paths use resident scalars
+- **`gpu_hmc_trajectory`** — use `gpu_hmc_trajectory_streaming`
+- **`gpu_wilson_action`** / **`gpu_plaquette`** — use `compute_gauge_ke_resident` (O(1) readback)
+
+### Found
+- RTX 3090 GPU utilization jumped from <1% to ~43% by removing CPU sync stalls
+- ALU + TMU composition multiplier: 2.80x (NVIDIA), 1.95x (AMD)
+- AMD ROP atomics 7.4x faster than NVIDIA (117.7 vs 16.0 Gatom/s)
+- AMD shared memory 2.5x faster (594.7 vs 240.9 GB/s)
+- Fermion force sign bug: original code used +η/2 (wrong sign AND half magnitude vs gauge convention). Traced by: quenched ΔH≈0 → fermion sector isolated → dt-invariance test → force re-derivation → gauge force convention comparison
+- Compiler optimizer eliminates GPU staging buffer convergence check in release mode without `black_box` or side-effecting use of the value
+- Removing diagnostic readbacks from RHMC hot path: **37% wall-time speedup** (26s → 16.5s per trajectory)
+- True multi-shift CG: N_shifts×I → I D†D applications, validated against sequential CG (identical ΔH, plaquettes)
+
+---
+
+## Silicon Science Sprint (March 26, 2026)
+
+### Added
+- **`validate_silicon_science` binary** (Exp 096): First non-shader-core silicon experiment. Tests TMU table lookup vs compute shader exp() across RTX 3090, RX 6950 XT, and llvmpipe. Maps 11 QCD operations to 9 silicon unit types. 12/12 pass
+- **TMU texture lookup experiment**: `textureLoad` on R32Float 2D texture (1024×1) for exp() table. RTX 3090: 1.89x throughput over compute. AMD: 1.24x. Validates TMU as science-accessible silicon unit
+- **QCD-to-silicon mapping**: Wilson plaquette, gauge force, CG solver, dot product, neighbor search, EOS lookup, scatter-add, binning, distance fields, AMR, trajectory compression — each mapped to optimal hardware unit with LIVE/PLAN status
+- **toadStool performance surface integration**: All measurements structured as `PerformanceMeasurement` with `math.*` operation IDs, `silicon_unit` field, and `tolerance_achieved`
+
+### Changed
+- **toadStool socket discovery** (`toadstool_report.rs`): Checks `$XDG_RUNTIME_DIR/biomeos/toadstool.jsonrpc.sock` first (matches toadStool default)
+- **Silicon unit wire format**: Fixed `silicon_unit` from `"shader"` to `"shader_core"` to match toadStool `SiliconUnit` enum
+- **`validate_precision_matrix`**: Now reports to toadStool performance surface with granular `math.*` operation IDs
+
+### Found
+- **AMD DF64 advantage**: RX 6950 XT delivers 38% better DF64 throughput than RTX 3090 (23.4M vs 16.9M ops/s). Combined with higher fidelity, AMD RDNA2 is preferred for double-float science
+- **naga WGSL roundtrip bug**: SovereignCompiler Tier 2 (naga parse → optimize → WGSL re-emit) silently breaks DF64 Dekker arithmetic. Tier 2 disabled for DF64 shaders. Raw WGSL (Tier 3) and SPIR-V (Tier 1) paths work correctly
+
+---
+
+## v0.6.32 — Trio Rewire: barraCuda b95e9c59 + coralReef Iter 47 + toadStool S156 (March 13, 2026)
+
+**barraCuda pin**: `82ff983` → `b95e9c59` (deep debt audit, DRY device-lost, expanded test coverage, zero-copy BytesMut tensors, CoralReefDevice auto-discovery replaces from_descriptor, RwLock tensor store, fire-and-forget submit_commands, pedantic deny)
+**coralReef**: Iter 37 → Iter 47 (`ff54331` — GlowPlug graceful shutdown, SIGTERM handler, state snapshot, boot-persistent PCIe broker, DRM render node fencing)
+**toadStool**: S147 → S156 (`ebe6a7cc` — specialty resurrection, standards compliance, full codebase audit)
+
+### Changes
+- **Stale API cleanup**: Removed all `CoralReefDevice::from_descriptor()` calls — API was removed upstream in favor of auto-discovery via `with_auto_device()`. Simplified sovereign dispatch probe in `md_backend.rs` and `bench_sovereign_dispatch.rs`
+- **Sovereign compile binary rewrite**: `validate_sovereign_compile` now uses `CoralCompiler` IPC client (`GLOBAL_CORAL.compile_wgsl_direct`) instead of the removed `CoralReefDevice::compile_wgsl` direct API
+- **Dead code gating**: `NPU_DEVICE_DIRS`/`NPU_DEVICE_PREFIXES` constants gated behind `#[cfg(not(feature = "npu-hw"))]` — only used in sysfs probe fallback
+- **Stale patch removal**: Removed unused `coral-gpu`, `coral-reef`, `coral-driver` path patches from `.cargo/config.toml` — compilation is now IPC-only via `CoralCompiler`
+- **Formatting**: `cargo fmt` applied across all bins
+
+### Validation
+- 848 lib tests passing (0 failures)
+- 0 clippy warnings (lib, --all-features)
+- All bins compile clean with sovereign-dispatch feature
+- metalForge/forge: 25 tests passing
+
+---
+
+## v0.6.31 — Gap Closure: barraCuda 82ff983 + coralReef Iter 37 + toadStool S147 (March 12, 2026)
+
+**barraCuda pin**: `d761c5d` → `82ff983` (dispatch_binary wired on CoralReefDevice, coral cache → dispatch, capability-based namespace, VoltaNoPmuFirmware workaround, sovereign_resolves_poisoning(), ODE solver refactor, Gap 1 CLOSED)
+**coralReef**: Iter 35 → Iter 37 (`fe9fae4` — sovereign GSP module: firmware parser + knowledge base + applicator + dispatch optimizer, UVM GPFIFO submission + USERD doorbell + completion polling, dispatch_precompiled + KernelCacheEntry + arch_name, NvDrmDevice evolved to UVM delegator, Gap 2 partially closed, 1635 tests)
+**toadStool**: S146 → S147 (`ac3ea6d6` — hw-learn pipeline wired as compute.hardware.* JSON-RPC, RegisterAccess bridge: nvPmu Bar0Access → hw-learn, spirv_codegen_safety rename, FirmwareInventory in gpu.info, 20,015 tests, Gap 4 CLOSED)
+
+### Changes
+- **Pin update**: barraCuda `d761c5d` → `82ff983` (3 commits absorbed)
+- **Sovereign routing evolution**: MD precision strategy (simulation/mod.rs, verlet.rs, celllist.rs) now detects `sovereign_resolves_poisoning()` — when sovereign dispatch can bypass DF64 SPIR-V poisoning, enables DF64 transcendentals that were previously blocked. Strategy label reflects this ("sovereign bypass — poisoning resolved")
+- **SM86/Ampere dispatch strategy**: md_backend sovereign dispatch probe now tries SM86/Ampere before SM70/Volta, matching our proven RTX 3090 hardware test results
+- **Gap status absorption**: Gap 1 (dispatch_binary) CLOSED by barraCuda 82ff983. Gap 4 (RegisterAccess bridge) CLOSED by toadStool S147. Gap 2 (GPFIFO) partially closed by coralReef Iter 37. Gap 3 (FECS) UNBLOCKED by DRM fix (eb4b4eb)
+
+### Validation
+- 848 lib tests passing (0 failures) — both default and sovereign-dispatch features
+- 0 clippy warnings (pedantic)
+- Clean compile against all three upstream primals at latest
+
+### Upstream Cross-Pollination
+- coralReef Iter 37 sovereign GSP firmware parser supports 22 NVIDIA chips (gv100 through ad102); knowledge base enables cross-architecture register transfer learning
+- barraCuda PRIMAL_NAMESPACE replaces hardcoded "barracuda" strings for capability-based discovery
+- toadStool S147 hw-learn observe/distill/apply/share_recipe/status wired as biomeOS v2.30 JSON-RPC
+
+---
+
+## v0.6.30 — Upstream Sync v5: barraCuda d761c5d + coralReef Iter 35 (March 9, 2026)
+
+**barraCuda pin**: `0649cd0` → `d761c5d` (ReduceScalarPipeline f64 zeros fix, Df64SpirVPoisoning rename, BatchedComputeDispatch, double-allocation elimination)
+**coralReef**: Iter 33 → Iter 35 (`1dfbaff` — FirmwareInventory struct, drm_ioctl_named, 5 compile-time UAPI ABI guards, SM89 DF64 validation, 5 deformed HFB shaders absorbed from hotSpring, legalize refactor, 1616 tests)
+**toadStool**: S146 (unchanged — hw-learn crate stable)
+
+### Changes
+- Rewire barraCuda dependency from `0649cd0` to `d761c5d`
+- **API rename**: `has_nvvm_df64_poisoning_risk()` → `has_df64_spir_v_poisoning()` in 3 lib modules + 1 diagnostic binary — reflects root cause (naga codegen, not NVVM-specific). Detection now applies to ALL Vulkan backends unconditionally
+- **BatchedComputeDispatch**: sovereign engine `dispatch_md_step()` batches kick_drift + force + half_kick into a single GPU submission (~1.8x dispatch overhead reduction on Vulkan). Dead sequential dispatch helpers removed
+- **ReduceScalarPipeline f64 fix absorbed**: upstream now always uses DF64 (f32-pair) accumulation in workgroup shared memory, fixing the all-zeros bug on naga→SPIR-V (hotSpring Exp 055)
+- **Cross-spring evolution**: coralReef Iter 34 absorbed 5 deformed HFB shaders from hotSpring; coralReef Iter 35 absorbed FirmwareInventory pattern from toadStool hwLearn handoff
+- **Virtual GSP progress**: coralReef FirmwareInventory provides `compute_viable()` and `compute_blockers()` — parallel to toadStool sysmon's implementation, enabling both compile-time (coralReef) and runtime (toadStool) firmware probing
+
+### Validation
+- 848 lib tests passing (0 failures)
+- 0 clippy warnings (pedantic)
+- Clean compile against barraCuda d761c5d (API rename absorbed)
+
+---
+
+## v0.6.29 — Upstream Sync v4: barraCuda v0.3.5 + toadStool S146 + coralReef Iter 31 (March 11, 2026)
+
+**barraCuda pin**: `a012076` → `8d63c77` (v0.3.5 — health module, pharma ops, stable specials, FMA policy, 36 tolerances, tridiag eigensolver GPU, HMM batch shader, hydrology extensions, P0 fixes)
+**toadStool**: S145 → S146 (`751b3849` — `nvvm_transcendental_risk` in `gpu.info`, PrecisionBrain in `compile_wgsl_multi`, VRAM-aware routing, 19 SpringDomain variants, HealthSpring, PcieTopologyGraph stable)
+**coralReef**: Iter 30 → Iter 31 (`9d63b72` — all 9 cross-spring shader gaps resolved, FMA lowering, f64 log2 fix, vec3\<f64\> scalarization, SU3 preamble, Nouveau UAPI migration, UVM 0x1F fix, 1509 tests)
+
+### Changes
+- Rewire barraCuda dependency from `a012076` to `8d63c77` (v0.3.5)
+- Update precision_brain.rs, hardware_calibration.rs, precision_routing.rs doc comments to reference v0.3.5/S146/Iter 31
+- Acknowledge upstream absorption of: PrecisionBrain compile API, FmaPolicy with `domain_requires_separate_fma()`, 36 tolerances with introspection, GPU stable specials (log1p, expm1, erfc, bessel_j0_minus1), health/pharma modules, tridiag eigensolver
+- coralReef Iter 31 resolves all 9 remaining cross-spring shader compilation gaps; 84/84 corpus tests pass; sovereign compile now 46/46 (was 45/46)
+
+### Validation
+- 847 lib tests passing (0 failures)
+- 0 clippy warnings (pedantic)
+- Clean compile against barraCuda v0.3.5 (no API breaks)
+
+---
+
+## v0.6.28 — Upstream Primal Sync v3 + Live Kokkos Parity (March 10-11, 2026)
+
+**barraCuda pin**: `59c8ec5` → `a012076` (v0.3.4 expanded — PrecisionBrain/HardwareCalibration/PrecisionTier absorption, `enable f64;` stripping fix, pharma/bio GPU ops)
+**toadStool**: S144 → S145 (PrecisionBrain absorption, NvkZeroGuard, 8 WorkloadPatterns, ProviderRegistry, dispatch_latency_ratio)
+**coralReef**: Iter 29 → Iter 30 (FMA contraction enforcement via `FmaPolicy::Separate`, multi-device compile API, NVVM bypass test hardening)
+
+### Changes
+- Add 5 new `PhysicsDomain` variants: `PopulationPk`, `Bioinformatics`, `Hydrology`, `Statistics`, `General` — matches upstream barraCuda's 12-domain set
+- Update routing rules in `precision_brain.rs` and `precision_routing.rs` for new domains
+- Acknowledge upstream PrecisionBrain/HardwareCalibration absorption in doc comments
+- Note coralReef Iter 30 FMA lowering enables F64Precise through sovereign compilation path
+- Document toadStool S145 NvkZeroGuard and ProviderRegistry integration seams
+- **Fix DF64 transcendental poisoning**: simulation now falls back to native f64 when `has_nvvm_df64_poisoning_risk()` is true — prevents silent zero-force output from stripped `exp_df64()`/`sqrt_df64()` in `compile_shader_df64()` on NVIDIA proprietary (simulation/mod.rs, verlet.rs, celllist.rs)
+- **Multi-backend benchmark infrastructure**: `MdBenchmarkBackend` trait, `BarraCudaMdBackend`, `KokkosLammpsBackend`, `bench_md_parity` binary
+- **Live Kokkos parity**: 9/9 PP Yukawa DSF cases at N=2000, avg 212.4 steps/s (barraCuda) vs 2,630.2 steps/s (Kokkos-CUDA). **12.4× gap** — primary cause: native f64 fallback (1:32 rate on Ampere)
+- Fix LAMMPS input generation: lattice units for region dimensions, Kokkos device execution flags
+- **Energy reducer bug filed**: `ReduceScalarPipeline::sum_f64()` returns zero despite correct particle dynamics (upstream barraCuda)
+
+### Validation
+- 847 lib tests passing (0 failures, +5 from md_backend)
+- 0 clippy warnings (pedantic)
+- 45/46 sovereign compile (SM70 + SM86) — `complex_f64` gap unchanged
+- Physics verified on both RTX 3090 (native f64 fallback) and Titan V (NVK native f64) via RDF, SSF, VACF
+- Handoff: `HOTSPRING_V0628_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md`
+
+---
+
+## v0.6.27 — Upstream Primal Sync v2: barraCuda v0.3.4 (59c8ec5) + toadStool S144 (March 10, 2026)
+
+### Summary
+
+- **barraCuda pin updated** (`83aa08a` → `59c8ec5`, v0.3.3 → v0.3.4): critical
+  Fp64Strategy routing fix — `SumReduceF64`, `VarianceReduceF64`,
+  `NormReduceF64`, `ProdReduceF64` now correctly call `.df64()` on Hybrid
+  devices instead of `.f64()`. PCIe topology via sysfs (`PcieBridge`,
+  `PcieLinkInfo`), VRAM quota enforcement (`QuotaTracker`), BglBuilder for
+  declarative bind group layout, sovereign validation parallelised via rayon,
+  test pipeline optimised (nautilus 14.3s → 0.01s)
+- **toadStool S144 absorption acknowledged**: toadStool absorbed our NVVM
+  poisoning work into `nvvm_safety.rs` (`NvvmPoisoningRisk`, `PrecisionTier`,
+  `TierCapability` — credited to "hotSpring v0.6.25 handoff"). New PCIe switch
+  topology (`PciBridge`, `GpuPairTopology`, `PcieTopologyGraph`,
+  `WorkloadRouter::route_multi_gpu()`). `gpu_guards` module for safe NVIDIA
+  proprietary test skipping. Multi-device coralReef compilation via
+  `compile_wgsl_multi` / `MultiDeviceCompileRequest`
+- **DevicePair/WorkloadPlanner** references updated S142 → S144: now point to
+  `PcieTopologyGraph` and `WorkloadRouter` for topology-aware multi-GPU routing
+- **HardwareCalibration/PrecisionBrain** references updated: note toadStool S144
+  `nvvm_safety.rs` absorption, `gpu_guards` for safe test skipping,
+  `compile_wgsl_multi` for multi-device sovereign compilation
+- **coralReef** Iteration 28 refs updated to Iteration 29 throughout
+
+### Metrics
+
+- 842 tests (lib), 111+ binaries, 84 WGSL shaders
+- 0 clippy warnings (lib + all binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- Synced: barraCuda `59c8ec5` (v0.3.4), toadStool S144, coralReef Phase 10 Iter 29
+- Sovereign compile: **45/46** SM70+SM86 (Iter 29), 12/12 NVVM bypass
+
+### Changed
+
+- `Cargo.toml`: barraCuda rev `83aa08a` → `59c8ec5`, version `0.6.26` → `0.6.27`
+- `DevicePair` module docs: toadStool S142 → S144, reference `PcieTopologyGraph`
+  and `WorkloadRouter::route_multi_gpu()`
+- `WorkloadPlanner` module docs: toadStool S142 → S144, reference
+  `MultiGpuPlacement` for topology-aware placement
+- `HardwareCalibration`: note toadStool S144 `nvvm_safety.rs` absorption and
+  `gpu_guards` module. coralReef Iteration 28 → 29 in doc comments
+- `PrecisionBrain`: note `compile_wgsl_multi` and `gpu_guards`. coralReef
+  Iteration 28 → 29 in doc comments and routing table builder
+
+### Handoff
+
+`HOTSPRING_V0627_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md` — upstream teams
+
+---
+
+## v0.6.26 — Upstream Primal Rewire: coralReef NVVM Bypass + barraCuda 83aa08a + toadStool S142 (March 10, 2026)
+
+### Summary
+
+- **barraCuda pin updated** (`5c16458` → `83aa08a`, 5 commits): eigensolver
+  (`tridiagonal_ql`), LCG PRNG, activations API, Wright-Fisher popgen,
+  batched f32 logsumexp shader, 5,658 LOC dead code removed upstream
+- **coralReef NVVM bypass integrated**: `HardwareCalibration` now tracks
+  `sovereign_compile_available`. When coralReef is detected and NVVM
+  transcendental risk is present, the `PrecisionBrain` routes through
+  sovereign-safe tiers — unlocking DF64 transcendentals and F64Precise
+  (no-FMA) on proprietary NVIDIA via coralReef Iteration 28's
+  WGSL → SASS bypass pipeline
+- **toadStool S142 references**: `DevicePair` and `WorkloadPlanner` now
+  reference toadStool's `PcieTransport` (GPU-to-GPU topology) and
+  `ResourceOrchestrator` (multi-tenant allocation) for future integration
+- **coralReef Iter 29 validated** (Experiment 050): 45/46 shaders compile
+  to native SASS (up from 44/46). `deformed_potentials_f64` SSARef
+  truncation fixed. 12/12 NVVM bypass patterns pass. ~220 KB native
+  output per target arch
+
+### Metrics
+
+- 842 tests (lib), 111+ binaries, 84 WGSL shaders
+- 0 clippy warnings (lib + all binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- Synced: barraCuda `83aa08a`, toadStool S142, coralReef Phase 10 Iter 29
+- Sovereign compile: **45/46** SM70+SM86 (Iter 29), 12/12 NVVM bypass
+
+### New
+
+- `HardwareCalibration::sovereign_compile_available` — tracks coralReef
+  bypass availability for NVVM-blocked tiers
+- `HardwareCalibration::set_sovereign_available()` — marks sovereign path
+  as active after coralReef detection
+- `HardwareCalibration::tier_safe_with_sovereign()` — considers sovereign
+  bypass when evaluating tier safety
+- `PrecisionBrain::new()` auto-detects coralReef via XDG manifest / socket
+  and enables sovereign routing when NVVM risk is present
+- Display output: `✓sov` for sovereign-safe tiers, `[coralReef bypass]`
+  suffix when sovereign compilation is active
+
+### Changed
+
+- `build_route_table` uses `tier_safe_with_sovereign()` — routes that
+  previously fell back to F64 or F32 due to NVVM transcendental risk now
+  reach F64Precise and DF64 when coralReef is available
+- `DevicePair` module docs reference toadStool S142 `PcieTransport`
+- `WorkloadPlanner` module docs reference toadStool S142 `ResourceOrchestrator`
+
+### Handoff
+
+`HOTSPRING_V0626_UPSTREAM_REWIRE_HANDOFF_MAR10_2026.md` — upstream
+primal sync, coralReef NVVM bypass integration, toadStool S142 evolution.
+
+## v0.6.25 — Precision Brain + NVVM Poisoning Discovery (March 10, 2026)
+
+### Summary
+
+- **Self-routing precision brain** (`PrecisionBrain`) probes hardware at startup, builds
+  domain→tier routing table, O(1) lookups — no static heuristics, works on any GPU
+- **NVIDIA NVVM device poisoning discovered**: proprietary driver permanently invalidates
+  wgpu device on failed DF64/F64Precise transcendental compilation. Documented, gated,
+  and handed off to toadStool/barraCuda for upstream evolution
+- **Hardware calibration** (`HardwareCalibration`): safe per-tier probe (F32→F64→F64Precise→DF64),
+  transcendental safety inferred from driver identity, never poisons the device
+- **3-tier precision evaluation harness**: `bench_precision_eval` profiles both GPUs across
+  all precision tiers with full pipeline E2E and dual-card cooperative patterns
+- **Heterogeneous dual-GPU profiling**: transfer profiles, shader tier matrix, physics
+  pipelines, cooperative patterns (Split BCS, Split HMC, Redundant, PCIe roundtrip)
+- **New modules**: `hardware_calibration`, `precision_brain`, `precision_eval`,
+  `transfer_eval`, `pipeline_eval`, `dual_pipeline_eval`, `device_pair`,
+  `dual_dispatch`, `workload_planner`
+- **New binary**: `bench_precision_eval` (6-phase master benchmark)
+
+### Metrics
+
+- 840 tests (lib), 111+ binaries, 84 WGSL shaders
+- 0 clippy warnings (lib + all binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- All WGSL shaders AGPL-3.0-only
+- Synced: barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 26
+
+### Key Discovery: NVVM Poisoning
+
+On NVIDIA's proprietary driver, compiling a WGSL shader with f64 transcendentals
+(`exp`, `log`) at DF64 or F64Precise precision triggers `"NVVM compilation failed: 1"`.
+This permanently invalidates the wgpu device — all subsequent operations fail with
+`"Buffer is invalid"`. Recovery requires process restart.
+
+Affected: RTX 3090 (GA102, proprietary), any NVIDIA card using the proprietary driver.
+Not affected: Titan V (GV100, NVK/Mesa), any GPU using open-source drivers.
+
+The brain works around this by never probing transcendentals on proprietary NVIDIA —
+it infers safety from the adapter name and gates shader compilation accordingly.
+
+### Handoff
+
+`HOTSPRING_V0625_PRECISION_BRAIN_NVVM_POISONING_HANDOFF_MAR10_2026.md` — full NVVM
+poisoning analysis, calibration/brain architecture, benchmark data, and absorption
+candidates for toadStool/barraCuda.
+
+---
+
+## v0.6.24 — Modern Primal Rewire + coralReef Integration (March 9, 2026)
+
+### Summary
+
+- **Rewired to barraCuda v0.3.3** (`27011af`, 19 commits, +11,419/-6,729 lines) — handles
+  `Fp64Strategy::Sovereign`, `compile_shader_universal()` removal, `PrecisionRoutingAdvice`
+- **toadStool S138 synced** — latest shader proxy, NPU dispatch, hardware discovery
+- **coralReef Phase 10** integration — sovereign WGSL→native compilation pipeline:
+  44/46 standalone shaders compile to SM70/SM86 SASS (Iter 26). IPC discovery wired via JSON-RPC.
+  `sovereign-dispatch` feature gate for native GPU binary compilation. Full `GpuBackend` impl
+- **Chuna Papers 44/44** — dynamical N_f=4 extension complete: 3/3 pass via warm-start
+  mass annealing (m: 1.0→0.5→0.2→0.1), NPU-steered adaptive Omelyan HMC, 85% acceptance
+- **NPU Steering Lessons** documented — apprentice pattern, crisis deference, trust thresholds
+- **New modules**: `mixed_hardware`, `precision_routing`, `streaming_dispatch`,
+  `telemetry_reader`, `physics::average_atom`, `physics::fpeos`,
+  `lattice::pseudofermion::{adaptive, npu_steering, run_history}`
+- **New binaries**: `bench_dispatch_overhead`, `bench_pppm_dispatch`, `bench_precision_tiers`,
+  `live_telemetry_dashboard`, `validate_atomec`, `validate_barracuda_cpu_gpu_parity`,
+  `validate_fpeos`, `validate_sovereign_compile`
+- **Deep debt**: zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only
+
+### Metrics
+
+- 769 tests (lib), 101+ binaries, 84 WGSL shaders
+- 0 clippy warnings (lib + all binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- All WGSL shaders AGPL-3.0-only
+- Synced: barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 26
+
+### coralReef Integration Details
+
+- Discovery fix: `barraCuda/discovery.rs` updated to parse Phase 10 manifests
+  (`"provides"` array, object-form `transports.jsonrpc`)
+- `CoralReefDevice` full `GpuBackend` implementation: `Mutex<GpuContext>` for
+  thread-safe alloc/upload/dispatch/download (`Send+Sync` unblocked in Iter 26)
+- Compilation coverage: 44/46 standalone shaders (up from 43 — `batched_hfb_energy_f64`
+  fixed by f64 Min/Max/Abs/Clamp fix in Iter 26)
+- Remaining gap: `deformed_potentials_f64` SSARef truncation in `emit_f64_min_max`
+- DRM dispatch: `nouveau` EINVAL on GV100 (compute subchannel bound but channel
+  creation still rejected), `nvidia-drm` pending UVM — documented for upstream
+
+---
+
+## v0.6.19 — Precision Stability + Full Codebase Compliance (March 6, 2026)
+
+### Summary
+
+- **Experiment 046**: Full multi-tier precision stability analysis — 9 cancellation families
+  audited across f32, DF64, f64, and CKKS FHE tiers
+- **Stable BCS v²**: `bcs_v2_stable()` in `hfb_common.rs` + 3 WGSL shaders — eliminates
+  catastrophic cancellation in nuclear occupation numbers
+- **5 stability tests**: f32 naive vs stable, symmetry preservation, extreme-range
+- **Zero clippy (all targets)**: 2 warnings fixed (`cloned→copied`, `&mut→&`)
+- **59 WGSL license fixes**: `AGPL-3.0-or-later` → `AGPL-3.0-only` across all shaders
+- **toadStool S96+ synced**
+
+### Metrics
+
+- 724 tests (lib), 95 binaries, 71 WGSL shaders
+- 0 clippy warnings (lib + all 95 binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- All WGSL shaders AGPL-3.0-only
+
+---
+
+## v0.6.18 — Deep Debt Resolution, Pedantic Compliance, API Sync (March 6, 2026)
+
+### Summary
+
+- **brain.rs NautilusShell API sync** — compatibility with upstream Nautilus brain/shell interfaces
+- **npu_worker → 6 modules** — refactored from monolithic to modular structure
+- **simulation → 4 modules** — decomposed into focused submodules
+- **dynamical_mixed → library module** — extracted to library for reuse
+- **esn_baseline → library module** — extracted to library (ready for absorption)
+- **sarkas → library module** — extracted to library for reuse
+- **Zero clippy (lib)** — all library code passes pedantic + nursery lints
+- **unwrap → Result** — 9 production sites converted to proper error propagation
+- **Error-swallowing fixed** — vacf, reservoir no longer swallow errors
+- **5 doc links fixed** — all rustdoc links resolve correctly
+- **SPDX consistency** — AGPL-3.0-only consistent across crate
+- **Tolerance docs** — 4 loose tolerances justified with physical rationale
+- **Provenance gaps closed** — TTM pinned, quenched beta noted
+- **load_meta_table stream-first** — uses BufReader for memory-efficient streaming
+- **Brain B2/D1 evolved** — from placeholder to real implementations
+- **Dependency alignment** — pollster 0.3, bytemuck 1.25, tokio 1.50
+- **_confidence → confidence** — field rename for consistency
+
+### Metrics
+
+- 685 tests (lib), 47 validation binaries, 85+ total binaries
+- 0 clippy warnings (lib + bins)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines, AGPL-3.0-only
+
+---
+
+## v0.6.17 — toadStool S80 Sync + Exp 031 Post-Mortem (March 2, 2026)
+
+### toadStool S80 Rewiring
+
+- **Spectral stats wired into proxy**: `spectral_bandwidth()` and `spectral_condition_number()`
+  replace manual calculations in `proxy.rs` (Anderson 3D). `ProxyFeatures` gains
+  `condition_number: f64` field. `production_dynamical_mixed.rs` and `npu_worker.rs`
+  pass bandwidth, condition_number, and phase to the NPU worker.
+- **SpectralAnalysis**: Marchenko-Pastur phase classification (`from_eigenvalues()`)
+  benchmarked in `bench_cross_spring_evolution`. Correctly identifies extended/critical/localized
+  phases across disorder strengths.
+- **NeighborMode::precompute_periodic_4d**: Benchmarked against hotSpring's `build_neighbors`.
+  toadStool 3.6× faster at 16^4 but uses x-fastest site ordering (hotSpring uses z-fastest).
+  Index convention documented; no migration yet — correctness preserved.
+- **MultiHeadEsn compatibility**: `ExportedWeights` serde round-trip validated. `HeadGroup`
+  enum alignment confirmed. Migration path from CPU `MultiHeadNpu` to GPU `MultiHeadEsn` clear.
+- **batched_nelder_mead_gpu**: Benchmarked (10→1000 problems, 2-3 dims). 1000 problems
+  converge in ~205ms on RTX 3090. Relevant for HMC parameter tuning.
+
+### Cross-Spring Evolution Benchmark (S80 update)
+
+- `bench_cross_spring_evolution` extended with: spectral stats CPU phase, neighbor
+  table precompute comparison, Nelder-Mead GPU optimization, cross-spring provenance
+  annotations tracing shaders from hotSpring→toadStool→wetSpring/neuralSpring.
+
+### Exp 031 Post-Mortem
+
+- Three bugs found and documented: Titan V timing stall, NPU input alignment (11 features
+  expected, 36 sent), therm early-exit disabled. See `experiments/031_POST_MORTEM.md`.
+
+### Metrics
+
+- 660 tests (lib + integration), 0 failures
+- 0 clippy warnings (all targets, pedantic + nursery)
+- 85 binaries
+- Synced to toadStool S80
+
+---
+
+## v0.6.16 — Cross-Spring Rewiring + toadStool S78 (March 2, 2026)
+
+### Rewiring to upstream barracuda (toadStool S78)
+
+- **VACF upstream GPU path**: `compute_vacf_upstream_gpu()` wraps barracuda's
+  `ops::md::compute_vacf_batch` (GPU shader from hotSpring→S70+). Converts
+  hotSpring's `&[Vec<f64>]` snapshot format to frame-major flat layout.
+  Observable summary now uses GPU VACF when device available, CPU fallback.
+- **Fp64Strategy::Concurrent**: All 4 match sites in `gpu_hmc/mod.rs` updated
+  to handle new upstream variant (DF64 path, same as Hybrid).
+- **barracuda::ops::stats_f64::matrix_correlation**: Available and benchmarked.
+  neuralSpring→S25 shader works on NVK (9.7ms for 100×10, 18.6ms for 2000×50).
+- **barracuda::ops::md::compute_stress_virial**: Available and benchmarked.
+  hotSpring→S70+ ComputeDispatch op (7.3ms for 500 atoms, 13ms for 2000).
+- **barracuda::special**: Already fully leaning. Confirmed 39ns gamma, 16ns erf,
+  22ns bessel_j0, 11ns hermite, 18ns laguerre (100k evals, RTX 3090 NVK host).
+
+### Cross-Spring Evolution Benchmark
+
+New binary: `bench_cross_spring_evolution` — exercises GPU/CPU ops from all
+five springs with provenance annotations. Tests VACF, stress virial, matrix
+correlation, linear regression (SKIP on NVK naga), and special functions.
+
+### Documentation
+
+- `specs/CROSS_SPRING_EVOLUTION.md`: Full cross-spring shader provenance
+  tracing hotSpring's ~100 WGSL shaders through absorption, documenting
+  cross-pollination (hotSpring→wetSpring, neuralSpring→hotSpring, etc.)
+  and lean inventory.
+- Updated ABSORPTION_MANIFEST, EVOLUTION_READINESS, wateringHole handoffs.
+
+### Metrics
+
+- 711 tests (658 lib + 53 integration), 0 failures, 6 ignored
+- 0 clippy warnings (all targets, pedantic + nursery)
+- 85 binaries (was 84; new bench_cross_spring_evolution)
+- 197 .rs files (was 196; new bin)
+
+---
+
+## v0.6.15 — Deep-Debt Audit Wave 1 + Wave 2 (March 1-2, 2026)
+
+### Wave 1 (prior conversation)
+
+- **cargo fmt**: fixed 232 diffs
+- **cargo clippy pedantic/nursery**: fixed all warnings, zero remain
+- **Mutable borrow fix** in `validate_streaming_pipeline.rs`
+- **Tautological assertion removed** in `discovery.rs`
+- **Manual RangeInclusive::contains** → `.contains()` in `ttm.rs`
+- **Manual midpoint** → `f64::midpoint` in `ttm.rs`
+- **Identical match arms merged** in `production_dynamical_mixed.rs` and `resident_cg.rs`
+- **Struct update has no effect fix** in `hmc.rs` tests
+- **Variable assignment tracking fix** in `production_dynamical_mixed.rs`
+- **Loop variable indexing fix** in `validate_gen2_npu.rs`
+- **Smart refactoring**: `reservoir.rs` → `reservoir/` module (mod.rs + heads.rs + npu.rs + tests.rs)
+- **Smart refactoring**: `pseudofermion.rs` → `pseudofermion/` module (mod.rs + tests.rs)
+- **Smart refactoring**: `resident_cg.rs` → resident_cg.rs + 4 submodules (pipelines, buffers, brain, async)
+- **Production module**: new `src/production.rs` with MetaRow, BetaResult, AttentionState, shared helpers
+- **NPU worker extraction**: `src/production/npu_worker.rs` (1000 lines from production_dynamical_mixed)
+- **TTM provenance**: 3 new BaselineProvenance records
+- **Python deps pinned**: numpy==1.24.4, scipy==1.11.4, mystic==0.4.2, numba==0.60.0
+- **Hardcoded /tmp/ paths** → `std::env::temp_dir()`
+- **45 new tests** (unit + integration): ttm, prescreen, pipeline, proxy modules
+- **Dead code removed**: ClassifierResult::recall, SpeciesResult unused fields
+- **BarraCUDA reduce pipeline analysis** documented
+
+### Wave 2 (this conversation)
+
+- **Doc comments** added to 40+ structs/modules, removing all `#[allow(missing_docs)]`
+- **Sovereignty**: capability-based GPU discovery (`gpu/adapter.rs` with `discover_best_adapter`, `discover_primary_and_secondary_adapters`)
+- **Removed hardcoded GPU adapter names** ("titan", "4070") — env vars still work as overrides
+- **Removed hardcoded primal name references** ("toadstool", "hotSpring") from binary output
+- **Streaming I/O**: `production.rs` `load_meta_table()` and `bootstrap_esn()` use `BufReader::lines()`
+- **Error types**: added `IoError(std::io::Error)` and `JsonError(serde_json::Error)` to `HotSpringError`
+- **Smart binary decomposition**:
+  - `production_mixed_pipeline.rs`: 1434 → 537 lines (extracted beta_scan, titan_validation, mixed_summary)
+  - `production_dynamical_mixed.rs`: 1397 → 997 lines (extracted dynamical_summary, dynamical_bootstrap, cortex_worker, titan_worker)
+  - `npu_experiment_campaign.rs`: 1359 → 384 lines (extracted npu_experiments/ module)
+  - `cross_substrate_esn_benchmark.rs`: 1147 → 931 lines (extracted bench/esn_benchmark.rs)
+  - `nuclear_eos_l1_ref.rs`: 1027 → 769 lines (extracted nuclear_eos_helpers.rs)
+  - `npu_worker.rs`: 1005 → 1000 lines (condensed)
+- **New production submodules**: beta_scan.rs, titan_validation.rs, mixed_summary.rs, dynamical_summary.rs, dynamical_bootstrap.rs, cortex_worker.rs, titan_worker.rs
+- **New library modules**: npu_experiments/ (mod.rs + placements.rs), nuclear_eos_helpers.rs, bench/esn_benchmark.rs, gpu/adapter.rs
+- **complex_polyakov_average()** moved from 3 binary duplicates to Lattice method in wilson.rs
+- **All partial_cmp().unwrap()** → `total_cmp()`
+- **All serde_json::to_string_pretty().unwrap()** → `.unwrap_or_default()`
+
+### Metrics
+
+- 711 tests (658 lib + 53 integration), 0 failures, 6 ignored
+- 0 clippy warnings (all targets, pedantic + nursery)
+- 0 files over 1000 lines (was 6+ before)
+- 196 .rs files (112 lib + 84 bin), 62 WGSL shaders
+- Zero unsafe code, zero expect/unwrap in lib (deny enforced)
+
+### ToadStool S78 Sync (March 2, 2026)
+
+Pulled toadStool S68→S78 (18 commits). hotSpring compiles and passes all
+711 tests with zero clippy warnings against the new upstream.
+
+- **Breaking**: `Fp64Strategy::Concurrent` variant added to upstream enum.
+  hotSpring now handles it alongside `Hybrid` (DF64 shader path) in all 4
+  match sites in `gpu_hmc/mod.rs`.
+- **Upstream evolution reviewed**: S68+++ (chrono elimination, dead code,
+  unsafe evolved), S69++ (ComputeDispatch migration), S70 (deep debt,
+  concurrent Rust), S70+ (cross-spring absorption, DF64 ML), S71
+  (GPU dispatch wiring, sovereignty), S71+++ (DF64 gamma/erf,
+  ComputeDispatch batches), S78 (libc→rustix, AFIT).
+- **box_muller_cos fix**: Already applied in hotSpring's local shaders
+  (`cos_f64(theta)` in both `su3_random_momenta_f64.wgsl` and
+  `gaussian_fermion_f64.wgsl`). No action needed.
+- **Not rewired** (stable, deeply integrated, high-risk):
+  lattice QCD orchestration, MD observables, ESN reservoir (11-head),
+  GPU adapter discovery (primary/secondary), transport fits.
+  These remain local with upstream leaning where already established.
+- **New upstream noted for future**: `ComputeDispatch` builder pattern,
+  `ops::md::stress_virial`, `ops::md::vacf` batch GPU, DF64 gamma/erf
+  transcendentals, `ops::stats_f64::linear_regression`.
+
+---
+
+## v0.6.14 — Debt Reduction + Cross-Primal Discovery + NPU Offload (Feb 25-26, 2026)
+
+### NPU offload mixed pipeline (Exp 022)
+
+Integrated all four NPU placement strategies into `production_mixed_pipeline.rs`:
+thermalization early-exit, rejection prediction, phase classification, and
+adaptive β steering. Key additions:
+
+- Added: dedicated NPU worker thread (`spawn_npu_worker()`) with typed
+  `NpuRequest`/`NpuResponse` enums over `mpsc::channel` — GPU never stalls
+- Added: `--trajectory-log=PATH` for per-trajectory JSONL output
+- Added: `--bootstrap-from=PATH` to load previous ESN weights or train from
+  historical trajectory logs (cross-run learning)
+- Added: `--save-weights=PATH` to export final trained ESN for future runs
+- Changed: `ExportedWeights` now derives `Serialize`/`Deserialize` for JSON round-trip
+- Added: `NpuSimulator` accessor methods (`export_w_in`, `export_w_res`,
+  `export_w_out`, `input_size`, `reservoir_size`, `output_size`, `leak_rate`)
+- Fixed: `action_density` bug in `observables.rs` — was `plaq × 6` (wrong),
+  now `6 × (1 − plaq)` (correct Wilson gauge action density)
+- Validated: 8⁴ lattice (10 β points, 60% therm early-exit, 86% reject accuracy)
+- Production: 32⁴ lattice running on live AKD1000 hardware NPU via PCIe
+  (`npu-hw` feature, `akida-driver` crate)
+
+### Cross-primal hardcoding → capability-based discovery
+
+Eliminated all hardcoded cross-primal references from production code.
+Code now has self-knowledge only and discovers other primals at runtime.
+
+- Changed: `validate_three_substrate.rs`, `production_mixed_pipeline.rs` — replaced
+  hardcoded `/dev/akida0` path with `discovery::probe_npu_available()` (sysfs scan)
+- Changed: `discovery.rs` — renamed `control/metalforge_npu` → `control/npu`
+  (generic capability, no embedded primal name)
+- Changed: `nuclear_eos_gpu.rs` — removed toadstool path from error message
+- Changed: `bench_multi_gpu.rs` — replaced metalForge doc reference with env vars
+- Added: `discovery::probe_npu_available()` — feature-gated NPU probe
+  (`npu-hw` → akida-driver, fallback → `/dev/akida*` sysfs scan)
+
+### Gauss-Jordan → barracuda LU decomposition
+
+Replaced the local 68-line `gauss_jordan_solve` in `reservoir.rs` with
+`barracuda::ops::linalg::lu_solve` — the shared primitive with partial pivoting.
+Same API surface (dense Ax=b), but uses the validated barracuda implementation.
+
+### WGSL shader deduplication
+
+Created `prng_pcg_f64.wgsl` shared PRNG library (PCG hash + uniform f64).
+Lattice PRNG shaders (`su3_random_momenta_f64`, `gaussian_fermion_f64`) now
+compose via `include_str!` concatenation, eliminating 30 lines of duplicated code.
+Each consumer retains its own `box_muller_cos`/`gaussian` (f64 cos vs f32 cast
+difference is intentional — validated separately).
+
+### Clippy pedantic/nursery: zero warnings (lib + bins)
+
+Fixed all 57 clippy warnings across 17 validation binaries:
+- `manual_div_ceil` → `.div_ceil()` (7)
+- `uninlined_format_args` → inline `{var}` (13)
+- `manual_let_else` → `let...else` (1)
+- `ref_option` → `Option<&T>` (1)
+- `needless_pass_by_ref_mut` → `&T` (2)
+- `collection_is_never_read` — removed dead polyakov collectors (3)
+- `no_effect_underscore_binding` — removed unused bindings (2)
+- Various: `redundant_clone`, `map_unwrap_or`, `unnecessary_hashes`,
+  `manual_midpoint`, `cloned_instead_of_copied`, etc.
+
+### Discovery coverage improvements
+
+Added 5 new tests to `discovery.rs` (18 → 23 tests):
+- `probe_npu_available_returns_bool` — exercises the NPU probe path
+- `nuclear_eos_dir_resolves` — ensures resolution produces non-empty path
+- `capability_probes_have_unique_names` — validates probe registry uniqueness
+- `capability_probes_paths_are_relative` — no accidental absolute paths
+- `is_valid_root_rejects_nonexistent` — hardening
+
+### Validation fidelity hardening
+
+- Added: `provenance::KNOWN_BETA_C_SU3_NT4` (5.6925) with Bali/Engels/Creutz citations
+- Changed: 7 binaries migrated from local `const KNOWN_BETA_C` to centralized provenance
+- Added: `tolerances::GPU_STREAMING_PLAQUETTE_PARITY` (1e-10) — streaming vs dispatch
+- Added: `tolerances::GPU_FERMION_FORCE_PARITY` (1e-12) — CPU vs GPU fermion force
+- Added: `tolerances::GPU_CG_ACTION_PARITY` (1e-6) — CPU vs GPU CG action
+- Added: `tolerances::GPU_DYN_STREAMING_PLAQUETTE_PARITY` (0.10) — dynamical streaming
+
+### Audit results (clean)
+
+- 0 mocks in production code (NpuSimulator is a legitimate software implementation)
+- 0 TODO/FIXME/HACK/unimplemented markers across 167 .rs files
+- 0 clippy warnings (lib + bins, pedantic + nursery)
+- 664 tests passing (629 lib + 31 integration + 4 doc), 0 failures
+- ~150 centralized tolerances with physics justification (~95% coverage)
+
+---
+
+## v0.6.13 — GPU Polyakov Loop + NVK Guard + PRNG Fix (Feb 25, 2026)
+
+### GPU-resident Polyakov loop (eliminates CPU readback)
+
+Absorbed toadStool `GpuPolyakovLoop` pattern: temporal Wilson line computed
+entirely on GPU. Returns both magnitude and phase (previously only magnitude
+via CPU readback of the full V×4×18 link buffer).
+
+- Added: `polyakov_loop_f64.wgsl` — GPU Polyakov loop shader (t-major indexing)
+- Added: `su3_math_f64.wgsl` — naga-safe SU(3) math library for shader composition
+- Changed: `GpuHmcPipelines` — added `polyakov_pipeline`
+- Changed: `GpuHmcState` — added `poly_out_buf`, `poly_params_buf`, `spatial_vol`
+- Changed: `gpu_polyakov_loop()` — GPU-compute, returns `(magnitude, phase)` tuple
+- Changed: All 5 binary call sites updated for new signature
+- Fixed: `su3_random_momenta_f64.wgsl` — f32/f64 type mismatch in `box_muller_cos`
+
+### NVK allocation guard (toadStool cross-spring evolution)
+
+- Added: `GpuHmcState::from_lattice()` — NVK allocation guard warns when total
+  estimated VRAM exceeds nouveau PTE fault limit (~1.2 GB)
+
+### Benchmark (v0.6.13, RTX 3090 with DF64 Hybrid)
+
+| Lattice | CPU ms/traj | GPU ms/traj | Speedup |
+|---------|-------------|-------------|---------|
+| 4⁴      | 73.4        | 22.6        | 3.2×    |
+| 8⁴      | 1157.3      | 30.1        | 38.5×   |
+| 8³×16   | 2341.7      | 48.1        | 48.6×   |
+| 16⁴     | 18342.1     | 259.5       | 70.7×   |
+
+### Validation (all pass)
+
+- `validate_gpu_streaming`: 7/7 — bit-identical streaming vs dispatch parity
+- `validate_gpu_beta_scan`: 6/6 — monotonic plaquette, physical Polyakov loop
+- `bench_gpu_hmc`: 4 lattice sizes, 100% acceptance at β=6.0
+
+### Cross-spring evolution
+
+- toadStool `GpuPolyakovLoop` → hotSpring v0.6.13 (GPU-resident observable)
+- toadStool `check_allocation_safe()` → hotSpring v0.6.13 (NVK PTE guard)
+- hotSpring `su3_math_f64.wgsl` (naga-safe) → candidate for toadStool absorption
+
+---
+
+## v0.6.12 — toadStool S60 DF64 Expansion (Feb 25, 2026)
+
+### Expanded DF64 core streaming to 60% of HMC
+
+Absorbed toadStool S60 improvements: FMA-optimized df64_core.wgsl,
+df64_transcendentals.wgsl, and expanded DF64 coverage from gauge force only
+(40% of HMC) to gauge force + Wilson plaquette + kinetic energy (60% of HMC).
+
+- Added: `wilson_plaquette_df64.wgsl` — DF64 plaquette with neighbor-buffer indexing
+- Added: `su3_kinetic_energy_df64.wgsl` — DF64 kinetic energy (from toadStool)
+- Changed: `GpuHmcPipelines::new()` — auto-selects DF64 for plaquette and KE on consumer GPUs
+- Changed: Uses `su3_df64_preamble()` with FMA-optimized two_prod and transcendentals
+- Added: `production_mixed_pipeline.rs` — three-substrate production binary (3090+NPU+Titan V)
+- Added: Experiment 015 write-up (mixed pipeline partial results)
+
+### Benchmark (v0.6.12 vs v0.6.11)
+
+| Lattice | v0.6.11 | v0.6.12 | Improvement |
+|---------|---------|---------|-------------|
+| 8⁴      | 36.7 ms | 32.2 ms | 12% faster  |
+| 16⁴     | 293 ms  | 270 ms  | 8% faster   |
+
+### Cross-spring evolution
+
+- toadStool S60 → hotSpring v0.6.12: FMA df64_core, transcendentals, KE shader
+- hotSpring → toadStool: neighbor-buffer DF64 plaquette shader pattern
+
+---
+
+## v0.6.11 — Site-Indexing Standardization (Feb 25, 2026)
+
+### Breaking: t-major site ordering
+
+Migrated `Lattice::site_index` and `site_coords` from hotSpring's original
+x-fastest ordering (`idx = x + Nx*(y + Ny*(z + Nz*t))`) to toadStool's
+z-fastest ordering (`idx = t*NxNyNz + x*NyNz + y*Nz + z`).
+
+This aligns hotSpring with upstream toadStool lattice ops, enabling direct use
+of upstream DF64 shaders and HMC operations without buffer reordering. Existing
+serialized lattice snapshots are incompatible with this ordering.
+
+- Changed: `Lattice::site_index()` — z fastest, t slowest (was x fastest)
+- Changed: `Lattice::site_coords()` — decomposition matches new convention
+- Validated: 119/119 unit tests pass
+- Validated: 3/3 pure GPU HMC checks (plaq=0.584339, 100% acceptance)
+- Validated: 6/6 GPU beta scan checks (plaquette monotonic, cross-lattice parity)
+- Validated: 7/7 streaming HMC checks (dispatch/streaming parity exact to 1e-8)
+- Version: 0.6.10 → 0.6.11
+
+## v0.6.10 — DF64 Core Streaming Rewire (Feb 25, 2026)
+
+### DF64 Gauge Force — Live on Consumer GPUs
+
+Rewired `GpuHmcPipelines` to auto-select DF64 (f32-pair) gauge force shader
+on consumer GPUs (RTX 3090, 4070 — 1:64 FP64:FP32 hardware). The staple SU(3)
+multiplications (18 per link, 40% of HMC wall time) now route through the FP32
+core array via `su3_gauge_force_df64.wgsl`.
+
+- New `su3_gauge_force_df64.wgsl`: DF64 staple computation with hotSpring's
+  neighbor-buffer indexing, f64 algebra projection + final multiply
+- `Fp64Strategy::Hybrid` auto-detected on RTX 3090, selects DF64 force
+- `Fp64Strategy::Native` on Titan V/V100/A100, keeps native f64
+- DF64 math library imported from upstream: `WGSL_DF64_CORE` + `WGSL_SU3_DF64`
+- Validated: all existing checks pass (3/3 pure GPU HMC, plaquette physical range)
+
+### Cross-Spring Evolution
+
+- hotSpring Exp 012 (Feb 2026) → `df64_core.wgsl` → toadStool S58 absorption
+- toadStool built `su3_df64.wgsl` + DF64 HMC pipeline (S58-S62)
+- hotSpring v0.6.10 imports upstream DF64 math, writes local DF64 force with
+  hotSpring's neighbor-buffer indexing (incompatible site-indexing between repos)
+- wetSpring f64 transcendental workarounds (Ada Lovelace) contributed via
+  `Workaround::NvvmAdaF64Transcendentals` in driver_profile.rs
+
+### Metrics
+- **All validation checks pass** with DF64 active on RTX 3090
+- **Version**: 0.6.9 → 0.6.10
+
+## v0.6.9 — ToadStool S58–S62 Sync + DF64 Absorption Confirmation (Feb 24, 2026)
+
+### ToadStool Sync (S53 → S62)
+
+Pulled 10 toadStool sessions (172 files changed, +15,847/-7,066 lines).
+hotSpring compiles cleanly against the new upstream with zero errors/warnings.
+
+### DF64 Core Streaming — Absorbed and Extended
+
+toadStool absorbed hotSpring's DF64 discovery (Experiment 012) in S58, then
+built the full production DF64 HMC pipeline:
+
+- `df64_core.wgsl` → `shaders/math/df64_core.wgsl` (absorbed)
+- `su3_df64.wgsl` — DF64 SU(3) matrix algebra (NEW, toadStool-built)
+- `su3_hmc_force_df64.wgsl` — DF64 gauge force (NEW, the 6.7× speedup kernel)
+- `wilson_plaquette_df64.wgsl`, `wilson_action_df64.wgsl`, `kinetic_energy_df64.wgsl` (NEW)
+- `Fp64Strategy` enum — auto-selects Native vs Hybrid per-GPU
+- All lattice ops now auto-select f64/DF64 based on hardware
+
+### Local Cleanup
+
+- Deleted local `df64_core.wgsl` (now upstream at `barracuda::ops::lattice::su3::WGSL_DF64_CORE`)
+- Updated ABSORPTION_MANIFEST with S58–S62 absorption tracking
+
+### Metrics
+- **39/39 validation suites** pass (unchanged)
+- **Zero compile errors** against toadStool S62
+- **Version**: 0.6.8 → 0.6.9
+
+## v0.6.8 — biomeGate Prep + Streaming CG + Debt Fix + Suite Expansion (Feb 23, 2026)
+
+### biomeGate Node Preparation
+Registered biomeGate (Threadripper 3970X, RTX 3090 + Titan V, Akida NPU, 256GB DDR4)
+as lab-deployable mini HPC. Node profile system (`metalForge/nodes/`) enables
+`source biomegate.env && cargo run` for any node. Multi-GPU bench now reads
+`HOTSPRING_GPU_PRIMARY`/`HOTSPRING_GPU_SECONDARY` env vars (was hardcoded 4070/titan).
+NVK setup guide at `metalForge/gpu/nvidia/NVK_SETUP.md`.
+
+### API Debt Resolution
+- `md/reservoir.rs`: `solve_f64` → local `gauss_jordan_solve()` CPU fallback (ESN matrices 50-200 dim)
+- `nuclear_eos_l1_ref.rs`, `nuclear_eos_gpu.rs`, `nuclear_eos_l2_hetero.rs`, `nuclear_eos_l2_ref.rs`:
+  `direct_sampler`, `sparsity_sampler`, `RBFSurrogate::train` updated for `Arc<WgpuDevice>` first arg
+
+### Validation Suite Expansion (34 → 39)
+`validate_all.rs` now includes 5 additional suites:
+- `validate_gpu_streaming` (9/9 — streaming HMC, 4⁴→16⁴)
+- `validate_gpu_streaming_dyn` (13/13 — dynamical fermion streaming, GPU-resident CG)
+- `validate_reservoir_transport` (10/10 — ESN transport prediction)
+- `validate_stanton_murillo` (13/13 — Paper 5 transport)
+- `validate_transport` (CPU/GPU transport parity)
+
+### Documentation Cleanup
+- Root README, whitePaper/README, whitePaper/STUDY.md updated to Feb 23
+- Experiment journal 011: GPU streaming + resident CG + bidirectional pipeline
+- New handoff: biomeGate prep + streaming CG + debt fix
+- `experiments/data/` added to `.gitignore` (profiling CSVs untracked)
+- `verify_results.py` placeholder `n_pass` removed
+
+### Metrics
+- **39/39 validation suites** pass (was 34/34)
+- **155/155 checks** in latest manual validation session
+- **Zero clippy warnings** (all targets)
+- **All unit tests pass**
+- **Version**: 0.6.7 → 0.6.8
+
+## v0.6.7 — ToadStool S42 Catch-Up + Loop Unroller Fix (Feb 22, 2026)
+
+### Loop Unroller u32 Fix (Applied to ToadStool)
+Fixed the documented `substitute_loop_var` bug in toadstool's loop unroller:
+`iter.to_string()` → `format!("{iter}u")`. WGSL now emits `0u`, `1u` etc. instead of
+bare `i32` literals, resolving `BatchedEighGpu::execute_single_dispatch` WGSL
+validation panics.
+
+### catch_unwind Removal
+`validate_barracuda_hfb.rs` no longer wraps single-dispatch eigensolve in
+`std::panic::catch_unwind`. Direct call with `.expect()`.
+
+### BarraCUDA → BarraCuda Rename
+Display name synchronized with toadstool's S42 rename. 20 Rust source files,
+28 documentation files, `Cargo.toml`, `clippy.toml`, `CITATION.cff` updated.
+Archive handoffs preserved as fossil record.
+
+### ToadStool S40–42 Evolution Tracked
+- S40: Richards PDE solver, moving window GPU stats
+- S41: 6 f64 shader compile bugs fixed (including GemmCachedF64), API exposure for Springs
+- S42: 19 new WGSL shaders (612 total), shader-first unified math
+- Jacobi eigenvector rotation fix, ODE f64 builtins, SNP binding mismatch
+
+### Metrics
+- **34/34 validation suites** pass (702.7s)
+- **Zero clippy warnings** (all targets)
+- **All unit tests pass**
+- **Version**: 0.6.5 → 0.6.7
+
+## v0.6.5 — Deep Debt Resolution + GPU Transport Pipeline (Feb 22, 2026)
+
+### GPU Module Refactoring
+Monolithic `gpu.rs` (895 lines) refactored into `gpu/` module:
+`adapter.rs`, `buffers.rs`, `dispatch.rs`, `telemetry.rs`, `mod.rs`.
+
+### Idiomatic Rust Evolution
+- `.expect()` → `Result` in GPU transport functions
+- `partial_cmp().unwrap()` → `total_cmp()` for NaN-safe sorting
+- `Vec::new()+push` → iterator `collect()` patterns
+- Magic numbers → named constants (`WORKGROUP_SIZE`, `PLATEAU_DETECTION_TIME`)
+
+### API Evolution
+- `PppmGpu::new()` deprecated → `PppmGpu::from_device()`
+- Binary targets registered in `Cargo.toml`
+- Documentation synchronized
+
+### Metrics
+- **34/34 validation suites** pass (688.0s)
+- **Zero clippy warnings**
+- **Version**: 0.6.4 → 0.6.5
+
+## v0.6.4 — ToadStool Rewire v4: Spectral Lean (Feb 22, 2026)
+
+### Spectral Module → Fully Leaning on Upstream
+
+ToadStool Sessions 25-31h absorbed hotSpring's entire spectral module into
+`barracuda::spectral`. Local source files deleted (~41 KB), replaced with
+re-exports from upstream:
+
+- `spectral/anderson.rs` → `barracuda::spectral::anderson_*`
+- `spectral/csr.rs` → `barracuda::spectral::SpectralCsrMatrix` (+ `CsrMatrix` alias)
+- `spectral/hofstadter.rs` → `barracuda::spectral::hofstadter_butterfly`
+- `spectral/lanczos.rs` → `barracuda::spectral::lanczos`
+- `spectral/stats.rs` → `barracuda::spectral::{level_spacing_ratio, detect_bands}`
+- `spectral/tridiag.rs` → `barracuda::spectral::{sturm_count, find_all_eigenvalues}`
+- `spectral/shaders/spmv_csr_f64.wgsl` → `barracuda::spectral::WGSL_SPMV_CSR_F64`
+
+New upstream primitive now available: `barracuda::spectral::BatchIprGpu`.
+
+### Documentation Updated
+
+- `ABSORPTION_MANIFEST.md`: Spectral moved to "Already Absorbed" section
+- `DEPRECATION_MIGRATION.md`: Spectral module tracked as fully deprecated
+- `EVOLUTION_READINESS.md`: Spectral section updated to "Fully Leaning"
+- `README.md`: Test counts updated, Rewire v4 status added
+
+### Metrics
+
+- **637 tests** (was 648; 44 spectral tests now run upstream in barracuda), 0 failures, 6 ignored
+- **Zero clippy warnings** (all targets, pedantic)
+- **Zero doc warnings**
+- **Version**: 0.6.3 → 0.6.4
+
+## v0.6.3 — WGSL Extraction & Coverage Push (Feb 22, 2026)
+
+### Inline WGSL Extraction (5 shaders)
+
+- `SHADER_VV_HALF_KICK` → `md/shaders/vv_half_kick_f64.wgsl`
+- `SHADER_BERENDSEN` → `md/shaders/berendsen_f64.wgsl`
+- `SHADER_KINETIC_ENERGY` → `md/shaders/kinetic_energy_f64.wgsl`
+- `WGSL_COMPLEX64` → `lattice/shaders/complex_f64.wgsl`
+- `WGSL_SU3` → `lattice/shaders/su3_f64.wgsl`
+
+All switched to `include_str!()`. Zero inline WGSL remaining in production library code.
+
+### Deformed HFB Coverage: 29% → 95%
+
+13 new tests covering previously-untested critical paths:
+
+- **`diagonalize_blocks`**: V=0 (HO eigenvalues), constant-V (shift), sharp Fermi (zero pairing)
+- **`potential_matrix_element`**: constant-V diagonal, Hermitian symmetry
+- **`solve()` SCF loop**: smoke test (minimal grid), deterministic rerun, physical result bounds
+- **`binding_energy_l3`**: public API smoke (marked `#[ignore]` — ~90s)
+- **Norm integrals**: Hermite oscillator 1D norm, Laguerre oscillator 2D norm
+
+Module coverage: `hfb_deformed/mod.rs` 29.3% → 94.9%, `basis.rs` 65.8% → 98.7%.
+
+### Metrics
+
+- **648 tests** (was 638), 0 failures, 6 ignored
+- **Coverage**: 74.9% region / 83.8% function / 72.0% line (was 73.0 / 82.9 / 70.4)
+- **Zero clippy warnings** (all targets, pedantic + nursery)
+- **Zero doc warnings**
+- **Version**: 0.6.2 → 0.6.3
+
+## v0.6.2 — Deep Debt Resolution & Pedantic Clean (Feb 21, 2026)
+
+### Clippy Pedantic: Zero Warnings
+- **0 warnings** on `clippy::pedantic + clippy::nursery` (was ~1500 in v0.6.1)
+- 150+ `mul_add` conversions: improved IEEE 754 accuracy in all physics computations
+- 600+ `doc_markdown` fixes: backtick-wrapped identifiers in all doc comments
+- 30+ `imprecise_flops` fixes: `cbrt()`, `hypot()`, `ln_1p()` replacing less-accurate expressions
+- `#[must_use]` on all pure functions and key data types (186+ annotations)
+- `Self` replacing type name repetition via `use_self` lint
+- `is_multiple_of()` replacing manual modulo checks
+- `const fn` on 4 eligible functions (`lcg_step`, `next_u64`, `SpeciesResult::new`, `LcgRng::next_u64`)
+- HashMap hasher generalized on `chi2_per_datum` and `l1_proxy_prescreen`
+- Crate-level lint configuration: documented `#![allow]` for physics-appropriate lints (cast precision, sign, wrap)
+
+### Duplicate Math Eliminated
+- `reservoir.rs` Gaussian elimination (60 lines) → `barracuda::linalg::solve_f64`
+- Single upstream call per RHS column; zero local linear algebra code
+
+### Refactoring
+- `bench.rs` (1005 lines) decomposed into `bench/` module directory:
+  `hardware.rs` (193), `power.rs` (218), `report.rs` (354), `mod.rs` (246)
+- `hfb_gpu_resident/mod.rs` refactored: 7 extracted helper functions
+  (`create_potential_pipelines`, `create_hamiltonian_pipelines`, `create_density_pipelines`,
+  `allocate_group_resources`, `upload_densities`, `dispatch_hbuild_and_pack`, `run_density_mixing_pass`)
+- `celllist_diag.rs` reduced below 1000 lines (1156→951); shared `unsort_pe()`, `net_force()`
+- `nuclear_eos_l1_ref.rs` and `nuclear_eos_l2_hetero.rs` restructured with extracted helpers
+
+### GPU Energy Pipeline (Feature: `gpu_energy`)
+- Wired `batched_hfb_energy_f64.wgsl` shader dispatch (was stub since v0.5.10)
+- `compute_energy_integrands` + `compute_pairing_energy` GPU passes
+- Staging buffer readback and trapezoidal sum
+- CPU fallback preserved when feature disabled
+
+### Magic Number Extraction
+- `NMP_SIGMA_THRESHOLD`, `TRIDIAG_STURM_PIVOT_GUARD`, `ESN_SPECTRAL_RADIUS_NEGLIGIBLE`
+- Pivot guards wired to `DIVISION_GUARD`
+
+### Cast Safety
+- Per-function `#[allow(clippy::cast_possible_truncation)]` with documented bounds
+- Crate-level documented allows for physics-safe casts with mantissa/range analysis
+
+### MutexGuard Drop Tightening
+- `PowerMonitor::finish()`: GPU samples cloned and mutex released before processing
+
+### Test Coverage
+- **638 tests** (was 505 in v0.6.1), 0 failures, 5 GPU-ignored
+- +133 new tests across: hfb_deformed/{potentials,basis,mod}, hfb/mod, prescreen,
+  hfb_gpu_types, data, bench/{report,hardware}, md/observables/{ssf,summary},
+  screened_coulomb, error, discovery, lattice/multi_gpu, spectral/stats, validation
+- **72.4% region / 82.5% function** coverage (was 65.7% / 77.6%)
+
+### CellListGpu Migration (P1 Evolution Target)
+- Local `GpuCellList` (282 lines) deleted — replaced with upstream `barracuda::ops::md::CellListGpu`
+- 3 local WGSL shaders deleted: `cell_bin_f64.wgsl`, `exclusive_prefix_sum.wgsl`, `cell_scatter.wgsl`
+- Force shader `yukawa_force_celllist_indirect_f64.wgsl` unchanged (buffer-compatible)
+
+### Inline WGSL Extraction
+- 5 inline shader strings extracted to dedicated `.wgsl` files:
+  `complex_dot_re_f64.wgsl`, `axpy_f64.wgsl`, `xpay_f64.wgsl`, `dirac_staggered_f64.wgsl`, `spmv_csr_f64.wgsl`
+- All loaded via `include_str!("shaders/filename.wgsl")`
+
+### metalForge/forge
+- Zero pedantic clippy warnings (was 10)
+- `#[must_use]` on all probe functions; backticks in all doc comments
+
+## v0.6.1 — Code Quality Evolution (Feb 21, 2026)
+
+### Safety
+- `#![deny(clippy::expect_used, clippy::unwrap_used)]` enforced in library code
+- All 15 production `expect()` calls eliminated: `bytemuck` zero-copy, safe pattern matching, `Result` propagation
+- Zero `unsafe` blocks (unchanged)
+
+### Architecture
+- `tolerances.rs` (1384 lines) → `tolerances/{mod,core,md,physics,lattice,npu}.rs` module tree
+- `discovery.rs`: `try_discover_data_root()` Result API + `available_capabilities()` runtime probing
+- `gpu.rs`: `mapped_bytes_to_f64()` helper — `bytemuck::try_cast_slice` with alignment fallback
+- `hfb_common.rs`: `initial_wood_saxon_density()` extracted — shared by `hfb.rs`, `hfb_gpu.rs`, `hfb_gpu_resident.rs`
+- `hfb_gpu_resident.rs`: GPU energy pipeline feature-gated behind `gpu_energy` (dead allocation removed from default build)
+- `hfb.rs`: Removed unused `a` field from `SphericalHFB`; `hfb_gpu_types.rs`: removed unused `mat_size` field
+
+### Provenance
+- `SCREENED_COULOMB_PROVENANCE` + `DALIGAULT_CALIBRATION_PROVENANCE` added to `provenance.rs`
+- Commit verification documentation for all 4 baseline commits
+- Control JSON policy documented
+
+### Quality
+- `ENERGY_DRIFT_PCT` tightened: 5% → 0.5% (250× above measured worst case)
+- `RDF_TAIL_TOLERANCE` tightened: 0.15 → 0.02 (12× above measured worst case)
+- 9 new tests (3 summary.rs + 4 discovery.rs + 2 Wood-Saxon): 463 total (458 passing + 5 GPU-ignored)
+- `partial_cmp().expect()` → `total_cmp()` in all sort operations
+- `.to_string()` on literals → `String::from()` in production code
+- `bytemuck::cast_slice` for zero-copy u32 buffer creation
+- 13 library functions promoted to `const fn` (lattice accessors, spectral constructors)
+- 5 redundant `.clone()` calls removed (summary, transport, VACF, reservoir)
+- Deprecated `set_var`/`remove_var` suppressed in tests with edition 2024 migration plan
+
+## [0.6.0] — 2026-02-21
+
+### Changed
+
+- **Full Result propagation:** Eliminated all `.expect()` and `.unwrap()` from library
+  code. GPU pipelines (HFB spherical, deformed, GPU-batched), BCS solver, and ESN
+  `predict()` now return `Result<T, HotSpringError>`. New error variant
+  `HotSpringError::InvalidOperation` for state-dependent failures (e.g. ESN not trained).
+  Provably unreachable byte-slice `try_into()` calls annotated with `#[allow(clippy::expect_used)]`
+  and `// SAFETY:` justifications.
+- **Idiomatic Arc usage:** All `.clone()` on `Arc<T>` replaced with `Arc::clone(&...)`
+  for explicit reference-count semantics (`gpu.rs`, `bench.rs`, `ssf.rs`, `summary.rs`).
+- **Tolerance expansion:** 146 centralized constants in `tolerances.rs` (up from 122).
+  Added ESN/heterogeneous pipeline tolerances (`ESN_F32_LATTICE_PARITY`,
+  `ESN_F32_CLASSIFICATION_AGREEMENT`, `ESN_INT4_PREDICTION_PARITY`,
+  `ESN_PHASE_ACCURACY_MIN`, `ESN_MONITORING_OVERHEAD_PCT`, `PHASE_BOUNDARY_BETA_C_ERROR`)
+  and `BCS_DEGENERACY_PARTICLE_NUMBER_ABS`. All validation binaries wired to named
+  constants — zero inline magic numbers remain.
+- **Semantic tolerance fix:** `validate_barracuda_hfb.rs` now uses
+  `BCS_DEGENERACY_PARTICLE_NUMBER_ABS` instead of misused `MD_EQUILIBRIUM_FORCE_ABS`.
+- **Capability-based paths:** `nuclear_eos_gpu.rs` and `sarkas_gpu.rs` benchmark result
+  paths replaced with `discovery::paths::BENCHMARK_RESULTS`.
+
+### Added
+
+- **16 determinism tests** for all stochastic algorithms: ESN predict, HMC trajectory,
+  Anderson 2D/3D, MD FCC lattice velocities, MD force computation — all verify
+  reproducibility with fixed seeds.
+- **4 SSF CPU-path tests:** empty snapshots, multi-frame averaging, k-spacing, single
+  particle identity.
+- **Test coverage:** 454 unit tests (449 passing + 5 GPU-ignored), up from 441.
+  33 validation suites (33/33 pass). ~63% overall / ~96% unit-testable library coverage
+  (measured with `cargo-llvm-cov`).
+
+## [0.5.16] — 2026-02-20
+
+### Changed
+
+- **Code quality and idiomatic Rust:**
+  - Zero `.unwrap()` across entire crate — all replaced with `.expect("descriptive message")` or `?` propagation
+  - Zero `cargo clippy` warnings across all targets (pedantic + nursery lints enabled)
+  - Zero `cargo doc --no-deps` warnings
+  - Zero `cargo fmt` diffs
+  - `#[allow()]` audit: removed 7 redundant directives, 18 justified remain with comments
+  - Streaming JSON I/O in `data.rs` via `BufReader` + `serde_json::from_reader`
+- **Module refactoring:** Split `spectral.rs` (1,140 lines) into `spectral/` module:
+  `tridiag.rs`, `csr.rs`, `lanczos.rs`, `anderson.rs`, `hofstadter.rs`, `stats.rs`.
+  Split `md/observables.rs` (1,174 lines) into `md/observables/`:
+  `rdf.rs`, `vacf.rs`, `ssf.rs`, `transport.rs`, `energy.rs`, `summary.rs`.
+  Refactored `hfb_gpu_resident.rs`: extracted 5 helper functions from 1,184-line
+  monolithic SCF loop. All public APIs preserved — zero breaking changes.
+- **Compliance:** SPDX `AGPL-3.0-only` on all 106 `.rs` files and all 34 `.wgsl` shaders (line 1).
+  All hardcoded paths migrated to `discovery` module. Runtime hostname detection
+  (no hardcoded system names). 122 centralized tolerance constants in `tolerances.rs`.
+  Provenance records for all validation baselines.
+
+### Added
+
+- **Test coverage:** 441 unit tests (436 passing + 5 GPU-ignored), up from 345.
+  33 validation suites (33/33 pass). Line coverage: 60.4% total, 81.2% non-GPU
+  (measured with `cargo-llvm-cov`). Added tests for: spectral, observables, error
+  handling, complex arithmetic, cell-list, data loading, validation harness, CPU MD,
+  transport.
+
+## [0.5.10] — 2026-02-17
+
+### Added
+
+- **GPU density pipeline** wired into GPU-resident HFB solver:
+  - Density shader (`batched_hfb_density_f64.wgsl`) updated for batched
+    per-nucleus wavefunctions (`wf[batch_idx * ns * nr + j * nr + k]`)
+  - 14 GPU buffers for eigenvectors, BCS occupations, density output, mixing
+  - 3 compute pipelines: `compute_density` (proton/neutron), `mix_density`
+  - Full staging readback with fallback to CPU density on failure
+  - Energy pipeline stubs (bind groups, buffers) for future wiring
+- SCF loop restructured into 3 phases:
+  1. CPU eigensolve extraction + BCS Brent bisection (parallel via Rayon)
+  2. GPU density computation + mixing (batched, single encoder/submit)
+  3. CPU energy computation with GPU-mixed densities
+- `WorkItem` now tracks group index (`gi`) for correct GPU buffer routing
+- `rho_p_buf`/`rho_n_buf` upgraded with `COPY_SRC` for GPU-to-staging transfer
+- L2 GPU validation binary confirmed: chi2/datum=5.42, all physics consistent
+
+### Fixed
+
+- `DensityParamsUniform`, `MixParamsUniform`, `EnergyParamsUniform` fully wired
+  (were stub structs, now used in GPU dispatch)
+
+## [0.5.9] — 2026-02-17
+
+### Added
+
+- **6 new physics guard constants** with full justifications:
+  `BCS_DENSITY_SKIP` (1e-12), `SHARP_FILLING_THRESHOLD` (0.01 MeV),
+  `DEFORMED_COULOMB_R_MIN` (0.01 fm), `DEFORMATION_GUESS_WEAK` (0.05),
+  `DEFORMATION_GUESS_GENERIC` (0.15), `DEFORMATION_GUESS_SD` (0.35)
+
+### Changed
+
+- **Exhaustive tolerance wiring — final pass**: replaced all remaining inline
+  numeric literals in library code with named constants from `tolerances.rs`:
+  - `hfb.rs`: 3× `1e-12` BCS density skip → `BCS_DENSITY_SKIP`
+  - `hfb.rs`: `0.01` pairing gap → `SHARP_FILLING_THRESHOLD`
+  - `hfb_deformed.rs`: 4× `0.01` Coulomb guard → `DEFORMED_COULOMB_R_MIN`
+  - `hfb_deformed.rs`: deformation guesses → `DEFORMATION_GUESS_*`
+  - `hfb_deformed_gpu.rs`: 4× `0.01` + 3× deformation guesses → named constants
+  - `md/observables.rs`: `5.0` → `ENERGY_DRIFT_PCT`, `0.15` → `RDF_TAIL_TOLERANCE`
+- **Clippy pedantic compliance**: 76 warnings eliminated (408 → 332):
+  - Fixed ~40 `unreadable_literal` warnings (underscore separators in physics constants)
+  - Fixed 4 `doc_markdown` warnings (backtick formatting in doc comments)
+
+### Audit Results (v0.5.9)
+
+- **Quality gates**: fmt PASS, clippy PASS (332 pedantic warnings, all justified), test PASS (189/189), doc PASS
+- **Zero unsafe**, zero TODO/FIXME/HACK, zero mock code in production
+- **SPDX AGPL-3.0-only**: 81/81 files (51 .rs + 30 .wgsl)
+- **Remaining inline numerics in library code**: ~10 (all in test blocks or algorithm parameters)
+- **BarraCuda compatibility**: upstream v0.2.0 compiles cleanly; 16 primitive families used
+- **No duplicate math**: zero hand-rolled implementations of barracuda primitives
+
+## [0.5.8] — 2026-02-17
+
+### Added
+
+- **11 new tolerance constants** with full physical/numerical justifications:
+  `FACTORIAL_TOLERANCE`, `ASSOC_LEGENDRE_TOLERANCE`, `DIGAMMA_FD_TOLERANCE`,
+  `BETA_VIA_LNGAMMA_TOLERANCE`, `INCOMPLETE_GAMMA_TOLERANCE`, `BESSEL_NEAR_ZERO_ABS`,
+  `RHO_POWF_GUARD`, `GPU_JACOBI_CONVERGENCE`, `DIVISION_GUARD`,
+  `PAIRING_GAP_THRESHOLD`, `SCF_ENERGY_TOLERANCE`.
+- **`HotSpringError::DataLoad`** variant — `load_eos_context()` now returns
+  `Result<EosContext, HotSpringError>` instead of panicking on file load failures.
+
+### Changed
+
+- **WGSL preamble injection:** Inline `abs_f64` (bcs_bisection) and `cbrt_f64`
+  (potentials) replaced with `ShaderTemplate::with_math_f64_auto()` canonical
+  barracuda math library injection. Zero duplicate WGSL math.
+- **Exhaustive tolerance wiring across all physics modules:**
+  - `validate_special_functions`: factorial, assoc Legendre, digamma, beta,
+    incomplete gamma, Bessel near-zero
+  - `hfb.rs`: `DENSITY_FLOOR`, `RHO_POWF_GUARD`, `BRENT_TOLERANCE`
+  - `hfb_gpu.rs`: `DENSITY_FLOOR`, `GPU_JACOBI_CONVERGENCE`
+  - `hfb_gpu_resident.rs`: `DENSITY_FLOOR`, `RHO_POWF_GUARD`, `GPU_JACOBI_CONVERGENCE`
+  - `hfb_deformed.rs`: `DENSITY_FLOOR`, `DIVISION_GUARD`, `PAIRING_GAP_THRESHOLD`,
+    `SCF_ENERGY_TOLERANCE`
+  - `hfb_deformed_gpu.rs`: same deformed constants + `GPU_JACOBI_CONVERGENCE`
+  - `md/observables.rs`: `DIVISION_GUARD` for RDF, VACF, energy drift
+- **`load_eos_context()` evolved to `Result<>`** — callers now decide how to handle
+  data loading failures instead of hard panicking in library code.
+- **Removed unused import** `wgpu::util::DeviceExt` from `hfb_deformed_gpu.rs`.
+- **Comprehensive audit completed:** zero unsafe, zero TODO/FIXME, zero mocks,
+  zero hardcoded paths, all AGPL-3.0 licensed, all validation binaries follow
+  hotSpring pattern (ValidationHarness, exit 0/1).
+
+### Quality gate
+
+- `cargo fmt` — clean
+- `cargo clippy --all-targets -- -W clippy::pedantic` — clean (warnings only)
+- `cargo test` — 189 passed, 5 ignored (GPU), 0 failed
+- `cargo doc` — clean (0 warnings)
+
+## [0.5.7] — 2026-02-17
+
+### Added
+
+- **7 new tests** (189 total): determinism tests for `chi2_per_datum`, `binding_energy_l2`,
+  `SphericalHFB` construction, `compute_rdf`; CPU-path coverage for `DENSITY_FLOOR`
+  and `SPIN_ORBIT_R_MIN` guards, GPU f64 buffer edge case.
+- **`HFB_TEST_NUCLEI_PROVENANCE`** — machine-readable `BaselineProvenance` struct for
+  HFB test nuclei (previously comment-only provenance).
+- **Doc comments** on `GpuResidentL2Result` and all its fields.
+
+### Changed
+
+- **`hermite_value` → `barracuda::special::hermite`** — eliminated last duplicate math.
+  `hfb_common::hermite_value` now delegates to the canonical barracuda implementation.
+- **Validation binary tolerances fully wired:**
+  - `validate_linalg`: `EXACT_F64`, `SVD_TOLERANCE`, `ITERATIVE_F64`
+  - `validate_special_functions`: `GAMMA_TOLERANCE`, `ERF_TOLERANCE`, `BESSEL_TOLERANCE`,
+    `LAGUERRE_TOLERANCE`, `CHI2_CDF_TOLERANCE`, `EXACT_F64`
+  - `validate_md`: `EXACT_F64`, `GPU_VS_CPU_F64`, `MD_FORCE_TOLERANCE`,
+    `NEWTON_3RD_LAW_ABS`, `MD_EQUILIBRIUM_FORCE_ABS`
+  - `validate_barracuda_pipeline`: `GPU_VS_CPU_F64`, `NEWTON_3RD_LAW_ABS`,
+    `MD_ABSOLUTE_FLOOR`, `ENERGY_DRIFT_PCT`
+  - `validate_optimizers`: `EXACT_F64`, `GPU_VS_CPU_F64`, `RK45_TOLERANCE`,
+    `SOBOL_TOLERANCE`
+- **Provenance environments** — L1/L2 `BaselineProvenance` records now include
+  NumPy 1.24, SciPy 1.11, mystic 0.4.2 (previously just "Python 3.10, mystic").
+
+### Metrics
+
+| Metric | Before (v0.5.6) | After (v0.5.7) |
+|--------|:---:|:---:|
+| Unit tests | 182 | **189** (+7) |
+| Line coverage | 39% | **44%** |
+| Function coverage | 57% | **61%** |
+| Inline tolerance magic numbers (validation bins) | ~50 | **~12** (remaining: factorial, digamma, beta, assoc Legendre) |
+| Duplicate math functions | 1 (hermite) | **0** |
+
+## [0.5.6] — 2026-02-17
+
+### Added
+
+- **`SpinOrbitGpu` wired into `hfb_gpu_resident.rs`.** Replaces manual CPU spin-orbit
+  loop with barracuda's `ops::grid::SpinOrbitGpu` dispatch. Falls back to CPU on GPU
+  failure. Eliminates custom l·s factor computation — now uses canonical
+  `barracuda::ops::grid::compute_ls_factor`.
+- **`compute_ls_factor` wired into `hfb.rs`.** Replaces manual
+  `(j*(j+1) - l*(l+1) - 0.75)/2` calculation in both `build_hamiltonian` and
+  `binding_energy_l2` with the barracuda canonical implementation.
+- **Physics guard constants centralized.** Added `DENSITY_FLOOR` (1e-15 fm⁻³),
+  `SPIN_ORBIT_R_MIN` (0.1 fm), `COULOMB_R_MIN` (1e-10 fm) to `tolerances.rs` with
+  physical justification. Replaced 20+ inline magic numbers across 5 physics modules
+  (`hfb.rs`, `hfb_gpu.rs`, `hfb_gpu_resident.rs`, `hfb_deformed.rs`, `hfb_deformed_gpu.rs`).
+- **SPDX headers** on all 17 WGSL shaders that were missing them (now 30/30).
+
+### Changed
+
+- `panic!()` in GPU buffer map failure paths (`hfb_gpu_resident.rs`) converted to
+  idiomatic `expect()` with descriptive messages.
+- WGSL inline math duplicates (`abs_f64`, `cbrt_f64`) annotated with `TODO(evolution)`
+  for future preamble injection from ToadStool canonical `math_f64.wgsl`.
+
+### Fixed
+
+- Clippy `if_not_else` warning in `SpinOrbitGpu` guard.
+
+## [0.5.5] — 2026-02-16
+
+### Added
+
+- **Centralized tolerance constants.** Added `GPU_EIGENSOLVE_REL`, `GPU_EIGENVECTOR_ORTHO`,
+  `BCS_PARTICLE_NUMBER_ABS`, `BCS_CHEMICAL_POTENTIAL_REL`, `PPPM_NEWTON_3RD_ABS`,
+  `PPPM_MADELUNG_REL`, `HFB_RUST_VS_PYTHON_REL`, `HFB_RUST_VS_EXP_REL`,
+  `MD_ABSOLUTE_FLOOR`, `NEWTON_3RD_LAW_ABS`, `MD_EQUILIBRIUM_FORCE_ABS` to
+  `tolerances.rs` with physical justification for each.
+- **Unit tests** for `hfb_gpu.rs` (5), `hfb_gpu_resident.rs` (5), `bcs_gpu.rs` (6),
+  `hfb.rs` (6), `data.rs` (2). Total library tests: 158 → 182.
+- **`verify_hfb`** added to `validate_all` meta-validator SUITES list.
+- **`data::EosContext` and `data::load_eos_context()`** — shared EOS context loading
+  for all nuclear EOS binaries, eliminating 9 duplicated path constructions.
+- **`data::chi2_per_datum()`** — shared χ² computation using `tolerances::sigma_theo`.
+- **SPDX license headers** added to 4 archive files.
+
+### Changed
+
+- **Extracted 8 inline WGSL shaders** from `celllist_diag.rs` to
+  `src/bin/shaders/celllist_diag/*.wgsl` — file reduced from 1672 to 1124 lines.
+- **Wired all validation binaries to `tolerances.rs`.** Replaced 30+ inline
+  tolerance constants across `validate_md`, `validate_barracuda_hfb`,
+  `validate_pppm`, and `verify_hfb` with named constants from `tolerances.rs`.
+- **Replaced 19 inline `sigma_theo` expressions** across 7 nuclear EOS binaries
+  with `tolerances::sigma_theo(b_exp)`.
+- **Fixed `BFGS_TOLERANCE`** — corrected from 0.1 to 1e-4 with proper justification;
+  wired `validate_optimizers` to use it.
+- **Eliminated 25+ clippy warnings** via auto-fix (`cloned` → `copied`,
+  format string interpolation, unnecessary borrows).
+- **Nuclear EOS binaries** now use `data::load_eos_context()` instead of inline
+  path construction.
+- **Fixed `MD_FORCE_TOLERANCE` doc comment** — was incorrectly documenting 1e-10
+  for a 0.01 (1%) GPU f32 vs CPU f64 tolerance.
+- **Cleaned up dead_code.** Renamed 6 unused struct fields with `_` prefix,
+  documented 3 GPU-reserved functions with evolution comments.
+- **Improved `HFB_TEST_NUCLEI` provenance.** Added exact Python command, environment,
+  and date to the doc comment.
+- **Bumped to v0.5.5.**
+
+## [0.5.4] — 2026-02-16
+
+### Added
+
+- **`validate_nuclear_eos` binary.** Formal `ValidationHarness` for the complete
+  nuclear EOS pipeline (L1 SEMF, L2 HFB, NMP) — pure Rust replication of all
+  Python control work. 6 phases: L1 binding energies vs AME2020, NMP for SLy4
+  (within 2σ of literature), NMP physicality check for UNEDF0, L2 HFB vs
+  Python `skyrme_hf.py` baselines (12% tolerance for method differences),
+  L1 χ²/datum, cross-parametrization consistency. All 37 checks pass.
+- **`validate_all` meta-binary.** Runs all 9 validation suites in sequence
+  (5 CPU-only + 4 GPU). `--skip-gpu` flag for CI without GPU hardware.
+  Exit code 0 only if all suites pass.
+- **GPU eigensolve in `hfb_gpu_resident`.** Replaced CPU `eigh_f64` with
+  `BatchedEighGpu::execute_single_dispatch` — all proton+neutron Hamiltonians
+  across all groups eigendecomposed in ONE shader invocation per SCF iteration.
+  Falls back to CPU `eigh_f64` if `global_max_ns > 32` or GPU fails.
+  Spin-orbit corrections applied before GPU pack (CPU, full f64).
+
+### Changed
+
+- **Bumped to v0.5.4.**
+- **`hfb_gpu_resident` architecture evolved.** SCF loop now: GPU H-build →
+  CPU readback → CPU spin-orbit → GPU eigensolve → CPU BCS/density/energy.
+  Two GPU trips per iteration (H-build + eigensolve), eliminating the CPU
+  eigensolve bottleneck.
+
+## [0.5.3] — 2026-02-16
+
+### Added
+
+- **Single-dispatch eigensolve.** `hfb_gpu.rs` now uses
+  `BatchedEighGpu::execute_single_dispatch()` — ALL Jacobi rotations execute
+  inside ONE shader invocation with workgroup barriers, eliminating CPU
+  readback between rotations. Estimated 3-5× speedup for GPU HFB (dispatch
+  overhead was dominant). Falls back to `execute_f64()` if n > 32.
+- **Single-dispatch in deformed HFB.** `hfb_deformed_gpu.rs` uses
+  `execute_single_dispatch` for block sizes ≤ 32, with automatic fallback
+  to multi-dispatch then CPU for larger blocks.
+- **Validation binary tests single-dispatch.** `validate_barracuda_hfb` now
+  validates BOTH multi-dispatch and single-dispatch eigensolve paths against
+  CPU reference (eigenvalue error + orthogonality). 4 new checks.
+- **5 MD WGSL shaders extracted to files.** `yukawa_force_f64.wgsl`,
+  `vv_kick_drift_f64.wgsl`, `yukawa_force_celllist_f64.wgsl`,
+  `yukawa_force_celllist_v2_f64.wgsl`, `rdf_histogram_f64.wgsl` — moved
+  from inline `const &str` in `md/shaders.rs` to `src/md/shaders/` directory
+  with `include_str!`. Reduced `md/shaders.rs` from 759 → 299 lines (60%).
+
+### Fixed
+
+- **BCS pipeline cached.** `BcsBisectionGpu` now compiles the WGSL shader
+  and creates the compute pipeline ONCE at construction, not on every
+  `solve_bcs()` / `solve_bcs_with_degeneracy()` call.
+- **LHS import path standardized.** `nuclear_eos_gpu.rs` changed from
+  `barracuda::sample::lhs::latin_hypercube` to `barracuda::sample::latin_hypercube`
+  (the public re-export), matching all other binaries.
+- **sarkas_gpu report path.** Replaced relative `"../benchmarks/"` with
+  `CARGO_MANIFEST_DIR`-based resolution.
+
+### Changed
+
+- **BCS bisection docs updated.** The `target` → `target_val` WGSL keyword
+  fix has been absorbed by ToadStool (commit `0c477306`). Local shader
+  retained for domain-specific `use_degeneracy` feature (2j+1 shell model).
+- **math_f64 preamble docs updated.** Documented ToadStool's `(zero + literal)`
+  precision evolution (Feb 16 2026) — `log_f64` improved from ~1e-3 to ~1e-15.
+  Patched output inherits these improvements.
+- **Bumped to v0.5.3.**
+
+## [0.5.2] — 2026-02-16
+
+### Fixed
+
+- **Production unwrap/expect cleanup.** `md/simulation.rs`: `read_back_f64`
+  now returns `Result` instead of panicking on GPU channel failures; energy
+  history guard uses `if let` instead of `.expect()`. `hfb_gpu_resident.rs`:
+  non-panicking channel send, improved `eigh_f64` error messages.
+  `hfb_deformed_gpu.rs`: empty eigenvalue guard in `find_fermi_bcs`.
+  `bench.rs`: mutex uses `unwrap_or_else(PoisonError::into_inner)`;
+  `nvidia-smi` stdout uses `let Some(...) else { return }`.
+  `observables.rs`: added invariant comments to `first()`/`last()` calls.
+- **All Clippy auto-fixes applied.** Resolved remaining `manual_range_contains`,
+  `redundant_closure`, `explicit_iter_loop`, `print_literal` warnings.
+
+### Added
+
+- **Full provenance wiring.** All 6 nuclear EOS binaries (`nuclear_eos_gpu`,
+  `l1_ref`, `l2_ref`, `l2_gpu`, `l3_ref`, `l3_gpu`) now use
+  `provenance::SLY4_PARAMS`, `provenance::NMP_TARGETS`, and
+  `provenance::L1_PYTHON_CHI2` / `L2_PYTHON_CHI2` / `L2_PYTHON_TOTAL_CHI2`
+  instead of inline duplicates. UNEDF0 in `l1_ref` is a different
+  parametrization and retained with a documenting comment.
+- **Library test SLy4 deduplication.** All 5 test modules (`semf`,
+  `nuclear_matter`, `prescreen`, `data`, `hfb_deformed`) now use
+  `provenance::SLY4_PARAMS` instead of local `const SLY4` definitions.
+- **`provenance::print_nmp_analysis()`** — shared formatted NMP analysis
+  table (observable, value, target, sigma, pull, PASS/FAIL). Replaces
+  4 duplicate implementations across binaries.
+- **`provenance::NMP_NAMES` and `NMP_UNITS`** — standard display arrays.
+- **`ValidationHarness` in 3 more binaries**: `f64_builtin_test` (8 GPU
+  op checks), `sarkas_gpu` (per-case MD checks), `celllist_diag`
+  (force/energy/pair-count checks). Total with harness: **11 of 18 binaries**
+  (remaining 7 are optimization explorers, not validation targets).
+- **`nuclear_eos_l2_hetero` uses `provenance::print_nmp_analysis()`**.
+
+- **SPDX license headers.** All 45 `.rs` files (excluding archive/) now have
+  `// SPDX-License-Identifier: AGPL-3.0-only` as the first line.
+- **22 new unit tests.** Added `#[cfg(test)]` sections to `error.rs` (5 tests),
+  `gpu.rs` (6 tests), `hfb.rs` (5 tests), `simulation.rs` (9 tests).
+  Total: **107 tests** (was 85). 4 GPU/slow tests marked `#[ignore]`.
+- **Data provenance DOIs.** Added DOIs for AME2020 (Wang et al. 2021),
+  SLy4 (Chabanat 1998), UNEDF0 (Kortelainen 2010), NMP targets (Bender 2003,
+  Lattimer & Prakash 2016), and Sarkas MD (Silvestri 2022) to `provenance.rs`.
+  New constant: `AME2020_DOI`.
+- **Physics tolerance documentation.** Added inline comments explaining
+  convergence thresholds in `hfb_deformed.rs`, `hfb_gpu_resident.rs`,
+  `observables.rs`, and `prescreen.rs` (1e-6, 1e-10, 1e-15, 1e-30, etc.).
+- **GPU helper methods centralized on `GpuF64`.** `upload_f64`, `read_back_f64`,
+  `dispatch`, `create_bind_group`, `create_u32_buffer` moved from duplicate
+  free functions in `simulation.rs` / `celllist_diag.rs` to `GpuF64` methods.
+- **`EVOLUTION_READINESS.md`** — Rust module → WGSL shader → promotion tier
+  mapping with blockers and BarraCuda primitive inventory.
+- **Zero library `unwrap()` calls.** All 5 remaining `unwrap()` in library
+  code replaced with safe indexing or `expect()` with invariant documentation.
+- **`patch_math_f64_preamble` centralized.** Moved from duplicate local
+  functions in `celllist_diag.rs` and `f64_builtin_test.rs` to
+  `md::shaders::patch_math_f64_preamble()` in the library.
+- **`load_eos_context()` extracted in `nuclear_eos_l1_ref`.** Eliminated
+  repeated data loading across `main`, `run_multi_seed`, `run_pareto_sweep`.
+- **53 new unit tests.** Added `#[cfg(test)]` to `bench.rs` (12 tests),
+  `shaders.rs` (6 tests), `validation.rs` (+10), `provenance.rs` (+8),
+  `prescreen.rs` (+9), `observables.rs` (+2), `data.rs` (+2).
+  Total: **158 tests** (was 85 at v0.5.1). 5 ignored (GPU/slow).
+- **Test coverage measured.** `cargo llvm-cov`: 33.2% line, 50.3% function.
+  CPU-testable modules average >90%. GPU modules at 0% (require hardware).
+- **`EVOLUTION_READINESS.md`** — Rust → WGSL → promotion tier mapping.
+- **Shared HFB physics formulas.** Extracted `bcs_v2()`, `coulomb_exchange_slater()`,
+  `coulomb_exchange_energy_density()`, `cm_correction()`, `skyrme_central_t0()` into
+  `hfb_common.rs`. Wired into `hfb.rs`, `hfb_deformed.rs`, `hfb_deformed_gpu.rs` —
+  eliminates duplicated Slater exchange formula (4 sites).
+- **WGSL shaders extracted.** 3 inline shaders from `nuclear_eos_gpu.rs` moved to
+  `src/physics/shaders/` as `.wgsl` files (`semf_batch_f64`, `semf_pure_gpu_f64`,
+  `chi2_batch_f64`). Binary uses `include_str!`. Reduced binary from 1183→1045 lines.
+- **`nuclear_eos_l2_hetero` refactored.** Extracted `perturb_params()` and
+  `cascade_filter()` helpers, eliminating ~100 lines of duplicated loop logic.
+- **`validate_md.rs` cleaned.** All 78 `.unwrap()` calls replaced with descriptive
+  `.expect()` messages for GPU operations, tensor readback, and force computation.
+- **7 new `hfb_common` tests**: BCS v², Coulomb exchange, CM correction, Skyrme t0.
+
+### Changed
+
+- **Binary file sizes reduced.** Extracted shared NMP analysis, chi2, and
+  parameter constants reduced nuclear EOS binaries by ~15–50 lines each.
+  `nuclear_eos_l2_ref`: 833 → 785 lines. `nuclear_eos_gpu`: 1182 → 1163.
+  `celllist_diag.rs`: 1785 → 1672 (GPU helpers moved to library).
+  `nuclear_eos_gpu.rs`: 1183 → 1045 (shaders moved to .wgsl files).
+
+## [0.5.1] — 2026-02-16
+
+### Fixed
+
+- **Clippy pedantic: 1,067 → 0 warnings.** Moved lint configuration from
+  `lib.rs` `#![allow]` to workspace-level `[workspace.lints.clippy]` in
+  `Cargo.toml` so all targets (lib + 18 bins) share physics-justified allows.
+  Ran `cargo clippy --fix` for auto-fixable patterns (324 uninlined format
+  args, 55 cast_lossless, 11 explicit_iter_loop, etc.), then fixed remaining
+  manually: removed 7 unused `async` markers, fixed 2 `match_same_arms`,
+  prefixed 3 unused struct fields, added `clippy.toml` thresholds.
+- **Rustdoc: 3 → 0 warnings.** Escaped brackets in physics doc comments
+  (`[future]`, `[nr]`, `[10]`).
+- **10 compiler warnings eliminated.** Removed unused imports (`PI`,
+  `barracuda::numerical::trapz`), fixed unused `mut`, prefixed unused
+  variables, moved `#[cfg(test)]`-only density sanity checks inside the
+  test block.
+- **README version mismatch.** Updated v0.4.0 → v0.5.0 to match Cargo.toml.
+  Corrected inaccurate claim "All 18 binaries use ValidationHarness" and
+  "Clean with pedantic/nursery" clippy claim.
+- **HFB provenance documentation.** Added detailed doc comment to
+  `HFB_TEST_NUCLEI` explaining the provenance mismatch between `verify_hfb.rs`
+  inline values and `provenance::HFB_TEST_NUCLEI` — different L2 solver
+  configurations produce different values within the 10% tolerance.
+- **GPU `dispatch_and_read` now returns `Result`.** Replaced `expect()` panics
+  in channel send/recv with proper `Result<Vec<f64>, HotSpringError>`.
+  Validation binary callers use `.expect()` (correct pattern for exit-on-fail).
+
+### Added
+
+- **Centralized SLy4/UNEDF0 parameters** in `provenance` module
+  (`SLY4_PARAMS`, `UNEDF0_PARAMS`, `PARAM_NAMES`). Canonical source for all
+  binaries and tests.
+- **`nmp_chi2()` and `nmp_chi2_from_props()`** in `provenance` module. Shared
+  NMP χ² evaluation previously duplicated across 5+ binaries.
+- **`validate_pppm` now uses `ValidationHarness`** with proper exit code 0/1.
+  Added Newton 3rd law, energy sign, and net force checks.
+- **`verify_hfb` now uses `provenance::HFB_TEST_NUCLEI` and `SLY4_PARAMS`.**
+  No more inline duplicate constants.
+- **4 new provenance tests**: `sly4_params_have_correct_length`,
+  `nmp_chi2_sly4_is_small`, `nmp_chi2_exact_match_is_zero`,
+  `hfb_test_nuclei_have_positive_energies`. Total: **85 tests** (was 81).
+
+## [0.5.0] — 2026-02-16
+
+### Added
+
+- **`validate_barracuda_pipeline`** binary — end-to-end Yukawa OCP MD through
+  BarraCuda's abstracted ops (YukawaForceF64, VelocityVerletKickDrift/HalfKick,
+  BerendsenThermostat, KineticEnergy). 12/12 checks pass; 0.000% energy drift
+  over 300 production steps; force magnitude error 1.86e-7.
+- **`validate_barracuda_hfb`** binary — GPU BCS bisection + batched eigensolve
+  vs CPU reference. 14/14 checks pass; BCS μ error 6.2e-11; eigenvalue error
+  2.4e-12; O-16 proton BCS with nuclear degeneracy validated.
+- **`bcs_gpu`** module — local GPU BCS bisection solver with corrected WGSL
+  shader (fixes `target` reserved keyword in ToadStool's
+  `batched_bisection_f64.wgsl`). Full Rust wrapper with f64 buffer management.
+- **`bcs_bisection_f64.wgsl`** shader — hotSpring's local copy of the batched
+  BCS bisection shader with the WGSL keyword fix applied.
+- `HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md` — pipeline validation
+  handoff documenting 26 new GPU op checks, device creation bug, and tier
+  status updates.
+- Grand total: **195/195 quantitative checks** across all phases + pipeline.
+
+### Changed
+
+- Bumped version to 0.5.0 (pipeline validation milestone).
+- README: check count 186→195 (added Phase F 9 checks), binary count 16→18,
+  RAM corrected 64→32 GB DDR5.
+- CONTROL_EXPERIMENT_STATUS: added Phase F (9) + Pipeline (26) rows, total 195.
+- whitePaper/: METHODOLOGY, STUDY, SUMMARY, README all updated to 195.
+
+### Found (ToadStool bugs — documented for handoff)
+
+- `batched_bisection_f64.wgsl` line 154: `let target = ...` — `target` is a
+  WGSL reserved keyword. Fix: rename to `target_val`.
+- `WgpuDevice::from_adapter_index()` line 333: `required_features: Features::empty()`
+  — does not request SHADER_F64 even on f64-capable adapters. Fix: check
+  adapter features and request SHADER_F64 when available.
+
+## [0.4.0] — 2026-02-16
+
+### Added
+
+- **`error`** module — typed `HotSpringError` enum replacing `Result<_, String>`
+  in `GpuF64::new()`, `run_simulation()`, and `run_simulation_celllist()`.
+  Callers can now pattern-match on `NoAdapter`, `DeviceCreation`, `NoShaderF64`.
+- **`hfb_common`** module — shared types/utilities for HFB solver family:
+  `Mat` (row-major square matrix), `hermite_value`, `factorial_f64`. Eliminates
+  duplication across spherical HFB (L2), deformed HFB (L3), and GPU HFB.
+- 12 new tests (81 total, up from 70):
+  - Bitwise determinism: `semf`, `nuclear_matter`, `prescreen`, `hfb_common`,
+    `hfb_deformed` basis construction
+  - `hfb_common` unit tests: `Mat`, Hermite polynomials, factorials
+  - Integration: JSON round-trip consistency, discovery→load→SEMF pipeline
+
+### Changed
+
+- **GPU: capability-based discovery** — backend, power preference, and fallback
+  adapter controlled via `HOTSPRING_WGPU_BACKEND`, `HOTSPRING_GPU_POWER`,
+  `HOTSPRING_ALLOW_FALLBACK` environment variables. Buffer limits derived from
+  `adapter.limits()` instead of hardcoded values.
+- **NaN-safe sorting** — all 28 instances of `partial_cmp().unwrap()` across
+  12 files replaced with `f64::total_cmp()` (stable since Rust 1.62).
+- **Merged `compute_energy` / `compute_energy_debug`** in `hfb.rs` into a
+  single function with `verbose: bool` flag (saved 106 lines).
+- **Smart refactoring** of HFB solvers: `hfb.rs` 1176→1070 LOC,
+  `hfb_deformed.rs` 1322→1257 LOC, `hfb_deformed_gpu.rs` 1211→1182 LOC.
+- **Pure-Rust ISO 8601** — `bench.rs` `now_iso8601()` replaced external `date`
+  command with `SystemTime` + Hinnant's `civil_from_days` algorithm.
+- Hardened all GPU readback / channel `.unwrap()` calls with descriptive
+  `.expect()` messages in `gpu.rs`, `md/simulation.rs`, `hfb_gpu_resident.rs`.
+- Added `#[derive(Debug)]` to `GpuF64`, `MdSimulation`, `CylindricalGrid`,
+  `PowerMonitor`; `#[derive(Debug, Clone)]` to `Mat`.
+- Documented inline shader reductions as intentional performance choices
+  (fused force+accumulation avoids separate reduce dispatches).
+
+### Fixed
+
+- `clippy::pedantic` warning in `bench.rs`: `yoe as i64` → `i64::from(yoe)`.
+
+## [0.3.0] — 2026-02-16
+
+### Added
+
+- **`provenance`** module — traces every hardcoded validation value to its
+  Python origin (script, commit `fd908c41`, date, exact command).
+- **`tolerances`** module — centralizes all validation thresholds with
+  physical justification (machine precision, numerical method, model,
+  literature). No more ad-hoc magic numbers.
+- **`validation`** module — harness for pass/fail binaries with structured
+  check tracking and exit code 0 (pass) / 1 (fail).
+- **`discovery`** module — capability-based data path resolution via
+  `HOTSPRING_DATA_ROOT` env var, `CARGO_MANIFEST_DIR`, or CWD discovery.
+  Replaces scattered hardcoded `PathBuf` construction.
+- 62 new unit tests across all library modules:
+  - `constants`: CODATA 2018 values, derived quantities
+  - `semf`: known nuclei, pairing, monotonicity
+  - `nuclear_matter`: SLy4 NMP (ρ₀, E/A, K∞, m*/m, J), saturation minimum
+  - `prescreen`: NMP cascade, classifier, constraint bounds
+  - `data`: param names, nuclei set parsing, file loading
+  - `config`: box side, DSF cases, paper parity, reduced units
+  - `cpu_reference`: FCC lattice, velocity initialization, Yukawa force
+  - `observables`: energy validation, RDF, VACF
+
+### Changed
+
+- All WGSL shader string constants use `r"..."` instead of `r#"..."#`
+  (clippy `needless_raw_string_hashes`).
+- Heavy GPU test `test_deformed_hfb_runs` marked `#[ignore]` with
+  instructions for manual invocation.
+- Crate-level documentation expanded with evolution path and architecture.
+
+### Fixed
+
+- `cargo fmt` applied to all 34 source files.
+- Pre-existing compile warnings addressed (unused variables, dead code).
+
+## [0.2.0] — 2026-02-12
+
+### Added
+
+- Phase E: Paper-parity Yukawa OCP — 9/9 PP cases at N=10,000, 80k steps.
+- Phase D: N-scaling with native f64 builtins and cell-list forces.
+- L3 deformed HFB (CPU and GPU paths).
+- GPU-resident HFB prototype (Experiment 005b).
+- Cell-list `i32 %` bug fix (branch-based wrapping).
+- 160/160 quantitative checks passing.
+
+### Baselines
+
+All Python baselines from:
+- **Sarkas** v1.0.0 (commit `fd908c41`), environment `envs/sarkas.yaml`
+- **Surrogate** from Zenodo DOI 10.5281/zenodo.10908462, environment `envs/surrogate.yaml`
+- **TTM** from Two-Temperature-Model repo, environment `envs/ttm.yaml`
+- **AME2020** from Wang et al. 2021 (IAEA/AMDC)
+
+### Tolerance changes
+
+None — all thresholds stable since Phase B.
+
+## [0.1.0] — 2026-01-15
+
+### Added
+
+- Initial L1/L2 nuclear EOS validation.
+- BarraCuda L1: χ²=2.27, 478× faster than Python.
+- BarraCuda L2: χ²=16.11, 1.7× faster than Python.
+- Sarkas MD Phase A (60/60 checks).
+- Surrogate learning (15/15 checks).
+- TTM validation (6/6 checks).

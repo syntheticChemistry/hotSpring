@@ -1,0 +1,263 @@
+hotSpring-guideStone-v0.7.0
+===========================
+
+Chuna Validation Suite + Production QCD Data Engine
+
+guideStone-certified artifact: deterministic, reference-traceable,
+self-verifying, environment-agnostic, tolerance-documented.
+See GUIDESTONE.md for the full certification checklist.
+
+Papers Validated
+----------------
+
+  Paper 43: Wilson gradient flow (Bazavov & Chuna, arXiv:2101.05320)
+  Paper 44: BGK dielectric (Chuna & Murillo, Phys. Rev. E 111, 035206)
+  Paper 45: Kinetic-fluid coupling (Haack et al., J. Comput. Phys. 2024)
+
+  59/59 checks pass — CPU-only, deterministic, x86_64 and aarch64 Linux.
+  Cross-architecture parity verified: bit-identical results across
+  x86_64 and aarch64 on 5 substrates (Ubuntu, NVIDIA, AMD, Alpine, ARM64).
+
+Quick Start — Any Platform
+--------------------------
+
+  Linux (ext4 USB, local disk, NFS, scp):
+    ./hotspring validate
+
+  Linux (exFAT/FAT32 USB, NFS noexec):
+    sh ./hotspring validate
+    # Execute bits handled transparently via tmpdir fallback
+
+  Windows (WSL2 or Docker Desktop):
+    hotspring.bat validate
+
+  macOS (Docker Desktop or Podman):
+    sh ./hotspring validate
+    # Auto-detects non-Linux and dispatches to container
+
+  Any OS with Docker:
+    docker load < container/hotspring-guidestone.tar
+    docker run --rm -v ./results:/opt/validation/results \
+      hotspring-guidestone:v0.7.0 validate
+
+  GPU acceleration (any path):
+    HOTSPRING_FORCE_GPU=1 ./hotspring validate        (Linux)
+    docker run --rm --gpus all ... validate            (Docker)
+
+One entry point. No arguments required. No Rust toolchain. No sudo.
+No internet. GPU detection is automatic.
+
+The binary auto-detects the substrate:
+  - GPU available  → GPU + CPU dual-path validation
+  - No GPU         → CPU-only validation (same math, same checks)
+
+CHECKSUMS are validated before execution. Tampered files are detected.
+
+Deployment Matrix
+-----------------
+
+  Platform          Runtime              How
+  ─────────────────────────────────────────────────────────────────
+  Linux (ext4)      Native shell         ./hotspring validate
+  Linux (exFAT)     Tmpdir fallback      sh ./hotspring validate
+  Linux (HPC/Slurm) Static musl binary   srun ./hotspring validate
+  Windows (WSL2)    Native Linux in WSL  hotspring.bat validate
+  Windows (Docker)  Container            hotspring.bat validate
+  macOS (Docker)    Container            sh ./hotspring validate
+  CI / benchScale   Docker substrates    validate-hotspring-multi.sh
+  VM / agentReagents VM gate template    gate-hotspring-validation.yaml
+
+Output
+------
+
+Terminal shows PASS/FAIL for each check. JSON results are written
+to results/ with substrate metadata, engine info, and per-check
+details including paper references and tolerance justifications.
+
+  ./hotspring validate                       Output to results/
+  ./hotspring validate --output=results/x/   Output to custom directory
+
+Reference results are in expected/ for comparison against future runs.
+
+Run Manifest (JSON metadata)
+-----------------------------
+
+Every binary embeds a "run" section in its JSON output with:
+
+  schema_version   "1.0"
+  binary           Binary name (e.g. "chuna_flow")
+  engine_version   Cargo package version
+  timestamp        ISO 8601 UTC start time
+  hostname         Machine hostname
+  arch / os        CPU architecture and OS
+  argv             Full CLI invocation for reproducibility
+  git_commit       Git hash (if GIT_COMMIT env var is set)
+  gpu              GPU adapter name (if discovered)
+
+This makes every output self-documenting — Chuna can compare runs
+across machines, parameters, and code versions.
+
+Telemetry (JSONL sidecar)
+--------------------------
+
+All chuna_* binaries accept --telemetry=<path> to produce a streaming
+JSONL sidecar log alongside the main output. Each line is a timestamped
+measurement event (section, observable, value).
+
+  ./chuna-engine flow --dir=data/ --telemetry=flow_telemetry.jsonl
+  ./chuna-engine generate --lattice=8 --telemetry=gen_telemetry.jsonl
+
+If --telemetry is omitted, no sidecar is written (no behavior change).
+The JSONL format is machine-parseable for plotting with Python, jq, etc.
+
+Contents
+--------
+
+  hotspring          Unified entry point (./hotspring <command>)
+  _lib.sh            Shared shell library (arch, GPU, integrity)
+  hotspring.bat      Windows launcher (WSL2/Docker dispatch)
+  run                Backward compat → ./hotspring validate
+  run-matrix         Backward compat → ./hotspring matrix
+  benchmark          Backward compat → ./hotspring benchmark
+  chuna-engine       Backward compat → ./hotspring <subcmd>
+  deploy-nucleus     Backward compat → ./hotspring deploy
+  run-overnight      Backward compat → ./hotspring overnight
+  README             This file
+  GUIDESTONE.md      guideStone certification checklist (5 properties)
+  CHECKSUMS          SHA-256 integrity hashes for all artifact files
+  LICENSE            AGPL-3.0-or-later
+
+  bin/
+    x86_64/static/     Musl static binaries (CPU, any Linux, zero deps)
+    x86_64/gpu/        Glibc binaries (GPU via Vulkan dlopen)
+    aarch64/static/    ARM64 musl static (if cross-compiled)
+    static/            Legacy symlinks → arch-first paths
+    gpu/               Legacy symlinks → arch-first paths
+
+  container/
+    hotspring-guidestone.tar   OCI image (docker load, any OS)
+    docker-run.sh              Convenience launcher for container
+
+  expected/
+    validate_chuna_reference.json  Reference results from known-good run
+
+  results/           Created at runtime (JSON output)
+  shaders/           GPU shader sources (for substrate with wgpu)
+
+Dual-binary strategy: static musl ELFs for CPU (zero deps, any Linux),
+glibc-linked ELFs for GPU (Vulkan dlopen). The dispatcher auto-detects
+which to use. Container image packages both for cross-OS portability.
+
+Validation Matrix
+-----------------
+
+  ./run-matrix --phase=print-matrix     Print the full planning grid
+  ./run-matrix                          Quick check (8^4 quenched, ~1min)
+  ./run-matrix --phase=quenched-ladder  Full quenched ladder (8→32, ~30hr)
+  ./run-matrix --phase=dynamical-scaling  Dynamical RHMC scaling
+  ./run-matrix --phase=beta-scan        Beta scan at volume
+  ./run-matrix --phase=mass-scan        Mass scan at best beta
+  ./run-matrix --phase=custom --lattice=24 --beta=6.0 --nf=2 --mass=0.1
+
+Asymmetric lattice geometry (Ns³×Nt):
+
+  ./run-matrix --phase=custom --ns=16 --nt=32 --beta=6.0
+  ./run-matrix --phase=custom --ns=16 --nt=16,32 --beta=5.8,6.0,6.2 --nf=0,2
+
+Parameter mixing: comma-separated values for --ns, --nt, --beta, --mass,
+and --nf are crossed to build a Cartesian product of cells. This lets
+Chuna run coordinated sweeps in a single invocation.
+
+Matrix runs produce timestamped JSON files (results/matrix/run_<ts>.json)
+with a latest.json symlink pointing to the newest run. This preserves
+history for comparison across parameter tweaks.
+
+Chuna Engine — Composition guideStone
+--------------------------------------
+
+First instance of the Collaborator Engine pattern. Produces ILDG
+configs with QCDml 2.0 metadata for MILC/Bazavov ecosystem interop.
+See specs/COLLABORATOR_ENGINE_ARCHITECTURE.md for the full pattern.
+
+  ./chuna-engine help                  Show all commands + usage
+  ./chuna-engine generate [args]       Produce ILDG gauge configurations
+  ./chuna-engine flow [args]           Gradient flow on configs (ours or MILC)
+  ./chuna-engine measure [args]        Observables → formalized JSON
+  ./chuna-engine convert [args]        ILDG/LIME import/export/inspect
+  ./chuna-engine benchmark [args]      Integrator efficiency workbench
+  ./chuna-engine matrix [args]         Task matrix orchestration engine
+
+Quick start — generate configs and benchmark flow integrators:
+
+  ./chuna-engine generate --lattice=8 --beta=6.0 --configs=50 --outdir=data/
+  ./chuna-engine generate --ns=16 --nt=32 --beta=6.0 --configs=100 --outdir=data/
+  ./chuna-engine generate --dims=8,8,8,16 --beta=6.0 --configs=50 --outdir=data/
+  ./chuna-engine flow --dir=data/ --compare-all
+  ./chuna-engine benchmark --self-generate --ns=16 --nt=32 --beta=6.0
+  ./chuna-engine measure --dir=data/ --outdir=measurements/
+
+Geometry flags (all generator binaries):
+
+  --lattice=N      Isotropic N⁴ lattice (sugar for --dims=N,N,N,N)
+  --ns=N           Spatial extent Ns for Ns³×Nt (pair with --nt=)
+  --nt=N           Temporal extent Nt (defaults to Ns if omitted)
+  --dims=Nx,Ny,Nz,Nt  Fully specified anisotropic lattice
+
+HPC deployment:
+
+  Set HOTSPRING_NO_GPU=1 to skip GPU enumeration entirely. This avoids
+  wgpu/Vulkan initialization overhead on headless nodes without graphics
+  drivers (e.g. srun --export=HOTSPRING_NO_GPU=1 ./chuna-engine ...).
+  The binary gracefully falls back to CPU-only detection if GPU init
+  panics (broken ICD loaders).
+
+Build from Source
+-----------------
+
+  # Requires: Rust toolchain + musl target
+  rustup target add x86_64-unknown-linux-musl
+
+  # Build all binaries + container image:
+  scripts/build-guidestone.sh
+
+  # Static + GPU only (no container):
+  scripts/build-guidestone.sh --no-container
+
+  # With aarch64 cross-compile:
+  scripts/build-guidestone.sh --cross
+
+  # Container only (after binaries are built):
+  scripts/build-container.sh
+
+  # Prepare USB drive:
+  sudo scripts/prepare-usb.sh /dev/sdX             # ext4 (Linux-native)
+  sudo scripts/prepare-usb.sh /dev/sdX --exfat     # universal (all OS)
+  scripts/prepare-usb.sh --copy-only /mnt/usb       # copy to mounted drive
+
+Requirements
+------------
+
+  Native (Linux):
+    - Linux (any distribution, kernel 3.2+)
+    - x86_64 or aarch64 CPU (both architectures shipped and validated)
+    - No GPU required (CPU-only mode is the default)
+    - No libraries required (static musl binary, zero deps)
+    - No root access required (runs in user space)
+    - Cross-arch parity: 59/59 checks bit-identical on both arches
+
+  Container (any OS):
+    - Docker Desktop or Podman
+    - GPU mode: NVIDIA Container Toolkit (for --gpus all)
+
+  Windows:
+    - WSL2 (wsl --install) OR Docker Desktop
+    - hotspring.bat handles detection automatically
+
+Provenance
+----------
+
+  Source:  https://github.com/biomegate/ecoPrimals
+  Spring:  hotSpring (ecoPrimals/springs/hotSpring)
+  Engine:  barraCuda (pure Rust, WGSL shaders)
+  License: AGPL-3.0-or-later
+  Standard: infra/wateringHole/GUIDESTONE_STANDARD.md v1.0

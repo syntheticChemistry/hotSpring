@@ -1,0 +1,45 @@
+{
+  "best_params": [
+    -1680.1856571628146,
+    221.48396221665547,
+    -41.27362930699857,
+    12119.24400042558,
+    -0.2492974596664641,
+    0.304850525600044,
+    -0.4486876227601929,
+    -0.2838220318942454,
+    0.409805377559125,
+    199.95374602508466
+  ],
+  "chi2_be_per_datum": 16.11026764982451,
+  "chi2_nmp_per_datum": 3.209687613915648,
+  "chi2_total_per_datum": 16.431236411216076,
+  "direct_sampler_rounds": 3,
+  "engine": "barracuda::l2_nmp_constrained_hfb",
+  "evals_per_start": 80,
+  "l1_screening_samples": 5000,
+  "l2_time_seconds": 1558.627926827,
+  "lambda": 0.1,
+  "level": 2,
+  "log_chi2": 2.858263792828845,
+  "nm_starts": 10,
+  "nmp": {
+    "E_A": -16.06950552307167,
+    "J": 34.05461645859017,
+    "K_inf": 256.5301667090125,
+    "m_eff": 0.6872751148202063,
+    "rho0": 0.14183884391677565
+  },
+  "physics": "p/n_HFB + BCS + Coulomb_Poisson_Slater + T_eff + CM",
+  "references": {
+    "prev_barracuda_l2_no_fix": {
+      "chi2_per_datum": 28450.0
+    },
+    "python_scipy": {
+      "chi2_per_datum": 61.87
+    }
+  },
+  "seed": 42,
+  "total_l2_evals": 40,
+  "total_time_seconds": 1560.799448234
+}

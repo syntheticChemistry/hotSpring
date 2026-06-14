@@ -1,0 +1,53 @@
+{
+  "experiment": "npu_lattice_phase",
+  "date": "2026-02-20",
+  "checks": [
+    {
+      "name": "data generation",
+      "status": "PASS",
+      "detail": "400 training configs"
+    },
+    {
+      "name": "CPU classifier accuracy > 90%",
+      "status": "PASS",
+      "detail": "100.0%"
+    },
+    {
+      "name": "\u03b2_c detection within 0.3",
+      "status": "PASS",
+      "detail": "detected 5.715 vs known 5.692"
+    },
+    {
+      "name": "NPU model deployment",
+      "status": "PASS",
+      "detail": "weights shape (30,)"
+    },
+    {
+      "name": "NPU classifier accuracy > 70%",
+      "status": "FAIL",
+      "detail": "60.0% (int4 quantized)"
+    },
+    {
+      "name": "NPU throughput > 100 inf/s",
+      "status": "PASS",
+      "detail": "1457 inf/s"
+    },
+    {
+      "name": "NPU energy advantage > 100\u00d7",
+      "status": "PASS",
+      "detail": "83333\u00d7 less energy for classification"
+    },
+    {
+      "name": "pipeline composition",
+      "status": "PASS",
+      "detail": "GPU HMC + NPU classify + CPU validate"
+    }
+  ],
+  "summary": {
+    "n_pass": 7,
+    "n_total": 8,
+    "cpu_accuracy": 1.0,
+    "detected_beta_c": 5.715189873417722,
+    "beta_c_error": 0.023189873417721607
+  }
+}

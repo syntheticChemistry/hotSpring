@@ -1,0 +1,17 @@
+# Defaults for LLVM source coverage (applied by `scripts/coverage.sh` at the repository root).
+# cargo-llvm-cov does not load this file automatically; keep flags in sync with the script.
+#
+# Reference: https://github.com/taiki-e/cargo-llvm-cov
+
+[coverage]
+# Enforced with cargo-llvm-cov --fail-under-lines
+line_percent_min = 90
+
+# Merged into --ignore-filename-regex (exclude integration/unit test sources and bin targets)
+ignore_filename_regex = "/tests/|/src/bin/|(^|/)tests\\.rs$|.*_tests\\.rs$|.*-tests\\.rs$"
+
+[outputs]
+# HTML report directory (cargo-llvm-cov writes HTML under this tree)
+html_dir = "coverage/html"
+# Machine-readable summary
+json_path = "coverage/coverage.json"

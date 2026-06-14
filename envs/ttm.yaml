@@ -1,0 +1,16 @@
+# Two-Temperature Model conda environment
+# For: UCLA-MSU TTM (github.com/MurilloGroupMSU/Two-Temperature-Model)
+# Minimal scientific Python stack - TTM is pure Python with NumPy/SciPy
+name: ttm
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - matplotlib
+  - jupyter
+  - jupyterlab

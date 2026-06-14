@@ -1,0 +1,82 @@
+{
+  "date": "2026-02-12",
+  "experiment": "barracuda_library_validation",
+  "description": "Validation of barracuda library SparsitySampler against Python control and old custom BarraCUDA",
+  "summary": {
+    "L1": {
+      "python_control": {
+        "chi2_per_datum": 1.752,
+        "total_evals": 1008,
+        "time_s": 184.0,
+        "throughput_evals_s": 5.5
+      },
+      "old_barracuda_custom": {
+        "chi2_per_datum": 2.273,
+        "total_evals": 6028,
+        "time_s": 2.3,
+        "throughput_evals_s": 2621.0
+      },
+      "new_barracuda_library": {
+        "chi2_per_datum": 5.043,
+        "total_evals": 1100,
+        "time_s": 5.2,
+        "throughput_evals_s": 210.0,
+        "speedup_vs_python": 35.4
+      }
+    },
+    "L2": {
+      "python_control": {
+        "chi2_per_datum": 61.87,
+        "total_evals": 96,
+        "time_s": 344.2,
+        "throughput_evals_s": 0.28
+      },
+      "old_barracuda_custom": {
+        "chi2_per_datum": 25.43,
+        "total_evals": 1009,
+        "time_s": 2090.7,
+        "throughput_evals_s": 0.48
+      },
+      "new_barracuda_library": {
+        "chi2_per_datum": 27266.0,
+        "total_evals": 700,
+        "time_s": 126.9,
+        "throughput_evals_s": 5.5,
+        "speedup_vs_python": 19.6
+      }
+    }
+  },
+  "key_findings": [
+    "L1: 35x faster than Python, accuracy within 3x (5.04 vs 1.75 chi2)",
+    "L2: 19.6x faster per eval than Python, but accuracy gap is significant",
+    "L2 optimizer gets trapped at parameter boundaries \u2014 needs more true evaluations per iteration",
+    "SparsitySampler library runs NM on surrogate (cheap) but only adds ~20 true evals/iter",
+    "Python mystic does ~30 true objective evals/round with more aggressive direct search",
+    "Old custom BarraCUDA used 200 true evals/round directly \u2014 better accuracy but different architecture"
+  ],
+  "barracuda_modules_validated": [
+    "sample::sparsity::sparsity_sampler",
+    "sample::latin_hypercube",
+    "surrogate::RBFSurrogate (train + predict)",
+    "surrogate::RBFKernel::ThinPlateSpline",
+    "optimize::nelder_mead",
+    "optimize::bisect",
+    "special::gamma",
+    "special::factorial",
+    "special::laguerre",
+    "numerical::trapz",
+    "numerical::gradient_1d",
+    "linalg::solve_f64 (inside RBFSurrogate)"
+  ],
+  "external_deps_used": [
+    "nalgebra::SymmetricEigen (barracuda gap: needs symmetric_eigen / eigh)",
+    "rayon (parallel HFB evaluation in L2)"
+  ],
+  "evolution_needed": [
+    "SparsitySampler: add configurable n_true_evals_per_iter (currently fixed at n_solvers + n_explore)",
+    "SparsitySampler: option for hybrid NM \u2014 some solvers on true objective, some on surrogate",
+    "SparsitySampler: early stopping when no improvement for N iterations",
+    "linalg: symmetric_eigen / eigh wrapper (currently using nalgebra directly)",
+    "surrogate: leave-one-out CV for quality metric (RMSE=0 at training points is uninformative)"
+  ]
+}

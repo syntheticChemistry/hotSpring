@@ -1,0 +1,31 @@
+# cargo-tarpaulin configuration for hotSpring validation coverage.
+#
+# Run: cargo tarpaulin --config .cargo/tarpaulin.toml
+# Target: 90%+ line coverage on library code.
+
+[default]
+# Only measure library code, not binaries (validation bins are tested separately).
+lib = true
+# Use llvm engine for accurate coverage on nightly.
+engine = "llvm"
+# Exclude experiment and fossilized binaries from coverage.
+exclude-files = [
+    "src/bin/_fossilized/*",
+    "src/bin/exp*",
+]
+# Generate reports in multiple formats.
+out = ["Html", "Lcov"]
+output-dir = "target/tarpaulin"
+# Skip GPU/hardware tests that require live devices.
+run-types = ["Tests"]
+# Timeout for individual tests (seconds).
+timeout = "300"
+# Use release mode for realistic performance characteristics.
+release = true
+
+[ci]
+# CI-specific overrides.
+fail-under = 60
+# Start with 60% threshold; raise to 90% as coverage improves.
+out = ["Lcov"]
+output-dir = "target/tarpaulin-ci"

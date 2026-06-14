@@ -1,0 +1,19 @@
+{
+  "date": "2026-03-06",
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "precision": "DF64 (hybrid)",
+  "integrator": "Omelyan",
+  "n_md": 10,
+  "dt": 0.05,
+  "beta": 6.0,
+  "results": [
+    {"lattice": "4⁴",    "dims": [4,4,4,4],    "volume": 256,    "cpu_ms": 71.7,   "gpu_ms": 18.7,   "speedup": 3.8},
+    {"lattice": "8⁴",    "dims": [8,8,8,8],    "volume": 4096,   "cpu_ms": 1161.3, "gpu_ms": 32.6,   "speedup": 35.6},
+    {"lattice": "8³×4",  "dims": [8,8,8,4],    "volume": 2048,   "cpu_ms": 580.6,  "gpu_ms": 18.4,   "speedup": 31.5},
+    {"lattice": "16³×4", "dims": [16,16,16,4], "volume": 16384,  "cpu_ms": 4708.4, "gpu_ms": 173.6,  "speedup": 27.1},
+    {"lattice": "16³×8", "dims": [16,16,16,8], "volume": 32768,  "cpu_ms": 9293.9, "gpu_ms": 359.6,  "speedup": 25.8},
+    {"lattice": "16⁴",   "dims": [16,16,16,16],"volume": 65536,  "cpu_ms": 18625.2,"gpu_ms": 727.0,  "speedup": 25.6},
+    {"lattice": "32³×4", "dims": [32,32,32,4], "volume": 131072, "cpu_ms": 37768.7,"gpu_ms": 1451.1, "speedup": 26.0},
+    {"lattice": "32³×8", "dims": [32,32,32,8], "volume": 262144, "cpu_ms": 75124.8,"gpu_ms": 2840.2, "speedup": 26.5}
+  ]
+}

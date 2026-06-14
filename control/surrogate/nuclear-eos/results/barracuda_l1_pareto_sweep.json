@@ -1,0 +1,103 @@
+{
+  "base_seed": 42,
+  "n_seeds_per_lambda": 5,
+  "pareto_points": [
+    {
+      "all_nmp_within_2sigma": 0,
+      "chi2_be_mean": 0.6871004248683997,
+      "chi2_be_std": 0.061784022555219954,
+      "chi2_nmp_mean": 27.681078736895877,
+      "chi2_nmp_std": 8.787415773837871,
+      "j_mean": 21.02273772219251,
+      "j_std": 0.6144799540322139,
+      "lambda": 0.0,
+      "n_seeds": 5,
+      "rms_mev_mean": 7.11817302152283
+    },
+    {
+      "all_nmp_within_2sigma": 0,
+      "chi2_be_mean": 2.6952675066863514,
+      "chi2_be_std": 1.5341976617551008,
+      "chi2_nmp_mean": 3.2387131991129756,
+      "chi2_nmp_std": 0.9015850246996412,
+      "j_mean": 26.088855124555817,
+      "j_std": 1.0418361046046154,
+      "lambda": 1.0,
+      "n_seeds": 5,
+      "rms_mev_mean": 13.144784758044713
+    },
+    {
+      "all_nmp_within_2sigma": 3,
+      "chi2_be_mean": 5.434758378070602,
+      "chi2_be_std": 0.7757248672263243,
+      "chi2_nmp_mean": 1.6670944882131677,
+      "chi2_nmp_std": 0.7148570527429208,
+      "j_mean": 29.001387803230056,
+      "j_std": 0.6441475444662043,
+      "lambda": 5.0,
+      "n_seeds": 5,
+      "rms_mev_mean": 18.576673687631704
+    },
+    {
+      "all_nmp_within_2sigma": 3,
+      "chi2_be_mean": 8.26554267626295,
+      "chi2_be_std": 3.1119764241332426,
+      "chi2_nmp_mean": 1.037956332695507,
+      "chi2_nmp_std": 0.501640837808381,
+      "j_mean": 31.178911517108208,
+      "j_std": 0.8286016443924136,
+      "lambda": 10.0,
+      "n_seeds": 5,
+      "rms_mev_mean": 25.22148691940841
+    },
+    {
+      "all_nmp_within_2sigma": 4,
+      "chi2_be_mean": 7.367063886255548,
+      "chi2_be_std": 2.6990388796004745,
+      "chi2_nmp_mean": 1.1323586027363728,
+      "chi2_nmp_std": 1.1787344250027132,
+      "j_mean": 30.634675259837014,
+      "j_std": 1.4644445962084562,
+      "lambda": 25.0,
+      "n_seeds": 5,
+      "rms_mev_mean": 20.89013874474899
+    },
+    {
+      "all_nmp_within_2sigma": 2,
+      "chi2_be_mean": 10.776858649106487,
+      "chi2_be_std": 4.80414916632199,
+      "chi2_nmp_mean": 2.2200329336389055,
+      "chi2_nmp_std": 1.9644882587074293,
+      "j_mean": 32.31662979662457,
+      "j_std": 1.0297159755582845,
+      "lambda": 50.0,
+      "n_seeds": 5,
+      "rms_mev_mean": 27.562909804274398
+    },
+    {
+      "all_nmp_within_2sigma": 4,
+      "chi2_be_mean": 15.379083161657809,
+      "chi2_be_std": 6.076520896131416,
+      "chi2_nmp_mean": 1.1215839458500616,
+      "chi2_nmp_std": 0.72808467615278,
+      "j_mean": 32.64370026153997,
+      "j_std": 0.548943833918331,
+      "lambda": 100.0,
+      "n_seeds": 5,
+      "rms_mev_mean": 36.822008365852675
+    }
+  ],
+  "reference_baselines": {
+    "sly4": {
+      "chi2_be": 6.791062691367381,
+      "chi2_nmp": 0.6313882427243401,
+      "j_mev": 30.37839162434196
+    },
+    "unedf0": {
+      "chi2_be": 5024.5086715515645,
+      "chi2_nmp": 170.16170729513328,
+      "j_mev": 8.424207216953878
+    }
+  },
+  "type": "pareto_sweep_nmp_constrained"
+}

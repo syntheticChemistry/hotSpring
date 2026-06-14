@@ -1,0 +1,8 @@
+[Unit]
+Description=ecoPrimals NUCLEUS Node Atomic — full primal stack
+Documentation=https://github.com/ecoPrimals/ecoPrimals
+Wants=beardog.service songbird.service coralreef.service toadstool.service barracuda.service hotspring.service
+After=network.target
+
+[Install]
+WantedBy=multi-user.target

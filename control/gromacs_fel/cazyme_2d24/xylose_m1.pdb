@@ -1,0 +1,14 @@
+REMARK   -1 subsite xylose from 2D24, XYS C 4 -> BXYL
+REMARK   O1 placed at glycosidic oxygen position (C3:O4)
+ATOM      1  C1  BXYL    1      36.517  32.611  49.459  1.00  0.00
+ATOM      2  C2  BXYL    1      36.536  31.259  48.688  1.00  0.00
+ATOM      3  C3  BXYL    1      36.196  30.042  49.620  1.00  0.00
+ATOM      4  C4  BXYL    1      36.969  30.233  50.885  1.00  0.00
+ATOM      5  C5  BXYL    1      36.323  31.484  51.567  1.00  0.00
+ATOM      6  O2  BXYL    1      35.621  31.302  47.605  1.00  0.00
+ATOM      7  O3  BXYL    1      36.578  28.826  48.990  1.00  0.00
+ATOM      8  O4  BXYL    1      36.723  29.080  51.732  1.00  0.00
+ATOM      9  O5  BXYL    1      35.719  32.422  50.605  1.00  0.00
+ATOM     10  O1  BXYL    1      37.790  33.043  49.809  1.00  0.00
+TER
+END

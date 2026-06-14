@@ -1,0 +1,55 @@
+{
+  "parity": "spectral_theory",
+  "spring": "hotSpring",
+  "tier1": "Python (spectral_control.py)",
+  "tier2": "Rust (validate_spectral + validate_anderson_3d)",
+  "timestamp": "2026-05-17T18:04:44.071379+00:00",
+  "checks": [
+    {
+      "check": "herman_lyapunov_lambda2",
+      "python": 0.6931710192036007,
+      "rust": 0.6931471805599453,
+      "relative_error": 3.439189298317195e-05,
+      "tolerance": 0.02,
+      "passed": true
+    },
+    {
+      "check": "level_stats_poisson_deviation",
+      "python": 0.3889261610251238,
+      "reference": 0.3862943611198906,
+      "absolute_deviation": 0.002631799905233212,
+      "tolerance": 0.05,
+      "passed": true
+    },
+    {
+      "check": "anderson_3d_bandwidth_exact_obc",
+      "python": 11.276311449430906,
+      "rust": 11.276311449430901,
+      "relative_error": 4.725898661188275e-16,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "check": "anderson_3d_goe_poisson_monotonic",
+      "python": true,
+      "passed": true
+    },
+    {
+      "check": "dimensional_hierarchy",
+      "python": true,
+      "passed": true
+    },
+    {
+      "check": "mobility_edge_center_gt_edge",
+      "python_center_r": 0.5104157451233722,
+      "python_edge_r": 0.4962119793943457,
+      "passed": true
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "all_passed": true
+  }
+}

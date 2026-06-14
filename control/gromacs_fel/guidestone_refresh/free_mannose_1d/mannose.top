@@ -1,0 +1,287 @@
+;
+;	File 'mannose.top' was generated
+;	By user: strandgate (1000)
+;	On host: pop-os
+;	At date: Wed May 27 12:33:03 2026
+;
+;	This is a standalone topology file
+;
+;	Created by:
+;	              :-) GROMACS - gmx pdb2gmx, 2026.0-conda_forge (-:
+;	
+;	Executable:   /home/strandgate/miniconda3/envs/gromacs-fel/bin.AVX2_256/gmx
+;	Data prefix:  /home/strandgate/miniconda3/envs/gromacs-fel
+;	Working dir:  /home/strandgate/Development/ecoPrimals/springs/hotSpring/control/gromacs_fel/guidestone_refresh/free_mannose_1d
+;	Command line:
+;	  gmx pdb2gmx -f /home/strandgate/Development/ecoPrimals/springs/hotSpring/control/gromacs_fel/cazyme_gh10/mannose_charmm.pdb -o mannose.gro -p mannose.top -water tip3p -ff charmm36-jul2022
+;	Force field was read from current directory or a relative path - path added.
+;
+
+; Include forcefield parameters
+#include "./charmm36-jul2022.ff/forcefield.itp"
+
+[ moleculetype ]
+; Name            nrexcl
+Other_chain_A       3
+
+[ atoms ]
+;   nr       type  resnr residue  atom   cgnr     charge       mass  typeB    chargeB      massB
+; residue   1 BMAN rtp BMAN q  0.0
+     1     CC3162      1   BMAN     C1      1       0.34     12.011
+     2       HCA1      1   BMAN     H1      2       0.09      1.008
+     3      OC311      1   BMAN     O1      3      -0.65    15.9994
+     4       HCP1      1   BMAN    HO1      4       0.42      1.008
+     5     CC3163      1   BMAN     C5      5       0.11     12.011
+     6       HCA1      1   BMAN     H5      6       0.09      1.008
+     7     OC3C61      1   BMAN     O5      7       -0.4    15.9994
+     8     CC3161      1   BMAN     C2      8       0.14     12.011
+     9       HCA1      1   BMAN     H2      9       0.09      1.008
+    10      OC311      1   BMAN     O2     10      -0.65    15.9994
+    11       HCP1      1   BMAN    HO2     11       0.42      1.008
+    12     CC3161      1   BMAN     C3     12       0.14     12.011
+    13       HCA1      1   BMAN     H3     13       0.09      1.008
+    14      OC311      1   BMAN     O3     14      -0.65    15.9994
+    15       HCP1      1   BMAN    HO3     15       0.42      1.008
+    16     CC3161      1   BMAN     C4     16       0.14     12.011
+    17       HCA1      1   BMAN     H4     17       0.09      1.008
+    18      OC311      1   BMAN     O4     18      -0.65    15.9994
+    19       HCP1      1   BMAN    HO4     19       0.42      1.008
+    20      CC321      1   BMAN     C6     20       0.05     12.011
+    21       HCA2      1   BMAN    H61     21       0.09      1.008
+    22       HCA2      1   BMAN    H62     22       0.09      1.008
+    23      OC311      1   BMAN     O6     23      -0.65    15.9994
+    24       HCP1      1   BMAN    HO6     24       0.42      1.008   ; qtot 0
+
+[ bonds ]
+;  ai    aj funct            c0            c1            c2            c3
+    1     2     1 
+    1     3     1 
+    1     7     1 
+    1     8     1 
+    3     4     1 
+    5     6     1 
+    5     7     1 
+    5    16     1 
+    5    20     1 
+    8     9     1 
+    8    10     1 
+    8    12     1 
+   10    11     1 
+   12    13     1 
+   12    14     1 
+   12    16     1 
+   14    15     1 
+   16    17     1 
+   16    18     1 
+   18    19     1 
+   20    21     1 
+   20    22     1 
+   20    23     1 
+   23    24     1 
+
+[ pairs ]
+;  ai    aj funct            c0            c1            c2            c3
+    1     6     1 
+    1    11     1 
+    1    13     1 
+    1    14     1 
+    1    16     1 
+    1    20     1 
+    2     4     1 
+    2     5     1 
+    2     9     1 
+    2    10     1 
+    2    12     1 
+    3     5     1 
+    3     9     1 
+    3    10     1 
+    3    12     1 
+    4     7     1 
+    4     8     1 
+    5     8     1 
+    5    13     1 
+    5    14     1 
+    5    19     1 
+    5    24     1 
+    6    12     1 
+    6    17     1 
+    6    18     1 
+    6    21     1 
+    6    22     1 
+    6    23     1 
+    7     9     1 
+    7    10     1 
+    7    12     1 
+    7    17     1 
+    7    18     1 
+    7    21     1 
+    7    22     1 
+    7    23     1 
+    8    15     1 
+    8    17     1 
+    8    18     1 
+    9    11     1 
+    9    13     1 
+    9    14     1 
+    9    16     1 
+   10    13     1 
+   10    14     1 
+   10    16     1 
+   11    12     1 
+   12    19     1 
+   12    20     1 
+   13    15     1 
+   13    17     1 
+   13    18     1 
+   14    17     1 
+   14    18     1 
+   15    16     1 
+   16    21     1 
+   16    22     1 
+   16    23     1 
+   17    19     1 
+   17    20     1 
+   18    20     1 
+   21    24     1 
+   22    24     1 
+
+[ angles ]
+;  ai    aj    ak funct            c0            c1            c2            c3
+    2     1     3     5 
+    2     1     7     5 
+    2     1     8     5 
+    3     1     7     5 
+    3     1     8     5 
+    7     1     8     5 
+    1     3     4     5 
+    6     5     7     5 
+    6     5    16     5 
+    6     5    20     5 
+    7     5    16     5 
+    7     5    20     5 
+   16     5    20     5 
+    1     7     5     5 
+    1     8     9     5 
+    1     8    10     5 
+    1     8    12     5 
+    9     8    10     5 
+    9     8    12     5 
+   10     8    12     5 
+    8    10    11     5 
+    8    12    13     5 
+    8    12    14     5 
+    8    12    16     5 
+   13    12    14     5 
+   13    12    16     5 
+   14    12    16     5 
+   12    14    15     5 
+    5    16    12     5 
+    5    16    17     5 
+    5    16    18     5 
+   12    16    17     5 
+   12    16    18     5 
+   17    16    18     5 
+   16    18    19     5 
+    5    20    21     5 
+    5    20    22     5 
+    5    20    23     5 
+   21    20    22     5 
+   21    20    23     5 
+   22    20    23     5 
+   20    23    24     5 
+
+[ dihedrals ]
+;  ai    aj    ak    al funct            c0            c1            c2            c3            c4            c5
+    2     1     3     4     9 
+    7     1     3     4     9 
+    8     1     3     4     9 
+    2     1     7     5     9 
+    3     1     7     5     9 
+    8     1     7     5     9 
+    2     1     8     9     9 
+    2     1     8    10     9 
+    2     1     8    12     9 
+    3     1     8     9     9 
+    3     1     8    10     9 
+    3     1     8    12     9 
+    7     1     8     9     9 
+    7     1     8    10     9 
+    7     1     8    12     9 
+    6     5     7     1     9 
+   16     5     7     1     9 
+   20     5     7     1     9 
+    6     5    16    12     9 
+    6     5    16    17     9 
+    6     5    16    18     9 
+    7     5    16    12     9 
+    7     5    16    17     9 
+    7     5    16    18     9 
+   20     5    16    12     9 
+   20     5    16    17     9 
+   20     5    16    18     9 
+    6     5    20    21     9 
+    6     5    20    22     9 
+    6     5    20    23     9 
+    7     5    20    21     9 
+    7     5    20    22     9 
+    7     5    20    23     9 
+   16     5    20    21     9 
+   16     5    20    22     9 
+   16     5    20    23     9 
+    1     8    10    11     9 
+    9     8    10    11     9 
+   12     8    10    11     9 
+    1     8    12    13     9 
+    1     8    12    14     9 
+    1     8    12    16     9 
+    9     8    12    13     9 
+    9     8    12    14     9 
+    9     8    12    16     9 
+   10     8    12    13     9 
+   10     8    12    14     9 
+   10     8    12    16     9 
+    8    12    14    15     9 
+   13    12    14    15     9 
+   16    12    14    15     9 
+    8    12    16     5     9 
+    8    12    16    17     9 
+    8    12    16    18     9 
+   13    12    16     5     9 
+   13    12    16    17     9 
+   13    12    16    18     9 
+   14    12    16     5     9 
+   14    12    16    17     9 
+   14    12    16    18     9 
+    5    16    18    19     9 
+   12    16    18    19     9 
+   17    16    18    19     9 
+    5    20    23    24     9 
+   21    20    23    24     9 
+   22    20    23    24     9 
+
+; Include Position restraint file
+#ifdef POSRES
+#include "posre.itp"
+#endif
+
+; Include water topology
+#include "./charmm36-jul2022.ff/tip3p.itp"
+
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+;  i funct       fcx        fcy        fcz
+   1    1       1000       1000       1000
+#endif
+
+; Include topology for ions
+#include "./charmm36-jul2022.ff/ions.itp"
+
+[ system ]
+; Name
+Protein in water
+
+[ molecules ]
+; Compound        #mols
+Other_chain_A       1
+SOL               988

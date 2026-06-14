@@ -1,0 +1,118 @@
+{
+  "experiment": "nuclear_eos_skyrme_L1",
+  "date": "2026-02-11",
+  "level": 1,
+  "description": "Skyrme \u2192 nuclear matter \u2192 SEMF \u2192 \u03c7\u00b2(AME2020)",
+  "no_hfbtho": true,
+  "no_code_ocean": true,
+  "no_permissions": true,
+  "methodology": "Diaw et al. (2024) SparsitySampler iterative workflow",
+  "objective_transform": "log(1 + chi2) for smooth RBF learning",
+  "n_params": 10,
+  "param_names": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "x0",
+    "x1",
+    "x2",
+    "x3",
+    "alpha",
+    "W0"
+  ],
+  "evals_per_round": 200,
+  "max_rounds": 5,
+  "tolerance": 0.5,
+  "rounds_used": 5,
+  "total_evaluations": 1008,
+  "final_score": 1.7519635929485518,
+  "best_log1p_chi2": 2.030846096231434,
+  "best_chi2_per_datum": 6.620531334704386,
+  "best_chi2_verify": 6.620531334704386,
+  "best_params": [
+    -2458.9094759008167,
+    599.9999998028368,
+    -1.8787365125444956e-05,
+    11044.198094840045,
+    -0.9999251713042281,
+    0.9927465972533231,
+    -1.9999652082758825,
+    -0.9999865522195241,
+    0.1058513353661213,
+    50.00000030526141
+  ],
+  "converged": false,
+  "total_time_s": 184.0,
+  "history": [
+    {
+      "round": 0,
+      "n_evals": 208,
+      "n_clean": 208,
+      "score": 2.182353827778167,
+      "best_log": 2.030846096231434,
+      "best_chi2": 6.620531334704386,
+      "time_s": 35.9
+    },
+    {
+      "round": 1,
+      "n_evals": 400,
+      "n_clean": 400,
+      "score": 1.809781687060778,
+      "best_log": 2.030846096231434,
+      "best_chi2": 6.620531334704386,
+      "time_s": 34.1
+    },
+    {
+      "round": 2,
+      "n_evals": 608,
+      "n_clean": 608,
+      "score": 1.9601216974773188,
+      "best_log": 2.030846096231434,
+      "best_chi2": 6.620531334704386,
+      "time_s": 39.4
+    },
+    {
+      "round": 3,
+      "n_evals": 800,
+      "n_clean": 800,
+      "score": 1.8663451536690738,
+      "best_log": 2.030846096231434,
+      "best_chi2": 6.620531334704386,
+      "time_s": 34.9
+    },
+    {
+      "round": 4,
+      "n_evals": 1008,
+      "n_clean": 1008,
+      "score": 1.7519635929485518,
+      "best_log": 2.030846096231434,
+      "best_chi2": 6.620531334704386,
+      "time_s": 39.7
+    }
+  ],
+  "comparison": {
+    "paper_nuclear_eos": {
+      "rounds": 30,
+      "evals": 30000,
+      "final_chi2": 9.2e-06,
+      "model": "HFBTHO (full self-consistent DFT)",
+      "note": "Code Ocean (gated), Fortran wrapper"
+    },
+    "our_nuclear_eos": {
+      "rounds": 5,
+      "evals": 1008,
+      "final_chi2": 6.620531334704386,
+      "model": "SEMF with Skyrme nuclear matter coefficients",
+      "note": "Open, from scratch, no permissions"
+    },
+    "note": "\u03c7\u00b2 values not directly comparable \u2014 different fidelity models. Paper uses full DFT. We use Level 1. Both demonstrate surrogate learning methodology works on nuclear physics."
+  },
+  "best_nuclear_matter": {
+    "rho0_fm3": 0.16126710484465018,
+    "E_A_MeV": -15.26874218340205,
+    "K_inf_MeV": 246.6763433517372,
+    "m_eff_ratio": 0.3636496884251487,
+    "J_MeV": 8.876184687807717
+  }
+}

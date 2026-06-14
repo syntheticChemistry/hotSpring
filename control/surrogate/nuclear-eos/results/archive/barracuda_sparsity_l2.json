@@ -1,0 +1,38 @@
+{
+  "barracuda_modules_used": [
+    "sample::sparsity::sparsity_sampler",
+    "surrogate::RBFSurrogate",
+    "surrogate::RBFKernel::ThinPlateSpline",
+    "optimize::nelder_mead",
+    "optimize::multi_start_nelder_mead",
+    "optimize::bisect",
+    "sample::latin_hypercube",
+    "special::gamma",
+    "special::laguerre",
+    "numerical::trapz",
+    "numerical::gradient_1d",
+    "linalg::solve_f64"
+  ],
+  "best_params": [
+    -2030.528466299339,
+    453.787938892828,
+    -246.95015993757815,
+    10521.593934288796,
+    1.5,
+    0.0012995275060454503,
+    -1.7376869158085069,
+    0.034798552328634186,
+    0.5,
+    129.65919641066472
+  ],
+  "chi2_per_datum": 42804.65494164699,
+  "engine": "barracuda::sparsity_sampler + nalgebra::SymmetricEigen",
+  "external_deps": [
+    "nalgebra::SymmetricEigen (gap: barracuda::linalg needs symmetric_eigen)"
+  ],
+  "level": 2,
+  "log_chi2": 10.664425497647011,
+  "throughput_evals_per_sec": 5.0796524046731895,
+  "time_seconds": 118.118318381,
+  "total_evals": 600
+}

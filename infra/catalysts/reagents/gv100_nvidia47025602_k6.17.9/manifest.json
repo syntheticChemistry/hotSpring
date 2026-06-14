@@ -1,0 +1,142 @@
+{
+  "chip": "gv100",
+  "driver_version": "470.256.02",
+  "kernel_version": "6.17.9-76061709-generic",
+  "bdf": "0000:02:00.0",
+  "captured_at": "2026-05-11T13:50:47Z",
+  "bar0_snapshot": null,
+  "bar0_replay": null,
+  "patch_set": "/var/lib/toadstool/reagents/gv100_nvidia47025602_k6.17.9/gv100_nvidia470_patchset.json",
+  "frozen_module": null,
+  "firmware": {
+    "fecs_imem": "HS-protected (ACR authenticated, reads zeros from BAR0 PIO)",
+    "fecs_dmem": "HS-protected",
+    "gpccs_imem": "HS-protected",
+    "gpccs_dmem": "HS-protected",
+    "pmu_imem": "data/firmware/gv100_nvidia470/pmu_imem.bin (64KB, md5:5a043df5073b5c7eb661258c4a77c7c9)",
+    "pmu_dmem": "data/firmware/gv100_nvidia470/pmu_dmem.bin (64KB, md5:71d162800f93c9490130fa5b409c664f)",
+    "sec2_imem": null,
+    "acr_sequence": "Volta uses PMU for ACR (not SEC2). PMU HS ROM auto-boots after SBR, MB0=0x300.",
+    "linux_firmware_blobs": [
+      {
+        "subsystem": "acr",
+        "filename": "bl.bin",
+        "path": "/lib/firmware/nvidia/gv100/acr/bl.bin",
+        "size_bytes": 1280,
+        "acr_required": true
+      },
+      {
+        "subsystem": "acr",
+        "filename": "ucode_unload.bin",
+        "path": "/lib/firmware/nvidia/gv100/acr/ucode_unload.bin",
+        "size_bytes": 6400,
+        "acr_required": false
+      },
+      {
+        "subsystem": "gr",
+        "filename": "fecs_bl.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/fecs_bl.bin",
+        "size_bytes": 576,
+        "acr_required": true
+      },
+      {
+        "subsystem": "gr",
+        "filename": "fecs_inst.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/fecs_inst.bin",
+        "size_bytes": 25632,
+        "acr_required": true
+      },
+      {
+        "subsystem": "gr",
+        "filename": "fecs_data.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/fecs_data.bin",
+        "size_bytes": 4788,
+        "acr_required": true
+      },
+      {
+        "subsystem": "gr",
+        "filename": "gpccs_bl.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/gpccs_bl.bin",
+        "size_bytes": 576,
+        "acr_required": true
+      },
+      {
+        "subsystem": "gr",
+        "filename": "gpccs_inst.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/gpccs_inst.bin",
+        "size_bytes": 12643,
+        "acr_required": true
+      },
+      {
+        "subsystem": "gr",
+        "filename": "gpccs_data.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/gpccs_data.bin",
+        "size_bytes": 2128,
+        "acr_required": true
+      },
+      {
+        "subsystem": "gr",
+        "filename": "sw_ctx.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/sw_ctx.bin",
+        "size_bytes": 9756,
+        "acr_required": false
+      },
+      {
+        "subsystem": "gr",
+        "filename": "sw_nonctx.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/sw_nonctx.bin",
+        "size_bytes": 2728,
+        "acr_required": false
+      },
+      {
+        "subsystem": "gr",
+        "filename": "sw_bundle_init.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/sw_bundle_init.bin",
+        "size_bytes": 7664,
+        "acr_required": false
+      },
+      {
+        "subsystem": "gr",
+        "filename": "sw_method_init.bin",
+        "path": "/lib/firmware/nvidia/gv100/gr/sw_method_init.bin",
+        "size_bytes": 12296,
+        "acr_required": false
+      },
+      {
+        "subsystem": "sec2",
+        "filename": "desc.bin",
+        "path": "/lib/firmware/nvidia/gv100/sec2/desc.bin",
+        "size_bytes": 656,
+        "acr_required": true
+      },
+      {
+        "subsystem": "sec2",
+        "filename": "image.bin",
+        "path": "/lib/firmware/nvidia/gv100/sec2/image.bin",
+        "size_bytes": 91136,
+        "acr_required": true
+      },
+      {
+        "subsystem": "sec2",
+        "filename": "sig.bin",
+        "path": "/lib/firmware/nvidia/gv100/sec2/sig.bin",
+        "size_bytes": 192,
+        "acr_required": true
+      }
+    ],
+    "provenance": {}
+  },
+  "mmiotrace_recipe": "/var/lib/toadstool/reagents/gv100_nvidia47025602_k6.17.9/mmiotrace/nv535_recipe.json",
+  "metadata": {},
+  "completeness": {
+    "bar0_snapshot": false,
+    "bar0_replay": false,
+    "patch_set": true,
+    "falcon_firmware": true,
+    "linux_firmware": true,
+    "mmiotrace_recipe": true,
+    "vram_firmware": false,
+    "pmu_firmware": true,
+    "fecs_gpccs_firmware": false
+  }
+}

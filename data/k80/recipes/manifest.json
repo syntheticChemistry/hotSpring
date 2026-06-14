@@ -1,0 +1,30 @@
+{
+  "gpu_model": "Tesla K80",
+  "chipset": "GK210",
+  "architecture": "Kepler",
+  "pci_device_id": "10de:102d",
+  "recipes": [
+    {
+      "name": "devinit_cold_start",
+      "version": "1.0.0",
+      "source": "vbios_prom_devinit",
+      "driver": "none (VBIOS DEVINIT)",
+      "bios_version": "80.21.1b.00.02",
+      "bios_date": "10/09/14",
+      "file": "gk210_devinit_recipe.json",
+      "format": "DevinitScript",
+      "scripts_used": [0, 1],
+      "scripts_skipped": [2, 3, 4, 5],
+      "skip_reason": "Script 4 kills PCIe link without proper strap/condition evaluation",
+      "validated": true,
+      "validation_result": {
+        "ptimer_ticking": true,
+        "pmc_boot_0": "0x0f22d0a1",
+        "applied": 289,
+        "failed": 0,
+        "date": "2026-03-29"
+      },
+      "notes": "Brings cold GK210 to life via BAR0 MMIO. PTIMER ticking, basic engines enabled. Memory controller and GPC PLLs still need separate init for compute."
+    }
+  ]
+}

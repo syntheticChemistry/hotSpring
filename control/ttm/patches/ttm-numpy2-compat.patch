@@ -1,0 +1,30 @@
+diff --git a/core/physics.py b/core/physics.py
+index adb980f..65a5f57 100644
+--- a/core/physics.py
++++ b/core/physics.py
+@@ -13,6 +13,7 @@
+ # Works in SI units (sorry!)
+ 
+ 
++import math
+ import numpy as np
+ from .constants import *
+ 
+@@ -1007,7 +1008,7 @@ class SMT(Physical_Parameters):
+         if not isinstance(g, np.ndarray):
+             if g < 1:
+                 series_a = a1 * g + a2 * g**2 + a3 * g**3 + a4 * g**4 + a5 * g**5
+-                Knm = - n/4 * np.math.factorial(m - 1)*np.log(series_a)
++                Knm = - n/4 * math.factorial(m - 1)*np.log(series_a)
+             else:
+                 num = b0 + b1*np.log(g) + b2 * np.log(g)**2
+                 denom = 1 + b3*g + b4 * g**2
+@@ -1017,7 +1018,7 @@ class SMT(Physical_Parameters):
+             for i, gi in enumerate(g):
+                 if gi < 1:
+                     series_a = a1 * gi + a2 * gi**2 + a3 * gi**3 + a4 * gi**4 + a5 * gi**5
+-                    Knm[i] = - n/4 * np.math.factorial(m - 1)*np.log(series_a)
++                    Knm[i] = - n/4 * math.factorial(m - 1)*np.log(series_a)
+                 else:
+                     num = b0 + b1*np.log(gi) + b2 * np.log(gi)**2
+                     denom = 1.0 + b3*gi + b4 * gi**2

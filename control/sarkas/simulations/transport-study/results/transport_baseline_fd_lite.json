@@ -1,0 +1,36 @@
+{
+  "provenance": {
+    "generator": "hotSpring/control/sarkas/simulations/transport-study/scripts/compute_vacf_from_dumps.py",
+    "method": "central_finite_difference_of_unwrapped_positions",
+    "date": "2026-02-19T02:14:49.658583+00:00",
+    "python_version": "3.10.12 (main, Nov  4 2025, 08:48:33) [GCC 11.4.0]",
+    "numpy_version": "2.2.6",
+    "n_cases": 1,
+    "n_failed": 2
+  },
+  "results": [
+    {
+      "case": "transport_k1_G50_lite",
+      "kappa": 1,
+      "gamma": 50.0,
+      "D_star_reduced": 1.6511438285646875e-14,
+      "D_mks": 3.1050545500274128e-06,
+      "C0": 156171689.58953813,
+      "C_tail_ratio": 1.0000000000000004,
+      "n_vacf_points": 2000,
+      "n_frames": 4001,
+      "n_particles": 500,
+      "method": "finite_difference_positions"
+    }
+  ],
+  "failed": [
+    {
+      "case": "transport_k2_G100_lite",
+      "error": "No dumps at /home/eastgate/Development/ecoPrimals/hotSpring/control/sarkas/simulations/transport-study/Simulations/transport_k2_G100_lite/Simulation/Production/dumps"
+    },
+    {
+      "case": "transport_k3_G100_lite",
+      "error": "No dumps at /home/eastgate/Development/ecoPrimals/hotSpring/control/sarkas/simulations/transport-study/Simulations/transport_k3_G100_lite/Simulation/Production/dumps"
+    }
+  ]
+}

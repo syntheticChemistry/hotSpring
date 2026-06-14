@@ -1,0 +1,24 @@
+# Cremer-Pople puckering CVs for beta-D-xylopyranose ring
+# Ring atoms: C1(1) C2(9) C3(13) C4(17) C5(5) O5(8)
+
+puck: PUCKERING ATOMS=1,9,13,17,5,8
+
+# 1D well-tempered metadynamics on theta only
+# theta: 0 = 4C1 chair, pi/2 = boat/skew-boat, pi = 1C4 chair
+# Sigma 0.1 rad, height 1.5 kJ/mol, bias factor 15, PACE 500 (1ps)
+
+METAD ...
+LABEL=metad
+ARG=puck.theta
+PACE=500
+HEIGHT=1.5
+SIGMA=0.1
+FILE=HILLS
+BIASFACTOR=15.0
+TEMP=300.0
+GRID_MIN=0
+GRID_MAX=pi
+GRID_BIN=100
+... METAD
+
+PRINT STRIDE=10 ARG=puck.theta,puck.phi,puck.amplitude,puck.qx,puck.qy,puck.qz,metad.bias FILE=COLVAR

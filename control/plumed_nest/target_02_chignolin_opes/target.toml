@@ -1,0 +1,37 @@
+[target]
+id = "02_chignolin_opes"
+plum_id = "24.029"
+method = "OPES_METAD+OPES_METAD_EXPLORE"
+description = "Chignolin protein folding via OPES"
+temperature_k = 340.0
+cv_names = [
+    "hlda",
+    "rmsd_ca",
+]
+
+[files]
+hills = "Kernels.data"
+colvar = "COLVARb"
+plumed_dat = "plumed/plumed_gromacs.dat"
+tpr = "inputs/topol.tpr"
+
+[reference]
+basins = []
+# At 340K (above Tm~315K), unfolded state is favored: ΔG_fold is positive.
+# Observed: +19.5 kJ/mol with convergence within 4 kJ/mol.
+folding_fe_range_kjmol = [
+    15.0,
+    24.0,
+]
+
+[tolerances]
+barrier_kjmol = 5.0
+basin_position_rad = 0.5
+convergence_std_kjmol = 4.0
+block_stderr_kjmol = 5.0
+folding_fe_kjmol = 4.0
+
+[simulation]
+nsteps = 25000000
+ntmpi = 1
+ntomp = 8

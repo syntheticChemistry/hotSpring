@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gaugeConfiguration xmlns="http://www.lqcd.org/ildg/QCDml/config2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.lqcd.org/ildg/QCDml/config2.0 QCDmlConfig2.0.0.xsd">
+  <dataLFN>/hotspring/b6.00/8x8x8x16/conf.000070</dataLFN>
+  <management>
+    <archiveHistory>
+      <archiveEvent>
+        <revisionAction>generate</revisionAction>
+        <participant>
+          <name>hotSpring Engine</name>
+          <institution>ecoPrimals</institution>
+        </participant>
+        <date>2026-04-02T16:32:56Z</date>
+      </archiveEvent>
+    </archiveHistory>
+  </management>
+  <implementation>
+    <machine>
+      <name>pop-os</name>
+      <institution>ecoPrimals</institution>
+      <machineType>CPU workstation</machineType>
+    </machine>
+    <code>
+      <name>hotSpring-barracuda</name>
+      <version>hotSpring-barracuda 0.6.32</version>
+      <date>2026-04-02T16:32:56Z</date>
+    </code>
+  </implementation>
+  <algorithm>
+    <parameters/>
+  </algorithm>
+  <precision>double</precision>
+  <markovSequence>
+    <markovChainURI>urn:hotspring:ensemble:hotspring_b6.00_L8_Nt16</markovChainURI>
+    <series>a</series>
+    <markovStep>
+      <update>70</update>
+      <record>
+        <field>su3gauge</field>
+        <crcCheckSum>7e88fc8f</crcCheckSum>
+        <avePlaquette>5.930488283506991e-1</avePlaquette>
+      </record>
+    </markovStep>
+  </markovSequence>
+</gaugeConfiguration>

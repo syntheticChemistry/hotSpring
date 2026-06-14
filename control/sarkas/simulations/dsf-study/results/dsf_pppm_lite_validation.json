@@ -1,0 +1,154 @@
+{
+  "description": "PPPM (\u03ba=0) DSF peak frequency validation against Dense Plasma Properties Database",
+  "note": "Only plasmon peaks (\u03c9 > 0.2 \u03c9_p) are compared; high-q diffusive peaks are excluded",
+  "sarkas_version": "1.0.0",
+  "method": "PPPM",
+  "N_particles": 2000,
+  "N_prod_steps": 30000,
+  "overall_mean_plasmon_error_pct": 7.3,
+  "cases_completed": 3,
+  "cases_total": 3,
+  "cases": [
+    {
+      "case": "dsf_k0_G10_lite",
+      "kappa": 0,
+      "gamma": 10,
+      "mean_plasmon_error_pct": 0.1,
+      "mean_all_error_pct": 381.2,
+      "n_plasmon_peaks": 2,
+      "n_diffusive_peaks": 3,
+      "ka_details": [
+        {
+          "ka": 1.0,
+          "comp_peak_w": 1.005,
+          "ref_peak_w": 1.0053,
+          "error_pct": 0.0,
+          "mode": "plasmon"
+        },
+        {
+          "ka": 2.0,
+          "comp_peak_w": 0.984,
+          "ref_peak_w": 0.9857,
+          "error_pct": 0.2,
+          "mode": "plasmon"
+        },
+        {
+          "ka": 3.0,
+          "comp_peak_w": 1.005,
+          "ref_peak_w": 0.3024,
+          "error_pct": 232.4,
+          "mode": "diffusive"
+        },
+        {
+          "ka": 4.0,
+          "comp_peak_w": 0.9003,
+          "ref_peak_w": 0.1374,
+          "error_pct": 555.0,
+          "mode": "diffusive"
+        },
+        {
+          "ka": 5.0,
+          "comp_peak_w": 1.005,
+          "ref_peak_w": 0.0825,
+          "error_pct": 1118.6,
+          "mode": "diffusive"
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "case": "dsf_k0_G50_lite",
+      "kappa": 0,
+      "gamma": 50,
+      "mean_plasmon_error_pct": 11.0,
+      "mean_all_error_pct": 721.6,
+      "n_plasmon_peaks": 2,
+      "n_diffusive_peaks": 3,
+      "ka_details": [
+        {
+          "ka": 1.0,
+          "comp_peak_w": 1.005,
+          "ref_peak_w": 0.9621,
+          "error_pct": 4.5,
+          "mode": "plasmon"
+        },
+        {
+          "ka": 2.0,
+          "comp_peak_w": 1.005,
+          "ref_peak_w": 0.8561,
+          "error_pct": 17.4,
+          "mode": "plasmon"
+        },
+        {
+          "ka": 3.0,
+          "comp_peak_w": 0.984,
+          "ref_peak_w": 0.2985,
+          "error_pct": 229.7,
+          "mode": "diffusive"
+        },
+        {
+          "ka": 4.0,
+          "comp_peak_w": 0.9631,
+          "ref_peak_w": 0.055,
+          "error_pct": 1651.8,
+          "mode": "diffusive"
+        },
+        {
+          "ka": 5.0,
+          "comp_peak_w": 0.9212,
+          "ref_peak_w": 0.0511,
+          "error_pct": 1704.5,
+          "mode": "diffusive"
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "case": "dsf_k0_G150_lite",
+      "kappa": 0,
+      "gamma": 150,
+      "mean_plasmon_error_pct": 10.8,
+      "mean_all_error_pct": 1059.8,
+      "n_plasmon_peaks": 2,
+      "n_diffusive_peaks": 3,
+      "ka_details": [
+        {
+          "ka": 1.0,
+          "comp_peak_w": 1.005,
+          "ref_peak_w": 0.9582,
+          "error_pct": 4.9,
+          "mode": "plasmon"
+        },
+        {
+          "ka": 2.0,
+          "comp_peak_w": 0.984,
+          "ref_peak_w": 0.8443,
+          "error_pct": 16.6,
+          "mode": "plasmon"
+        },
+        {
+          "ka": 3.0,
+          "comp_peak_w": 0.9631,
+          "ref_peak_w": 0.0511,
+          "error_pct": 1786.6,
+          "mode": "diffusive"
+        },
+        {
+          "ka": 4.0,
+          "comp_peak_w": 0.9422,
+          "ref_peak_w": 0.0511,
+          "error_pct": 1745.5,
+          "mode": "diffusive"
+        },
+        {
+          "ka": 5.0,
+          "comp_peak_w": 0.9422,
+          "ref_peak_w": 0.0511,
+          "error_pct": 1745.5,
+          "mode": "diffusive"
+        }
+      ],
+      "status": "PASS"
+    }
+  ]
+}

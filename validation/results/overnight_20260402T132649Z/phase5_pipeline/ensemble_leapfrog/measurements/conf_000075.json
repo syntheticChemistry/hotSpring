@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000075",
+  "trajectory": 75,
+  "gauge": {
+    "plaquette": 0.5932963743761591,
+    "polyakov_abs": 0.020346121773216236,
+    "polyakov_re": -0.016152834224671474,
+    "polyakov_im": 0.012371362807743766,
+    "action_density": 2.440221753743045
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5915417585489166
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.3793507063049246
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.24719733506183564
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.1622520169701451
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.38313197134370885
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.18550757635909376
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.09592292883761012
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.0516879192511166
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.25184145087740256
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.09867748629265294
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.04350577607978562
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.019717127443204894
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.16552722297272235
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.051420365736695124
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.018753586178471986
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.005169669048783843
+    }
+  ],
+  "diagnostics": {
+    "accepted": false,
+    "delta_h": 5.410402697918471,
+    "trajectory_seconds": 10.626756311
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 11.506621094
+}

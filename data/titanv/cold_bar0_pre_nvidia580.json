@@ -1,0 +1,738 @@
+{
+  "bdf": "0000:03:00.0",
+  "registers": [
+    {
+      "offset": "0x00000000",
+      "raw_offset": 0,
+      "raw_value": 335544481,
+      "value": "0x140000a1"
+    },
+    {
+      "offset": "0x00000004",
+      "raw_offset": 4,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00000200",
+      "raw_offset": 512,
+      "raw_value": 1609359345,
+      "value": "0x5fecdff1"
+    },
+    {
+      "offset": "0x00000204",
+      "raw_offset": 516,
+      "raw_value": 16383,
+      "value": "0x00003fff"
+    },
+    {
+      "offset": "0x00001c00",
+      "raw_offset": 7168,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00001c04",
+      "raw_offset": 7172,
+      "raw_value": 1022,
+      "value": "0x000003fe"
+    },
+    {
+      "offset": "0x00002004",
+      "raw_offset": 8196,
+      "raw_value": 2097166,
+      "value": "0x0020000e"
+    },
+    {
+      "offset": "0x00002100",
+      "raw_offset": 8448,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002140",
+      "raw_offset": 8512,
+      "raw_value": 1635844353,
+      "value": "0x61810101"
+    },
+    {
+      "offset": "0x00002200",
+      "raw_offset": 8704,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002254",
+      "raw_offset": 8788,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002270",
+      "raw_offset": 8816,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002274",
+      "raw_offset": 8820,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002280",
+      "raw_offset": 8832,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002284",
+      "raw_offset": 8836,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0000228c",
+      "raw_offset": 8844,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002390",
+      "raw_offset": 9104,
+      "raw_value": 1,
+      "value": "0x00000001"
+    },
+    {
+      "offset": "0x00002394",
+      "raw_offset": 9108,
+      "raw_value": 1,
+      "value": "0x00000001"
+    },
+    {
+      "offset": "0x00002398",
+      "raw_offset": 9112,
+      "raw_value": 2,
+      "value": "0x00000002"
+    },
+    {
+      "offset": "0x0000239c",
+      "raw_offset": 9116,
+      "raw_value": 4,
+      "value": "0x00000004"
+    },
+    {
+      "offset": "0x00002504",
+      "raw_offset": 9476,
+      "raw_value": 3134194176,
+      "value": "0xbad00200"
+    },
+    {
+      "offset": "0x00002508",
+      "raw_offset": 9480,
+      "raw_value": 3134194176,
+      "value": "0xbad00200"
+    },
+    {
+      "offset": "0x0000252c",
+      "raw_offset": 9516,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002630",
+      "raw_offset": 9776,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002634",
+      "raw_offset": 9780,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002638",
+      "raw_offset": 9784,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002640",
+      "raw_offset": 9792,
+      "raw_value": 464329617,
+      "value": "0x1bad1b91"
+    },
+    {
+      "offset": "0x00002a00",
+      "raw_offset": 10752,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00002a04",
+      "raw_offset": 10756,
+      "raw_value": 3221225471,
+      "value": "0xbfffffff"
+    },
+    {
+      "offset": "0x00003080",
+      "raw_offset": 12416,
+      "raw_value": 268439552,
+      "value": "0x10001000"
+    },
+    {
+      "offset": "0x00003084",
+      "raw_offset": 12420,
+      "raw_value": 427956630,
+      "value": "0x19821996"
+    },
+    {
+      "offset": "0x00003088",
+      "raw_offset": 12424,
+      "raw_value": 356913718,
+      "value": "0x15461236"
+    },
+    {
+      "offset": "0x0000308c",
+      "raw_offset": 12428,
+      "raw_value": 335548424,
+      "value": "0x14001008"
+    },
+    {
+      "offset": "0x00020400",
+      "raw_offset": 132096,
+      "raw_value": 49,
+      "value": "0x00000031"
+    },
+    {
+      "offset": "0x00020460",
+      "raw_offset": 132192,
+      "raw_value": 536883312,
+      "value": "0x20003070"
+    },
+    {
+      "offset": "0x00040040",
+      "raw_offset": 262208,
+      "raw_value": 32819,
+      "value": "0x00008033"
+    },
+    {
+      "offset": "0x00040044",
+      "raw_offset": 262212,
+      "raw_value": 1,
+      "value": "0x00000001"
+    },
+    {
+      "offset": "0x00040048",
+      "raw_offset": 262216,
+      "raw_value": 69632,
+      "value": "0x00011000"
+    },
+    {
+      "offset": "0x0004004c",
+      "raw_offset": 262220,
+      "raw_value": 655360,
+      "value": "0x000a0000"
+    },
+    {
+      "offset": "0x00040054",
+      "raw_offset": 262228,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00040060",
+      "raw_offset": 262240,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00040068",
+      "raw_offset": 262248,
+      "raw_value": 3134194176,
+      "value": "0xbad00200"
+    },
+    {
+      "offset": "0x00040080",
+      "raw_offset": 262272,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00040084",
+      "raw_offset": 262276,
+      "raw_value": 1614807040,
+      "value": "0x60400000"
+    },
+    {
+      "offset": "0x000400a4",
+      "raw_offset": 262308,
+      "raw_value": 3134194176,
+      "value": "0xbad00200"
+    },
+    {
+      "offset": "0x00040100",
+      "raw_offset": 262400,
+      "raw_value": 268505361,
+      "value": "0x10011111"
+    },
+    {
+      "offset": "0x00040104",
+      "raw_offset": 262404,
+      "raw_value": 3134194176,
+      "value": "0xbad00200"
+    },
+    {
+      "offset": "0x00040108",
+      "raw_offset": 262408,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0004010c",
+      "raw_offset": 262412,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00040110",
+      "raw_offset": 262416,
+      "raw_value": 4096,
+      "value": "0x00001000"
+    },
+    {
+      "offset": "0x00040114",
+      "raw_offset": 262420,
+      "raw_value": 52224,
+      "value": "0x0000cc00"
+    },
+    {
+      "offset": "0x00040118",
+      "raw_offset": 262424,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00100000",
+      "raw_offset": 1048576,
+      "raw_value": 65535,
+      "value": "0x0000ffff"
+    },
+    {
+      "offset": "0x00100200",
+      "raw_offset": 1049088,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x00100204",
+      "raw_offset": 1049092,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x00100800",
+      "raw_offset": 1050624,
+      "raw_value": 12,
+      "value": "0x0000000c"
+    },
+    {
+      "offset": "0x00100804",
+      "raw_offset": 1050628,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00100808",
+      "raw_offset": 1050632,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x0010080c",
+      "raw_offset": 1050636,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x00100810",
+      "raw_offset": 1050640,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x00100c80",
+      "raw_offset": 1051776,
+      "raw_value": 2129921,
+      "value": "0x00208001"
+    },
+    {
+      "offset": "0x00100c84",
+      "raw_offset": 1051780,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00100e24",
+      "raw_offset": 1052196,
+      "raw_value": 73728,
+      "value": "0x00012000"
+    },
+    {
+      "offset": "0x00100e28",
+      "raw_offset": 1052200,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00100e2c",
+      "raw_offset": 1052204,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00100e30",
+      "raw_offset": 1052208,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00101000",
+      "raw_offset": 1052672,
+      "raw_value": 4194432,
+      "value": "0x00400080"
+    },
+    {
+      "offset": "0x00101004",
+      "raw_offset": 1052676,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x00101008",
+      "raw_offset": 1052680,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x00101714",
+      "raw_offset": 1054484,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x0010a000",
+      "raw_offset": 1089536,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0010a040",
+      "raw_offset": 1089600,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0010a044",
+      "raw_offset": 1089604,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0010a04c",
+      "raw_offset": 1089612,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0010a100",
+      "raw_offset": 1089792,
+      "raw_value": 16,
+      "value": "0x00000010"
+    },
+    {
+      "offset": "0x0010a104",
+      "raw_offset": 1089796,
+      "raw_value": 65536,
+      "value": "0x00010000"
+    },
+    {
+      "offset": "0x0010a108",
+      "raw_offset": 1089800,
+      "raw_value": 1074659584,
+      "value": "0x400e0100"
+    },
+    {
+      "offset": "0x0010a110",
+      "raw_offset": 1089808,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0010a114",
+      "raw_offset": 1089812,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0010a118",
+      "raw_offset": 1089816,
+      "raw_value": 2,
+      "value": "0x00000002"
+    },
+    {
+      "offset": "0x00137000",
+      "raw_offset": 1273856,
+      "raw_value": 3135197248,
+      "value": "0xbadf5040"
+    },
+    {
+      "offset": "0x00137050",
+      "raw_offset": 1273936,
+      "raw_value": 9,
+      "value": "0x00000009"
+    },
+    {
+      "offset": "0x00137100",
+      "raw_offset": 1274112,
+      "raw_value": 4,
+      "value": "0x00000004"
+    },
+    {
+      "offset": "0x0017e200",
+      "raw_offset": 1565184,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0017e204",
+      "raw_offset": 1565188,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0017e210",
+      "raw_offset": 1565200,
+      "raw_value": 4194304,
+      "value": "0x00400000"
+    },
+    {
+      "offset": "0x00300000",
+      "raw_offset": 3145728,
+      "raw_value": 3950160469,
+      "value": "0xeb72aa55"
+    },
+    {
+      "offset": "0x00300004",
+      "raw_offset": 3145732,
+      "raw_value": 808728395,
+      "value": "0x3034374b"
+    },
+    {
+      "offset": "0x00400100",
+      "raw_offset": 4194560,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00400108",
+      "raw_offset": 4194568,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00400110",
+      "raw_offset": 4194576,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409028",
+      "raw_offset": 4231208,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409030",
+      "raw_offset": 4231216,
+      "raw_value": 3029,
+      "value": "0x00000bd5"
+    },
+    {
+      "offset": "0x00409034",
+      "raw_offset": 4231220,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409038",
+      "raw_offset": 4231224,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409040",
+      "raw_offset": 4231232,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409044",
+      "raw_offset": 4231236,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0040904c",
+      "raw_offset": 4231244,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409080",
+      "raw_offset": 4231296,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409084",
+      "raw_offset": 4231300,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409100",
+      "raw_offset": 4231424,
+      "raw_value": 16,
+      "value": "0x00000010"
+    },
+    {
+      "offset": "0x00409104",
+      "raw_offset": 4231428,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409108",
+      "raw_offset": 4231432,
+      "raw_value": 538984576,
+      "value": "0x20204080"
+    },
+    {
+      "offset": "0x00409110",
+      "raw_offset": 4231440,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409210",
+      "raw_offset": 4231696,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00409380",
+      "raw_offset": 4232064,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a028",
+      "raw_offset": 4300840,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a030",
+      "raw_offset": 4300848,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a034",
+      "raw_offset": 4300852,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a038",
+      "raw_offset": 4300856,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a040",
+      "raw_offset": 4300864,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a044",
+      "raw_offset": 4300868,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a04c",
+      "raw_offset": 4300876,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a080",
+      "raw_offset": 4300928,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a084",
+      "raw_offset": 4300932,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x0041a100",
+      "raw_offset": 4301056,
+      "raw_value": 16,
+      "value": "0x00000010"
+    },
+    {
+      "offset": "0x0041a108",
+      "raw_offset": 4301064,
+      "raw_value": 537929792,
+      "value": "0x20102840"
+    },
+    {
+      "offset": "0x00700000",
+      "raw_offset": 7340032,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x00700004",
+      "raw_offset": 7340036,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x009a0000",
+      "raw_offset": 10092544,
+      "raw_value": 67,
+      "value": "0x00000043"
+    },
+    {
+      "offset": "0x009a0004",
+      "raw_offset": 10092548,
+      "raw_value": 0,
+      "value": "0x00000000"
+    },
+    {
+      "offset": "0x009a0200",
+      "raw_offset": 10093056,
+      "raw_value": 110106624,
+      "value": "0x06901800"
+    }
+  ],
+  "timestamp": 1774812445
+}

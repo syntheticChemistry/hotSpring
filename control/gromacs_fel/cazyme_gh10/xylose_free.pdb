@@ -1,0 +1,12 @@
+REMARK   Free beta-D-xylopyranose from PDB 1E0X chain C XYP
+REMARK   Renamed to BXYL for CHARMM36 force field
+HETATM 4835  C1  BXYLCA   1       4.602  -1.691  41.747  1.00  5.40           C  
+HETATM 4836  C2  BXYLCA   1       5.186  -0.407  42.362  1.00  5.86           C  
+HETATM 4837  C3  BXYLCA   1       6.140  -0.849  43.511  1.00  7.26           C  
+HETATM 4838  C4  BXYLCA   1       5.318  -1.687  44.502  1.00  7.29           C  
+HETATM 4839  C5  BXYLCA   1       4.656  -2.892  43.785  1.00  6.55           C  
+HETATM 4840  O2  BXYLCA   1       6.009   0.193  41.331  1.00  8.76           O  
+HETATM 4841  O3  BXYLCA   1       6.583   0.379  44.145  1.00  8.23           O  
+HETATM 4842  O4  BXYLCA   1       6.295  -2.205  45.453  1.00  9.34           O  
+HETATM 4843  O5  BXYLCA   1       3.808  -2.315  42.759  1.00  7.47           O  
+END

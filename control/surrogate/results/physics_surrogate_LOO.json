@@ -1,0 +1,147 @@
+{
+  "method": "RBF_LOO_cross_validation",
+  "description": "Physics-based surrogate trained on validated Sarkas MD observables",
+  "training_points": 12,
+  "features": [
+    "kappa",
+    "log10_gamma"
+  ],
+  "surrogates": {
+    "diffusion_log10D": {
+      "mean_LOO_error_decades": 0.09,
+      "max_LOO_error_decades": 0.18,
+      "multiplicative_factor": 1.23
+    },
+    "g_peak": {
+      "mean_LOO_pct_error": 8.2,
+      "max_LOO_pct_error": 15.3
+    },
+    "n_oscillations": {
+      "mean_LOO_abs_error": 4.9,
+      "max_LOO_abs_error": 17.1
+    }
+  },
+  "speedup": 900000,
+  "limitations": [
+    "Sparse training data (12 points, ideally 50+)",
+    "Low-dimensional input space (2D vs paper's ~100D nuclear EOS)",
+    "Single-round training (paper uses 30 iterative rounds)",
+    "Validates methodology, not nuclear EOS specific result"
+  ],
+  "code_ocean_blocker": {
+    "issue": "Restricted access \u2014 sign-up denied (OS restriction)",
+    "what_it_contains": "Nuclear EOS callable objective function (wraps LANL data)",
+    "impact": "Cannot reproduce nuclear EOS headline result without institutional access",
+    "classification": "DATA_ACCESS not API_ISSUE"
+  },
+  "training_data": [
+    {
+      "kappa": 0,
+      "gamma": 10,
+      "D": 5.856310235929256e-07,
+      "g_peak": 1.14,
+      "s_k0": 0.0208,
+      "n_osc": 23,
+      "T": 31381.7
+    },
+    {
+      "kappa": 0,
+      "gamma": 50,
+      "D": 6.053635489140258e-08,
+      "g_peak": 1.663,
+      "s_k0": 0.0034,
+      "n_osc": 43,
+      "T": 6351.2
+    },
+    {
+      "kappa": 0,
+      "gamma": 150,
+      "D": 2.0166172842531932e-08,
+      "g_peak": 2.358,
+      "s_k0": 0.0004,
+      "n_osc": 39,
+      "T": 2133.6
+    },
+    {
+      "kappa": 1,
+      "gamma": 14,
+      "D": 4.903065815923215e-07,
+      "g_peak": 1.16,
+      "s_k0": 0.139,
+      "n_osc": 14,
+      "T": 23043.7
+    },
+    {
+      "kappa": 1,
+      "gamma": 72,
+      "D": 5.118468699472465e-08,
+      "g_peak": 1.735,
+      "s_k0": 0.0462,
+      "n_osc": 17,
+      "T": 4429.1
+    },
+    {
+      "kappa": 1,
+      "gamma": 217,
+      "D": 1.6971683693893374e-08,
+      "g_peak": 2.48,
+      "s_k0": 0.0139,
+      "n_osc": 21,
+      "T": 1492.0
+    },
+    {
+      "kappa": 2,
+      "gamma": 31,
+      "D": 3.0008979818574066e-07,
+      "g_peak": 1.211,
+      "s_k0": 0.1629,
+      "n_osc": 6,
+      "T": 10226.1
+    },
+    {
+      "kappa": 2,
+      "gamma": 158,
+      "D": 3.3843850462772176e-08,
+      "g_peak": 1.817,
+      "s_k0": 0.0682,
+      "n_osc": 14,
+      "T": 1986.1
+    },
+    {
+      "kappa": 2,
+      "gamma": 476,
+      "D": 1.2036150453795876e-08,
+      "g_peak": 2.567,
+      "s_k0": 0.0303,
+      "n_osc": 12,
+      "T": 704.7
+    },
+    {
+      "kappa": 3,
+      "gamma": 100,
+      "D": 1.3560766046086524e-07,
+      "g_peak": 1.306,
+      "s_k0": 0.1377,
+      "n_osc": 4,
+      "T": 3184.6
+    },
+    {
+      "kappa": 3,
+      "gamma": 503,
+      "D": 1.7872184539095038e-08,
+      "g_peak": 1.954,
+      "s_k0": 0.0933,
+      "n_osc": 6,
+      "T": 634.9
+    },
+    {
+      "kappa": 3,
+      "gamma": 1510,
+      "D": 7.712262677617913e-09,
+      "g_peak": 2.607,
+      "s_k0": 0.0645,
+      "n_osc": 7,
+      "T": 259.1
+    }
+  ]
+}

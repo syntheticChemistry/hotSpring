@@ -1,0 +1,66 @@
+{
+  "paper": "Wiser et al. 2013",
+  "ltee_queue_id": "B2",
+  "spring": "hotSpring",
+  "model": {
+    "type": "power_law",
+    "formula": "w(t) = (1 + 2*alpha*t)^beta",
+    "alpha": 6.2e-4,
+    "beta": 0.056,
+    "source": "Wiser et al. 2013 Table S2"
+  },
+  "fitness_values": {
+    "gen_500": 1.0341,
+    "gen_5000": 1.0677,
+    "gen_10000": 1.0829,
+    "gen_50000": 1.1180
+  },
+  "anderson_diagnostics": {
+    "goe_reference": 0.531,
+    "poisson_reference": 0.3863,
+    "expected_phase": "CRITICAL — between GOE and Poisson",
+    "sliding_window": {
+      "window_size": 50,
+      "prediction": "early windows closer to GOE, late windows drift toward Poisson"
+    }
+  },
+  "validation_checks": [
+    {
+      "name": "power_law_no_plateau",
+      "check": "fitness at 50k > fitness at 10k",
+      "expected": true
+    },
+    {
+      "name": "diminishing_returns",
+      "check": "increment ratio last/first < 1",
+      "expected_bound": 1.0
+    },
+    {
+      "name": "r_between_goe_poisson",
+      "check": "Poisson < <r> < GOE",
+      "expected_range": [0.3863, 0.531]
+    },
+    {
+      "name": "population_variance",
+      "check": "std(<r>) > 0",
+      "expected": true
+    },
+    {
+      "name": "n_populations",
+      "check": "12 replicate populations analyzed",
+      "expected": 12
+    }
+  ],
+  "provenance": {
+    "notebook": "notebooks/papers/13-ltee-anderson-fitness.ipynb",
+    "scenario": "barracuda/src/validation/scenarios/s_ltee_anderson.rs",
+    "date": "2026-05-11",
+    "tier_1": "Python (numpy + scipy + matplotlib)",
+    "tier_2": "Rust (pure f64, self-contained tridiagonal eigensolver)"
+  },
+  "lithoSpore": {
+    "target_module": 7,
+    "module_name": "anderson",
+    "data_flow": "hotSpring → lithoSpore module 7 → foundation Thread 7"
+  }
+}

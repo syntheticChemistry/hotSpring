@@ -1,0 +1,64 @@
+PLUMED: PLUMED is starting
+PLUMED: Version: 2.9.2 (git: Unknown) compiled on May 17 2026 at 07:51:39
+PLUMED: Please cite these papers when using PLUMED [1][2]
+PLUMED: For further information see the PLUMED web page at http://www.plumed.org
+PLUMED: Root: /home/strandgate/miniconda3/envs/gromacs-fel/lib/plumed
+PLUMED: For installed feature, see /home/strandgate/miniconda3/envs/gromacs-fel/lib/plumed/src/config/config.txt
+PLUMED: Molecular dynamics engine: gromacs
+PLUMED: Precision of reals: 4
+PLUMED: Running over 1 node
+PLUMED: Number of threads: 1
+PLUMED: Cache line size: 512
+PLUMED: Number of atoms: 2609
+PLUMED: File suffix: 
+PLUMED: FILE: plumed.dat
+PLUMED: Action PUCKERING
+PLUMED:   with label puck
+PLUMED:   between atoms 1 9 13 17 5 8
+PLUMED:   added component to this action:  puck.qx 
+PLUMED:   added component to this action:  puck.qy 
+PLUMED:   added component to this action:  puck.qz 
+PLUMED:   added component to this action:  puck.phi 
+PLUMED:   added component to this action:  puck.theta 
+PLUMED:   added component to this action:  puck.amplitude 
+PLUMED:   Bibliography [3]
+PLUMED: Action METAD
+PLUMED:   with label metad
+PLUMED:   with arguments puck.theta
+PLUMED:   added component to this action:  metad.bias 
+PLUMED:   Gaussian width  0.100000  Gaussian height 1.500000
+PLUMED:   Gaussian deposition pace 500
+PLUMED:   Gaussian file HILLS
+PLUMED:   Well-Tempered Bias Factor 15.000000
+PLUMED:   Hills relaxation time (tau) 23.280494
+PLUMED:   KbT 2.494339
+PLUMED:   Grid min 0
+PLUMED:   Grid max pi
+PLUMED:   Grid bin 100
+PLUMED:   Grid uses spline interpolation
+PLUMED:   Bibliography [4][5]
+PLUMED: Action PRINT
+PLUMED:   with label @2
+PLUMED:   with stride 10
+PLUMED:   with arguments puck.theta puck.phi puck.amplitude puck.qx puck.qy puck.qz metad.bias
+PLUMED:   on file COLVAR
+PLUMED:   with format  %f
+PLUMED: END FILE: plumed.dat
+PLUMED: Timestep: 0.002000
+PLUMED: KbT: 2.494339
+PLUMED: Relevant bibliography:
+PLUMED:   [1] The PLUMED consortium, Nat. Methods 16, 670 (2019)
+PLUMED:   [2] Tribello, Bonomi, Branduardi, Camilloni, and Bussi, Comput. Phys. Commun. 185, 604 (2014)
+PLUMED:   [3] Cremer and Pople, J. Am. Chem. Soc. 97, 1354 (1975)
+PLUMED:   [4] Laio and Parrinello, PNAS 99, 12562 (2002)
+PLUMED:   [5] Barducci, Bussi, and Parrinello, Phys. Rev. Lett. 100, 020603 (2008)
+PLUMED: Please read and cite where appropriate!
+PLUMED: Finished setup
+PLUMED:                                               Cycles        Total      Average      Minimum      Maximum
+PLUMED:                                                    1    75.381929    75.381929    75.381929    75.381929
+PLUMED: 1 Prepare dependencies                       5000001     1.334777     0.000000     0.000000     0.000210
+PLUMED: 2 Sharing data                               5000001     1.703186     0.000000     0.000000     0.000187
+PLUMED: 3 Waiting for data                           5000001     0.491305     0.000000     0.000000     0.000190
+PLUMED: 4 Calculating (forward loop)                 5000001    39.179830     0.000008     0.000007     0.008977
+PLUMED: 5 Applying (backward loop)                   5000001     8.866802     0.000002     0.000001     0.000291
+PLUMED: 6 Update                                     5000001     6.277345     0.000001     0.000000     0.412667

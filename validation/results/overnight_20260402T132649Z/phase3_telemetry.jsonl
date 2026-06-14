@@ -1,0 +1,16 @@
+{"t":582.034,"section":"custom_8⁴_b5.80","obs":"plaquette","val":5.691066e-1}
+{"t":582.034,"section":"custom_8⁴_b5.80","obs":"acceptance","val":3.900000e-1}
+{"t":582.034,"section":"custom_8⁴_b5.80","obs":"Q","val":-5.278471e-2}
+{"t":582.034,"section":"custom_8⁴_b5.80","obs":"wall_seconds","val":5.820338e2}
+{"t":1163.369,"section":"custom_8⁴_b6.00","obs":"plaquette","val":5.933886e-1}
+{"t":1163.369,"section":"custom_8⁴_b6.00","obs":"acceptance","val":4.300000e-1}
+{"t":1163.369,"section":"custom_8⁴_b6.00","obs":"Q","val":-3.226724e-4}
+{"t":1163.369,"section":"custom_8⁴_b6.00","obs":"wall_seconds","val":5.813346e2}
+{"t":2325.861,"section":"custom_8³×16_b5.80","obs":"plaquette","val":5.675239e-1}
+{"t":2325.861,"section":"custom_8³×16_b5.80","obs":"acceptance","val":4.800000e-1}
+{"t":2325.861,"section":"custom_8³×16_b5.80","obs":"Q","val":-5.581296e-2}
+{"t":2325.861,"section":"custom_8³×16_b5.80","obs":"wall_seconds","val":1.162491e3}
+{"t":3489.327,"section":"custom_8³×16_b6.00","obs":"plaquette","val":5.935252e-1}
+{"t":3489.327,"section":"custom_8³×16_b6.00","obs":"acceptance","val":4.750000e-1}
+{"t":3489.327,"section":"custom_8³×16_b6.00","obs":"Q","val":5.836761e-2}
+{"t":3489.327,"section":"custom_8³×16_b6.00","obs":"wall_seconds","val":1.163466e3}

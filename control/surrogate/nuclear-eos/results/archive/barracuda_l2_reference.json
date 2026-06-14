@@ -1,0 +1,36 @@
+{
+  "best_params": [
+    -2363.817352211452,
+    599.7456883102434,
+    -597.7141674370107,
+    10280.50428288689,
+    1.4943523975075022,
+    -0.08013517943663612,
+    -1.9950517671624204,
+    -0.987966395181207,
+    0.4990533083777342,
+    200.0
+  ],
+  "chi2_per_datum": 28449.892944699648,
+  "convergence": {
+    "improving": 1,
+    "stagnant": 18
+  },
+  "engine": "barracuda::reference_l2_l1_seeded",
+  "evals_per_start": 200,
+  "l1_screening_samples": 5000,
+  "l2_time_seconds": 743.48227241,
+  "level": 2,
+  "log_chi2": 10.255934825518862,
+  "nm_starts": 20,
+  "prev_barracuda": {
+    "chi2_per_datum": 25.43,
+    "evals": 1009
+  },
+  "python_reference": {
+    "chi2_per_datum": 61.87,
+    "evals": 96
+  },
+  "total_l2_evals": 4022,
+  "total_time_seconds": 743.967514983
+}

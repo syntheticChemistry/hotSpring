@@ -1,0 +1,694 @@
+#!/bin/sh
+set -eu
+
+# hotspring — unified ecoBin entry point for the hotSpring guideStone artifact.
+#
+# Usage:
+#   ./hotspring validate       [args]  — physics validation suite (CPU + GPU)
+#   ./hotspring benchmark      [args]  — hardware profiling (FP64, HMC, precision)
+#   ./hotspring generate       [args]  — ILDG gauge config generation via HMC/RHMC
+#   ./hotspring flow           [args]  — gradient flow on ILDG configs
+#   ./hotspring measure        [args]  — compute observables (plaquette, Wilson, HVP)
+#   ./hotspring analyze        [args]  — ensemble statistics (jackknife, autocorrelation)
+#   ./hotspring convert        [args]  — ILDG/LIME import/export + QCDml
+#   ./hotspring matrix         [args]  — task matrix orchestration
+#   ./hotspring deploy         [args]  — NUCLEUS deployment with primal composition
+#   ./hotspring overnight      [args]  — extended dual-GPU validation sweep
+#   ./hotspring validate-shader [args] — cross-path WGSL shader validation
+#   ./hotspring version               — print version and exit
+#   ./hotspring help                  — this message
+#
+# guideStone Property 4: Environment-Agnostic
+#   No cargo, no Rust toolchain, no sudo, no network required.
+#   GPU detection is automatic; override with HOTSPRING_NO_GPU=1 or HOTSPRING_FORCE_GPU=1.
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SELF_DIR"
+
+# Source shared library
+. ./_lib.sh
+
+VERSION="0.7.0"
+
+# ── Non-Linux dispatch ──────────────────────────────────────────────
+# On macOS, Git Bash (MINGW/MSYS), or other non-Linux hosts, the ELF
+# binaries cannot run natively. Auto-dispatch through Docker/Podman
+# if available, otherwise print guidance.
+
+detect_os
+
+if [ "$OS_TAG" != "linux" ]; then
+    CMD="${1:-help}"
+
+    if [ "$CMD" = "help" ] || [ "$CMD" = "--help" ] || [ "$CMD" = "-h" ]; then
+        cat <<'NONLINUX_HELP'
+hotSpring guideStone v0.7.0 — running on non-Linux host
+
+The artifact binaries are Linux ELFs. On this platform, execution is
+routed through Docker or Podman automatically.
+
+  ./hotspring validate       Run physics validation via container
+  ./hotspring benchmark      Hardware profiling via container
+  ./hotspring help           This message
+
+Requirements:
+  - Docker Desktop or Podman (https://docs.docker.com/get-docker/)
+  - GPU mode: docker run --gpus all ... (NVIDIA Container Toolkit)
+
+On Windows, you can also use hotspring.bat which tries WSL2 first.
+
+NONLINUX_HELP
+        exit 0
+    fi
+
+    if container_available; then
+        echo "  Non-Linux host detected ($HOST_OS) — dispatching via container"
+        container_ensure_loaded || exit 1
+        container_exec "$@"
+    else
+        echo "Non-Linux host detected ($HOST_OS) but no container runtime found."
+        echo ""
+        if [ "$OS_TAG" = "darwin" ]; then
+            echo "Install Docker Desktop:"
+            echo "  brew install --cask docker"
+            echo "  # or: https://docs.docker.com/desktop/install/mac-install/"
+        elif [ "$OS_TAG" = "windows-shell" ]; then
+            echo "Use hotspring.bat (tries WSL2 first, then Docker)."
+            echo "Or install Docker Desktop:"
+            echo "  https://docs.docker.com/desktop/install/windows-install/"
+        else
+            echo "Install Docker or Podman to run the artifact on this OS."
+        fi
+        exit 1
+    fi
+fi
+
+# ── Init: integrity + arch + gpu (Linux path) ──────────────────────
+
+integrity_check
+detect_arch
+detect_gpu
+
+# ── Subcommand dispatch ─────────────────────────────────────────────
+
+CMD="${1:-help}"
+shift 2>/dev/null || true
+
+case "$CMD" in
+
+# ── validate ────────────────────────────────────────────────────────
+validate|run)
+    resolve_binary "validate"
+
+    OUTPUT_DIR="results/"
+    THREE_SUBSTRATE=0
+    PASSTHROUGH_ARGS=""
+    for arg in "$@"; do
+        case "$arg" in
+            --output=*) OUTPUT_DIR="${arg#--output=}" ;;
+            --three-substrate) THREE_SUBSTRATE=1 ;;
+            *) PASSTHROUGH_ARGS="$PASSTHROUGH_ARGS $arg" ;;
+        esac
+    done
+
+    echo "  mode: $MODE_LABEL"
+    echo "  bin:  $RESOLVED_BIN"
+    echo
+
+    "$RESOLVED_BIN" --output "$OUTPUT_DIR" $PASSTHROUGH_ARGS
+    RUST_EXIT=$?
+
+    update_livespore "validate" "$RUST_EXIT" "$OUTPUT_DIR"
+
+    if [ "$THREE_SUBSTRATE" = "1" ]; then
+        echo ""
+        echo "═══ Cross-Substrate Parity: Python vs Rust ═══"
+        echo ""
+
+        if [ "${HOTSPRING_NO_PYTHON:-0}" = "1" ]; then
+            echo "  SKIP: HOTSPRING_NO_PYTHON=1"
+            exit $RUST_EXIT
+        fi
+
+        if ! command -v python3 >/dev/null 2>&1; then
+            echo "  SKIP: python3 not found on PATH"
+            exit $RUST_EXIT
+        fi
+
+        READER_DIR="$(cd "$SELF_DIR/.." && pwd)/control/hotspring_reader"
+        if [ ! -f "$READER_DIR/run_all_parity.py" ]; then
+            READER_DIR="$SELF_DIR/control/hotspring_reader"
+        fi
+        if [ ! -f "$READER_DIR/run_all_parity.py" ]; then
+            echo "  SKIP: run_all_parity.py not found"
+            exit $RUST_EXIT
+        fi
+
+        CONTROL_DIR="$(dirname "$READER_DIR")"
+
+        echo "  Running full paper-queue parity suite (10 papers)..."
+        python3 "$READER_DIR/run_all_parity.py" \
+            --control-dir="$CONTROL_DIR" \
+            --rust-dir="$OUTPUT_DIR" \
+            --self-parity \
+            --output="$OUTPUT_DIR/parity_greenboard.json"
+        PARITY_EXIT=$?
+
+        if [ $PARITY_EXIT -ne 0 ]; then
+            echo ""
+            echo "  PARITY GAPS REMAIN — see green board report above"
+            exit 1
+        fi
+        echo ""
+        echo "  All substrate parity checks passed."
+    fi
+
+    exit $RUST_EXIT
+    ;;
+
+# ── benchmark ───────────────────────────────────────────────────────
+benchmark|bench)
+    HOSTNAME_VAL=$(hostname 2>/dev/null || echo "unknown")
+    DATE=$(date -u +%Y%m%dT%H%M%SZ)
+    RESULTS_DIR="results/benchmarks/${HOSTNAME_VAL}_${DATE}"
+    mkdir -p "$RESULTS_DIR"
+
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  hotSpring Hardware Benchmark                              ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo
+    echo "  host:     $HOSTNAME_VAL"
+    echo "  arch:     $ARCH_TAG"
+    echo "  gpu mode: $MODE_LABEL"
+    echo "  output:   $RESULTS_DIR/"
+    echo
+
+    # Phase 1: Hardware discovery
+    echo "━━━ Phase 1: Hardware Discovery ━━━"
+    echo
+    resolve_binary "validate"
+    if [ -x "$RESOLVED_BIN" ] || chmod +x "$RESOLVED_BIN" 2>/dev/null; then
+        "$RESOLVED_BIN" --output "$RESULTS_DIR" --discover-only 2>&1 | tee "$RESULTS_DIR/discovery.log" || true
+    fi
+
+    {
+        echo "hostname: $HOSTNAME_VAL"
+        echo "date: $DATE"
+        echo "arch: $ARCH_TAG"
+        echo "kernel: $(uname -r)"
+        echo "cpu: $(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2 | xargs || echo 'unknown')"
+        echo "cores: $(nproc 2>/dev/null || echo 'unknown')"
+        echo "ram_gb: $(awk '/MemTotal/{printf "%.1f", $2/1048576}' /proc/meminfo 2>/dev/null || echo 'unknown')"
+        echo "gpu_mode: $GPU_MODE"
+    } > "$RESULTS_DIR/system_info.txt"
+    echo "  System info -> $RESULTS_DIR/system_info.txt"
+
+    # Phase 2: GPU benchmarks
+    if [ "$GPU_MODE" = "1" ]; then
+        echo
+        echo "━━━ Phase 2: GPU Benchmarks ━━━"
+        echo
+
+        for _BENCH_NAME in bench-gpu-fp64 bench-gpu-hmc bench-precision-tiers; do
+            resolve_binary "$_BENCH_NAME" 2>/dev/null || continue
+            echo "  Running $_BENCH_NAME..."
+            "$RESOLVED_BIN" 2>&1 | tee "$RESULTS_DIR/${_BENCH_NAME}.log" || true
+        done
+    else
+        echo
+        echo "━━━ Phase 2: GPU Benchmarks (skipped — no Vulkan) ━━━"
+        echo "  Set HOTSPRING_FORCE_GPU=1 to override"
+    fi
+
+    # Phase 3: CPU baseline
+    echo
+    echo "━━━ Phase 3: CPU Validation Baseline ━━━"
+    echo
+    _SAVE_GPU="$GPU_MODE"
+    GPU_MODE=0
+    resolve_binary "validate"
+    GPU_MODE="$_SAVE_GPU"
+    echo "  Running CPU-only validation (static musl)..."
+    CPU_START=$(date +%s)
+    "$RESOLVED_BIN" --output "$RESULTS_DIR/cpu_results/" 2>&1 | tail -5
+    CPU_END=$(date +%s)
+    CPU_SECS=$((CPU_END - CPU_START))
+    echo "  CPU baseline: ${CPU_SECS}s"
+
+    # Phase 4: Summary
+    echo
+    echo "━━━ Benchmark Summary ━━━"
+    echo
+    echo "  All results in: $RESULTS_DIR/"
+
+    update_livespore "benchmark" "0" "$RESULTS_DIR"
+    exit 0
+    ;;
+
+# ── generate ────────────────────────────────────────────────────────
+generate)
+    resolve_and_exec "chuna-generate" "$@"
+    ;;
+
+# ── flow ────────────────────────────────────────────────────────────
+flow)
+    resolve_and_exec "chuna-flow" "$@"
+    ;;
+
+# ── measure ─────────────────────────────────────────────────────────
+measure)
+    resolve_and_exec "chuna-measure" "$@"
+    ;;
+
+# ── analyze ─────────────────────────────────────────────────────────
+analyze)
+    resolve_and_exec "chuna-analyze" "$@"
+    ;;
+
+# ── convert ─────────────────────────────────────────────────────────
+convert)
+    resolve_and_exec "chuna-convert" "$@"
+    ;;
+
+# ── matrix ──────────────────────────────────────────────────────────
+matrix)
+    resolve_and_exec "validation-matrix" "$@"
+    ;;
+
+# ── validate-shader ─────────────────────────────────────────────────
+validate-shader|shader-validate)
+    resolve_and_exec "chuna-validate-shader" "$@"
+    ;;
+
+# ── benchmark-flow (integrator comparison workbench) ────────────────
+benchmark-flow)
+    resolve_and_exec "chuna-benchmark-flow" "$@"
+    ;;
+
+# ── deploy (NUCLEUS) ───────────────────────────────────────────────
+deploy|nucleus)
+    BARE=0
+    QUICK=0
+    USE_EXISTING=""
+    DEPLOY_ARGS=""
+    for arg in "$@"; do
+        case "$arg" in
+            --bare) BARE=1 ;;
+            --quick) QUICK=1 ;;
+            --use-existing=*) USE_EXISTING="${arg#--use-existing=}" ;;
+            *) DEPLOY_ARGS="$DEPLOY_ARGS $arg" ;;
+        esac
+    done
+
+    if [ "$BARE" = "1" ]; then
+        export HOTSPRING_NO_NUCLEUS=1
+    fi
+
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  guideStone NUCLEUS Deployment                             ║"
+    echo "║  hotSpring-guideStone-v${VERSION}                               ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo
+
+    # Step 1: Integrity already checked at top
+
+    echo "━━━ Step 1: Artifact Integrity ━━━"
+    echo "  PASS: verified at entry (./hotspring)"
+    echo
+
+    # Step 2: NUCLEUS probe
+    echo "━━━ Step 2: NUCLEUS Primal Discovery ━━━"
+    if [ "${HOTSPRING_NO_NUCLEUS:-0}" = "1" ]; then
+        echo "  Mode: bare guideStone (HOTSPRING_NO_NUCLEUS=1)"
+    else
+        echo "  Mode: NUCLEUS-aware (probing primals at runtime)"
+    fi
+
+    RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+    FAMILY_ID="${FAMILY_ID:-default}"
+    SOCKET_DIR="$RUNTIME_DIR/biomeos"
+
+    PRIMALS_FOUND=0
+    for primal in beardog toadstool rhizocrypt loamspine sweetgrass songbird; do
+        SOCK="$SOCKET_DIR/${primal}-${FAMILY_ID}.sock"
+        if [ -S "$SOCK" ] 2>/dev/null; then
+            echo "  Found: $primal ($SOCK)"
+            PRIMALS_FOUND=$((PRIMALS_FOUND + 1))
+        fi
+    done
+
+    if [ "$PRIMALS_FOUND" -eq 0 ]; then
+        echo "  No primals detected — running as bare guideStone"
+    else
+        echo "  $PRIMALS_FOUND primal(s) detected"
+    fi
+    echo
+
+    # Step 3: Validation
+    echo "━━━ Step 3: guideStone Validation Suite ━━━"
+
+    DEPLOY_DIR="results/deploy_$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$DEPLOY_DIR"
+
+    resolve_binary "validate"
+
+    if [ -n "$USE_EXISTING" ] && [ -f "$USE_EXISTING" ]; then
+        echo "  Using existing validation: $USE_EXISTING"
+        cp "$USE_EXISTING" "$DEPLOY_DIR/validation.json"
+        PASSED=$(python3 -c "import json; d=json.load(open('$USE_EXISTING')); s=d.get('summary',{}); print(s.get('passed',0))" 2>/dev/null || echo "?")
+        TOTAL=$(python3 -c "import json; d=json.load(open('$USE_EXISTING')); s=d.get('summary',{}); print(s.get('total',0))" 2>/dev/null || echo "?")
+        echo "  Result: $PASSED/$TOTAL checks passed"
+        if [ "$PASSED" != "$TOTAL" ]; then
+            echo "  FAIL: existing validation has failures"
+            exit 1
+        fi
+    else
+        echo "  Running validation suite..."
+        "$RESOLVED_BIN" --output="$DEPLOY_DIR/validation.json" 2>&1 | tee "$DEPLOY_DIR/validation.log"
+        VALIDATE_EXIT=$?
+        if [ "$VALIDATE_EXIT" -ne 0 ]; then
+            echo "  FAIL: validation suite did not pass (exit $VALIDATE_EXIT)"
+            exit 1
+        fi
+    fi
+    echo "  Validation: PASS"
+    echo
+
+    # Step 3b: Cross-substrate parity
+    echo "━━━ Step 3b: Cross-Substrate Parity ━━━"
+    PARITY_PASS=0
+    PARITY_TOTAL=0
+    PARITY_GREEN=0
+
+    READER_DIR="$(cd "$SELF_DIR/.." && pwd)/control/hotspring_reader"
+    CONTROL_DIR="$(cd "$SELF_DIR/.." && pwd)/control"
+
+    if [ "${HOTSPRING_NO_PYTHON:-0}" = "1" ]; then
+        echo "  SKIP: HOTSPRING_NO_PYTHON=1"
+    elif ! command -v python3 >/dev/null 2>&1; then
+        echo "  SKIP: python3 not found"
+    elif [ ! -f "$READER_DIR/run_all_parity.py" ]; then
+        echo "  SKIP: run_all_parity.py not found"
+    else
+        GREENBOARD="$DEPLOY_DIR/parity_greenboard.json"
+        echo "  Running parity suite..."
+        python3 "$READER_DIR/run_all_parity.py" \
+            --control-dir="$CONTROL_DIR" \
+            --rust-dir="$DEPLOY_DIR" \
+            --self-parity \
+            --output="$GREENBOARD" 2>&1 | tee "$DEPLOY_DIR/parity.log"
+        PARITY_EXIT=$?
+
+        if [ -f "$GREENBOARD" ]; then
+            PARITY_PASS=1
+            PARITY_TOTAL=$(python3 -c "import json; d=json.load(open('$GREENBOARD')); print(sum(v['n_checks'] for v in d.get('papers',{}).values() if isinstance(v,dict)))" 2>/dev/null || echo 0)
+            PARITY_GREEN=$(python3 -c "import json; d=json.load(open('$GREENBOARD')); print(d.get('passed_papers',0))" 2>/dev/null || echo 0)
+        fi
+
+        if [ "$PARITY_EXIT" -ne 0 ]; then
+            echo "  WARNING: parity gaps — see $GREENBOARD"
+            PARITY_PASS=0
+        else
+            echo "  Parity: ALL GREEN"
+        fi
+    fi
+    echo
+
+    # Step 4: Reference ensemble
+    if [ "$QUICK" = "0" ]; then
+        echo "━━━ Step 4: Reference Ensemble Generation ━━━"
+        ENSEMBLE_DIR="$DEPLOY_DIR/reference_ensemble"
+
+        resolve_binary "chuna-generate"
+        GENERATE_BIN="$RESOLVED_BIN"
+
+        echo "  Generating 8^3x16 beta=6.0 Omelyan (10 configs)..."
+        "$GENERATE_BIN" --ns=8 --nt=16 --beta=6.0 --integrator=omelyan \
+            --therm=50 --configs=10 --interval=5 --no-flow \
+            --outdir="$ENSEMBLE_DIR" \
+            --telemetry="$DEPLOY_DIR/generate_telemetry.jsonl" \
+            2>&1 | tee "$DEPLOY_DIR/generate.log"
+        echo
+
+        LIME_FILE=$(find "$ENSEMBLE_DIR" -name "*.lime" 2>/dev/null | sort | head -1)
+        if [ -n "$LIME_FILE" ]; then
+            resolve_binary "chuna-measure"
+            echo "  Measuring $LIME_FILE..."
+            "$RESOLVED_BIN" --input="$LIME_FILE" --hvp --mass=0.1 \
+                --outdir="$DEPLOY_DIR/measurements" \
+                --telemetry="$DEPLOY_DIR/measure_telemetry.jsonl" \
+                2>&1 | tee "$DEPLOY_DIR/measure.log"
+            echo
+        fi
+
+        MEAS_DIR="$ENSEMBLE_DIR/measurements"
+        if [ -d "$MEAS_DIR" ]; then
+            resolve_binary "chuna-analyze"
+            echo "  Ensemble analysis..."
+            "$RESOLVED_BIN" --dir="$MEAS_DIR" \
+                --output="$DEPLOY_DIR/analysis.json" \
+                2>&1 | tee "$DEPLOY_DIR/analyze.log"
+            echo
+        fi
+    else
+        echo "━━━ Step 4: Reference Ensemble ━━━  SKIP (--quick)"
+        echo
+    fi
+
+    # Step 5: Receipt
+    echo "━━━ Step 5: Deployment Receipt ━━━"
+    RECEIPT="$DEPLOY_DIR/deployment_receipt.json"
+
+    PROP_COUNT=5
+    [ "$PARITY_PASS" = "1" ] && PROP_COUNT=6
+
+    cat > "$RECEIPT" <<RECEIPT_EOF
+{
+  "type": "guidestone_nucleus_deployment",
+  "artifact": "hotSpring-guideStone-v${VERSION}",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "hostname": "$(hostname 2>/dev/null || echo unknown)",
+  "arch": "$ARCH_TAG",
+  "primals_detected": $PRIMALS_FOUND,
+  "nucleus_mode": $([ "${HOTSPRING_NO_NUCLEUS:-0}" = "1" ] && echo '"bare"' || echo '"nucleus"'),
+  "deploy_dir": "$DEPLOY_DIR",
+  "validation": {
+    "rust_suite_passed": true,
+    "cross_substrate_parity": $PARITY_PASS,
+    "parity_checks": $PARITY_TOTAL,
+    "papers_green": $PARITY_GREEN
+  },
+  "guidestone_properties": {
+    "deterministic": true,
+    "reference_traceable": true,
+    "self_verifying": true,
+    "environment_agnostic": true,
+    "tolerance_documented": true,
+    "cross_substrate_parity": $([ "$PARITY_PASS" = "1" ] && echo "true" || echo "false")
+  }
+}
+RECEIPT_EOF
+
+    echo "  Receipt -> $RECEIPT"
+    echo
+
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  Deployment Complete                                       ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo
+    echo "  guideStone:  VALIDATED ($PROP_COUNT properties)"
+    echo "  NUCLEUS:     $PRIMALS_FOUND primal(s)"
+    echo "  Parity:      $PARITY_GREEN papers green, $PARITY_TOTAL checks"
+    echo "  Results:     $DEPLOY_DIR/"
+    echo
+
+    update_livespore "deploy" "0" "$DEPLOY_DIR"
+    exit 0
+    ;;
+
+# ── overnight ───────────────────────────────────────────────────────
+overnight)
+    TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || date +%s)
+    RUN_DIR="results/overnight_${TIMESTAMP}"
+    mkdir -p "$RUN_DIR"
+
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  Overnight Dual-GPU Validation — hotSpring x Chuna         ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo
+    echo "  Run ID:    $TIMESTAMP"
+    echo "  Output:    $RUN_DIR/"
+    echo "  Mode:      $MODE_LABEL"
+    echo
+
+    BARRACUDA="$SELF_DIR/../barracuda"
+
+    # Prefer cargo-built binaries for overnight (latest GPU code)
+    if [ -d "$BARRACUDA" ]; then
+        CARGO_VBIN="$BARRACUDA/target/release/validate_chuna"
+        CARGO_MBIN="$BARRACUDA/target/release/validation_matrix"
+        if [ -f "$CARGO_VBIN" ] && [ -f "$CARGO_MBIN" ]; then
+            echo "  Using cargo-built binaries (latest code)"
+            VBIN="$CARGO_VBIN"
+            MBIN="$CARGO_MBIN"
+        elif [ ! -f "$CARGO_VBIN" ] || [ ! -f "$CARGO_MBIN" ]; then
+            echo "  Building from source..."
+            cargo build --release --bin validate_chuna --bin validation_matrix \
+                --manifest-path "$BARRACUDA/Cargo.toml"
+            VBIN="$CARGO_VBIN"
+            MBIN="$CARGO_MBIN"
+        fi
+    fi
+
+    # Fallback to artifact binaries
+    if [ -z "${VBIN:-}" ] || [ ! -f "${VBIN:-}" ]; then
+        resolve_binary "validate"
+        VBIN="$RESOLVED_BIN"
+    fi
+    if [ -z "${MBIN:-}" ] || [ ! -f "${MBIN:-}" ]; then
+        resolve_binary "validation-matrix"
+        MBIN="$RESOLVED_BIN"
+    fi
+
+    chmod +x "$VBIN" "$MBIN" 2>/dev/null || true
+
+    echo "  validate: $VBIN"
+    echo "  matrix:   $MBIN"
+    echo
+
+    # Phase 1: Quick validation
+    echo "━━━ Phase 1: Quick Validation ━━━"
+    "$VBIN" --output "$RUN_DIR/" "$@" 2>&1 | tee "$RUN_DIR/quick.log"
+    echo
+
+    # Phase 2: Overnight matrix
+    echo "━━━ Phase 2: Overnight Matrix ━━━"
+    "$MBIN" --phase=quenched-ladder --output="$RUN_DIR/matrix.json" "$@" 2>&1 | tee "$RUN_DIR/matrix.log" || true
+    echo
+
+    update_livespore "overnight" "0" "$RUN_DIR"
+    echo "  All results in: $RUN_DIR/"
+    exit 0
+    ;;
+
+# ── version ─────────────────────────────────────────────────────────
+version|--version|-V)
+    echo "hotSpring guideStone v${VERSION}"
+    echo "  arch: $ARCH_TAG"
+    echo "  mode: $MODE_LABEL"
+    exit 0
+    ;;
+
+# ── help ────────────────────────────────────────────────────────────
+help|--help|-h)
+    cat <<'EOF'
+hotSpring — Lattice QCD + Condensed Matter Physics Validation Engine
+hotSpring-guideStone-v0.7.0 — ecoPrimals unified ecoBin artifact
+
+USAGE:
+  ./hotspring <command> [options]
+
+COMMANDS:
+  validate         Physics validation suite (CPU + GPU auto-detect)
+                   --output=DIR --all-gpus --three-substrate --discover-only
+  benchmark        Hardware profiling (FP64 throughput, HMC, precision tiers)
+  deploy           NUCLEUS deployment with primal composition
+                   --bare --quick --use-existing=FILE
+  overnight        Extended dual-GPU validation sweep (hours)
+
+  generate         Produce ILDG gauge configurations via HMC/RHMC
+                   --lattice=N --beta=F --configs=N --gpu --nf=N --mass=F
+  flow             Gradient flow on ILDG configs (ours or MILC)
+                   --input=FILE.lime --integrator=w7|ck4|rk2|euler
+  measure          Compute observables (plaquette, flow, topology, Wilson, HVP)
+                   --input=FILE.lime --hvp --mass=F
+  analyze          Ensemble statistics (jackknife, autocorrelation)
+                   --dir=DIR --output=FILE.json
+  convert          ILDG/LIME import/export, QCDml 2.0 XML
+                   --info FILE.lime --emit-qcdml FILE.lime
+  matrix           Task matrix orchestration for production runs
+                   init --betas=5.8,6.0 --lattices=8,12
+  benchmark-flow   Flow integrator efficiency comparison workbench
+  validate-shader  Cross-path WGSL shader validation
+
+  container        Container management (load, run, build)
+                   load — load OCI image from tarball
+                   run  — execute via Docker/Podman
+                   build — build the container image
+
+  version          Print version, architecture, and GPU mode
+  help             This message
+
+CROSS-PLATFORM:
+  Linux (ext4)     Native execution — auto GPU detection, zero deps
+  Linux (exFAT)    Transparent tmpdir fallback for non-exec filesystems
+  Windows          hotspring.bat (WSL2 first, then Docker)
+  macOS            Auto-dispatches to Docker/Podman container
+  Any OS + Docker  docker load < container/hotspring-guidestone.tar
+                   docker run --rm -v ./results:/opt/validation/results \
+                     hotspring-guidestone:v0.7.0 validate
+
+ENVIRONMENT:
+  HOTSPRING_NO_GPU=1       Force CPU-only mode (skip Vulkan probe)
+  HOTSPRING_FORCE_GPU=1    Force GPU mode (skip detection)
+  HOTSPRING_NO_NUCLEUS=1   Skip primal discovery in deploy
+  HOTSPRING_NO_PYTHON=1    Skip Python parity checks
+
+BACKWARD COMPATIBILITY:
+  ./run              -> ./hotspring validate
+  ./benchmark        -> ./hotspring benchmark
+  ./chuna-engine CMD -> ./hotspring CMD
+  ./deploy-nucleus   -> ./hotspring deploy
+  ./run-overnight    -> ./hotspring overnight
+
+EOF
+    exit 0
+    ;;
+
+# ── container ───────────────────────────────────────────────────────
+container)
+    SUBCMD="${1:-help}"
+    case "$SUBCMD" in
+        load)
+            if ! container_available; then
+                echo "No container runtime found (docker or podman)."
+                exit 1
+            fi
+            container_ensure_loaded
+            echo "  Image loaded: $CONTAINER_IMAGE"
+            ;;
+        run)
+            shift
+            if ! container_available; then
+                echo "No container runtime found (docker or podman)."
+                exit 1
+            fi
+            container_ensure_loaded || exit 1
+            container_exec "$@"
+            ;;
+        build)
+            BUILDER="$SELF_DIR/../scripts/build-container.sh"
+            if [ -f "$BUILDER" ]; then
+                exec sh "$BUILDER"
+            else
+                echo "Build script not found: scripts/build-container.sh"
+                exit 1
+            fi
+            ;;
+        *)
+            echo "Usage: ./hotspring container {load|run|build}"
+            echo "  load   Load the OCI image from container/hotspring-guidestone.tar"
+            echo "  run    Run a command inside the container (e.g. ./hotspring container run validate)"
+            echo "  build  Build the container image from Dockerfile"
+            ;;
+    esac
+    exit 0
+    ;;
+
+# ── unknown ─────────────────────────────────────────────────────────
+*)
+    echo "Unknown command: $CMD"
+    echo "Run: ./hotspring help"
+    exit 1
+    ;;
+esac

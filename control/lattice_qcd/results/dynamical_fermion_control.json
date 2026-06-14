@@ -1,0 +1,21 @@
+{
+  "lattice_dims": [
+    4,
+    4,
+    4,
+    4
+  ],
+  "beta": 5.5,
+  "mass": 2.0,
+  "dt": 0.001,
+  "n_md_steps": 100,
+  "n_thermalization": 10,
+  "n_measurement": 12,
+  "dynamical_plaquette": 0.4968412185341064,
+  "quenched_plaquette": 0.49684121853410645,
+  "acceptance_rate": 0.0,
+  "polyakov_loop": 0.32285409063866066,
+  "wall_time_s": 493.7275959330145,
+  "checks_passed": 2,
+  "checks_total": 3
+}

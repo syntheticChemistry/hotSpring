@@ -1,0 +1,8 @@
+{"t":0.039,"section":"gauge","obs":"plaquette","val":5.889530e-1}
+{"t":0.039,"section":"gauge","obs":"polyakov_abs","val":1.591368e-2}
+{"t":0.039,"section":"gauge","obs":"action_density","val":2.466282e0}
+{"t":123.177,"section":"flow","obs":"Q","val":1.077823e-1}
+{"t":140.108,"section":"fermion","obs":"chiral_condensate","val":5.165757e0}
+{"t":140.108,"section":"fermion","obs":"chiral_condensate_error","val":3.780557e-2}
+{"t":141.782,"section":"hvp","obs":"hvp_integral","val":3.462943e-1}
+{"t":141.782,"section":"hvp","obs":"cg_iterations","val":2.010000e2}

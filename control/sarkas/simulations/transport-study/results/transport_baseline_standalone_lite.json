@@ -1,0 +1,61 @@
+{
+  "provenance": {
+    "generator": "hotSpring/control/sarkas/simulations/transport-study/scripts/yukawa_md_baseline.py",
+    "method": "velocity_verlet_reduced_units_fcc_init",
+    "date": "2026-02-19T02:46:35.053861+00:00",
+    "python_version": "3.10.12 (main, Nov  4 2025, 08:48:33) [GCC 11.4.0]",
+    "numpy_version": "2.2.6",
+    "numba": true,
+    "units": "reduced (a_ws=1, omega_p=1)"
+  },
+  "results": [
+    {
+      "case": "k1_G50",
+      "kappa": 1,
+      "gamma": 50,
+      "n_particles": 500,
+      "D_star_md": 0.0005072132294663875,
+      "D_star_daligault": 0.0002865109495833445,
+      "relative_error": 0.7703101057882672,
+      "C0": 0.059706186147368466,
+      "C_tail_ratio": 0.09148364445220826,
+      "eq_steps": 5000,
+      "prod_steps": 20000,
+      "dt": 0.01,
+      "dump_step": 1,
+      "pass": false
+    },
+    {
+      "case": "k2_G100",
+      "kappa": 2,
+      "gamma": 100,
+      "n_particles": 500,
+      "D_star_md": 0.0003558328641837978,
+      "D_star_daligault": 0.000111486202106367,
+      "relative_error": 2.1917211050413576,
+      "C0": 0.029930268148773368,
+      "C_tail_ratio": 0.009088943113273398,
+      "eq_steps": 5000,
+      "prod_steps": 20000,
+      "dt": 0.01,
+      "dump_step": 1,
+      "pass": false
+    },
+    {
+      "case": "k3_G100",
+      "kappa": 3,
+      "gamma": 100,
+      "n_particles": 500,
+      "D_star_md": -0.0005902125808298642,
+      "D_star_daligault": 0.00010638719955013799,
+      "relative_error": 6.54777814742374,
+      "C0": 0.02989293317920767,
+      "C_tail_ratio": 0.059106080976074477,
+      "eq_steps": 5000,
+      "prod_steps": 20000,
+      "dt": 0.01,
+      "dump_step": 1,
+      "pass": false
+    }
+  ]
+}

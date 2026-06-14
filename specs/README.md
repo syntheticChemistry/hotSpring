@@ -1,0 +1,135 @@
+# hotSpring Specifications
+
+**Last Updated**: June 1, 2026
+**Status**: Phase A-J complete + guideStone Level 6 CERTIFIED (primalSpring v0.9.27) — 720 (cylinder) / 596 / 1,045 lib tests (IPC-first default / barracuda-local), 155 binaries, 65 validation suites (3 tiers), crate v0.6.32, barraCuda v0.4.0. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_unibin` is the eukaryotic entry point (certify/validate/status/version). 234 experiments, 154 WGSL shaders, 24 validation scenarios (18 default + 6 barracuda-local). **Sovereignty Tier Model** — Tier 1 warm infrastructure **validated** (Exp 210), Tier 2 HW VALIDATED (Exp 227), **Catalyst Driver Pattern** infra complete (Exp 219), vfio-pci reset-on-release identified + diesel engine FLR-first fix (Exp 225). RTX 5060 full dispatch LIVE. Fleet: 2× Titan V (GV100) + RTX 5060. 27 RPC methods. **biomeGate covalent deployment**: sole tenant, NUCLEUS launched (9 primals), Songbird registry seeded. **CAZyme FEL (Exp 220)**: pseudoSpore v1.7.0 / lithoSpore v2.3.0 — GuideStone-grade data chassis (8 modules), Domain Profiles, 12/12 audit PASS. Unified liveSpore.json schema. PLUMED-NEST validation aggregate (module 07). Exploration roadmap (module 08). **UEFI Model (Exp 221)**: PRI ring recovery mapped. **CompChem Sovereign Evolution (Papers 50-58)**: GPU FES shader proven (11-14×), 7-kernel decomposition for all-atom MD.
+**Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning, biomolecular MD (CAZyme conformational energy landscapes)
+
+---
+
+## Quick Status
+
+| Metric | Value |
+|--------|-------|
+| Phase A (Python) | 86/86 PASS — Sarkas MD, TTM, surrogate, nuclear EOS |
+| Phase B (BarraCuda GPU) | Validated — 478x speedup, 44.8x energy reduction |
+| Phase C (GPU MD) | 9/9 PP Yukawa — N=2,000, 80k steps, 0.000% drift |
+| Phase D (f64 + N-scaling) | N=10,000 in 5.3 min, native WGSL builtins |
+| Phase E (Paper parity) | 9/9 PP Yukawa — N=10,000, 80k steps, $0.044 |
+| Phase F (Full nuclear EOS) | 2,042 nuclei on consumer GPU |
+| Phase G (Transport + Lattice) | 13/13 transport, 12/12 pure gauge SU(3), 7/7 dynamical QCD, 17/17 Abelian Higgs |
+| Phase H (Spectral Theory) | 41/41 (Anderson 1D/2D/3D, Lanczos, Hofstadter butterfly) |
+| Phase I (Heterogeneous) | 68/68 (NPU quantization, beyond-SDK, pipeline, lattice NPU, hetero monitor) |
+| ToadStool Rewire v3 | CellListGpu fixed, lattice GPU shaders, **FFT f64** — Tier 3 unblocked |
+| ToadStool Rewire v4 | Spectral module fully leaning on upstream (41 KB deleted), `CsrMatrix` alias, `BatchIprGpu` available |
+| ToadStool S42+ Catch-Up | 154 WGSL shaders in hotSpring crate (ecosystem-wide count higher). Dirac+CG GPU absorbed. HFB+ESN absorbed. Post-primordial: 40 physics+MD shaders absorbed to barraCuda upstream |
+| Phase J (Debt Reduction) | v0.6.32: 0 clippy (lib+bins), cross-primal discovery, β_c provenance, WGSL dedup, post-primordial QCD evolution complete |
+| Faculty | Murillo (CMSE, MSU — MSDS professor) |
+| Faculty extension | Bazavov (CMSE + Physics, MSU — master's professor) |
+| Faculty extension | Kachkovskiy (Math, MSU — spectral theory) |
+
+---
+
+## Specifications
+
+### Validation & Reproduction
+
+| Spec | Status | Description |
+|------|--------|-------------|
+| [PAPER_REVIEW_QUEUE.md](PAPER_REVIEW_QUEUE.md) | Active | Papers to review/reproduce, prioritized by tier |
+| [BARRACUDA_REQUIREMENTS.md](BARRACUDA_REQUIREMENTS.md) | Active | GPU kernel requirements and gap analysis |
+| [ANDERSON_4D_WEGNER_PROXY.md](ANDERSON_4D_WEGNER_PROXY.md) | Draft | 4D Anderson & Wegner block proxy for CG prediction |
+| [BIOMEGATE_BRAIN_ARCHITECTURE.md](BIOMEGATE_BRAIN_ARCHITECTURE.md) | Draft | 4-substrate brain architecture: NPU steering, Nautilus Shell, concept edges |
+| [SOVEREIGN_COMPCHEM_EVOLUTION.md](SOVEREIGN_COMPCHEM_EVOLUTION.md) | Active | Papers 50-58: sovereign all-atom MD kernel decomposition — 7 GPU kernels from FES (proven) through full enzyme-scale MD |
+| [CAZYME_FEL_EXPLORATION_TARGETS.md](CAZYME_FEL_EXPLORATION_TARGETS.md) | Active | CAZyme FEL exploration survey: epimers, subsites, covalent states, GH families, glycan targets — ready for Alistaire |
+| [PRECISION_STABILITY_SPECIFICATION.md](PRECISION_STABILITY_SPECIFICATION.md) | Active | Numerical stability across f32/DF64/f64, GPU precision routing, cross-spring impact |
+| [MULTI_BACKEND_DISPATCH.md](MULTI_BACKEND_DISPATCH.md) | Active | Three-tier dispatch: wgpu/Vulkan (production), coralReef sovereign (long-term), Kokkos/LAMMPS (reference target). NVK discovery, gap analysis |
+| [SOVEREIGN_VALIDATION_MATRIX.md](SOVEREIGN_VALIDATION_MATRIX.md) | Active | Pipeline layer x dispatch path x hardware substrate validation matrix. Consolidates gap tracker, experiments 058-165, DRM-from-both-sides strategy, and SovereignInit pipeline status. |
+| [COLLABORATOR_ENGINE_ARCHITECTURE.md](COLLABORATOR_ENGINE_ARCHITECTURE.md) | Active | Repeatable PI→engine pattern (Reproduce / Pivot / Engine) — Chuna Engine as reference |
+| [COMPUTATIONAL_OMICS.md](COMPUTATIONAL_OMICS.md) | Active | Environmental genomics for sovereign hardware — register trace alignment, firmware motif search, subsystem phylogeny. Long-term compute trio evolution |
+
+### Sovereign GPU & Hardware
+
+| Spec | Status | Description |
+|------|--------|-------------|
+| [CORALREEF_DISPATCH_FRONTIER_HANDOFF.md](archive/CORALREEF_DISPATCH_FRONTIER_HANDOFF.md) | Historical (archived) | Dispatch frontier handoff from coralReef — sovereign pipeline integration points |
+| [DRIVER_AS_SOFTWARE.md](DRIVER_AS_SOFTWARE.md) | Active | GPU driver as evolved software — ember/glowplug lifecycle, livepatch, warm handoff |
+| [FIRMWARE_LEARNING_MATRIX.md](FIRMWARE_LEARNING_MATRIX.md) | Active | Firmware learning matrix — ACR, SEC2, FECS, GPCCS, PMU subsystem knowledge map |
+| [GPU_CRACKING_GAP_TRACKER.md](archive/GPU_CRACKING_GAP_TRACKER.md) | Superseded (archived) | Original gap tracker — consolidated into SOVEREIGN_VALIDATION_MATRIX.md |
+| [NATIVE_COMPUTE_ROADMAP.md](NATIVE_COMPUTE_ROADMAP.md) | Active | Native compute roadmap — coralReef sovereign dispatch evolution targets |
+| [SILICON_INVENTORY.md](SILICON_INVENTORY.md) | Active | Fleet hardware inventory — GPU/NPU/CPU specs, PCIe topology, IOMMU groups |
+| [SILICON_TIER_ROUTING.md](SILICON_TIER_ROUTING.md) | Active | 7-tier silicon routing spec — TMU, ROP, subgroup, shader core characterization |
+| [CROSS_SPRING_EVOLUTION.md](CROSS_SPRING_EVOLUTION.md) | Active | Cross-spring shader ecosystem evolution — 164+ shaders, Write→Absorb→Lean cycle |
+| [BLACKWELL_DISPATCH_GAPS.md](archive/BLACKWELL_DISPATCH_GAPS.md) | Resolved (archived) | RTX 5060 Blackwell dispatch gaps — 7 gaps identified, all resolved post Exp 181/192 (8/8–12/12 PROVEN) |
+| [UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md](UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md) | Active | agentReagents + benchScale architecture for driver capture and analysis VMs |
+
+### Existing Documentation (in parent directories)
+
+| Document | Location | Description |
+|----------|----------|-------------|
+| whitePaper/CONTROL_EXPERIMENT_SUMMARY.md | `../whitePaper/` | Phase A summary with numbers |
+| PHYSICS.md | `../` | Physics background and equations |
+| docs/PRIMAL_GAPS.md | `../docs/` | NUCLEUS composition gaps — handback to primalSpring |
+| whitePaper/STUDY.md | `../whitePaper/` | Full study narrative |
+| whitePaper/METHODOLOGY.md | `../whitePaper/` | Two-phase validation protocol |
+| whitePaper/BARRACUDA_SCIENCE_VALIDATION.md | `../whitePaper/` | Phase B GPU results |
+
+---
+
+## Scope
+
+### hotSpring IS:
+- **Plasma physics validation** — Sarkas Yukawa MD, OCP thermodynamics
+- **Nuclear structure computation** — SEMF → HFB → deformed HFB on consumer GPU
+- **Transport coefficients** — Green-Kubo D*/η*/λ*, Stanton-Murillo fits
+- **Lattice gauge theory** — SU(3) pure gauge, Wilson action, HMC, staggered Dirac, dynamical fermion pseudofermion HMC
+- **Surrogate learning** — Diaw et al. (2024) neural surrogates for physics
+- **BarraCuda science driver** — the primary workload pushing GPU f64 capabilities
+
+### hotSpring IS NOT:
+- Machine learning research (neuralSpring)
+- Sensor noise characterization (groundSpring)
+- Biological computation (wetSpring)
+- Weather/irrigation modeling (airSpring)
+
+### hotSpring EXTENDS TO (via Bazavov):
+- Lattice QCD equation of state
+- Spectral reconstruction inverse problems
+- Hadronic vacuum polarization (muon g-2)
+
+### hotSpring EXTENDS TO (via Kachkovskiy):
+- Anderson localization (1D/2D/3D)
+- Almost-Mathieu operator / Hofstadter butterfly
+- Spectral theory of quasiperiodic operators
+
+### hotSpring EXTENDS TO (via ABG — Exp 220+):
+- Biomolecular MD (bonded force fields, carbohydrate ring puckering)
+- CAZyme conformational energy landscapes (metadynamics, Cremer-Pople CVs)
+- GROMACS parity validation (industry control for MD correctness)
+- helixVision downstream: MD validation layer for coralForge structure prediction
+- **Sovereign all-atom MD** — long-term goal via incremental kernel composition:
+  - Paper 50: FES Gaussian summation ✅ (GPU shader proven, 11-14×)
+  - Paper 51: Bonded force field terms (angles, dihedrals, impropers, 1-4)
+  - Paper 52: Constraint solver (LINCS/RATTLE → WGSL parallel)
+  - Paper 53: PME/PPPM long-range (toadStool FFT3D foundation exists)
+  - Paper 54: Full integrator composition (51+52+53 → sovereign mdrun)
+  - Paper 58: Sovereign 93K-atom enzyme MD (industry-parity with GROMACS)
+
+---
+
+## Reading Order
+
+**New to hotSpring** (20 min):
+1. This README (5 min)
+2. `../whitePaper/README.md` — overview and key results (10 min)
+3. PAPER_REVIEW_QUEUE.md — what's next (5 min)
+
+**Deep dive** (2 hours):
+`../whitePaper/STUDY.md` → `../PHYSICS.md` → `../whitePaper/baseCamp/` → BARRACUDA_REQUIREMENTS.md
+
+---
+
+## License
+
+**AGPL-3.0-or-later** — GNU Affero General Public License v3.0 or later
+
+All hotSpring code, data, and documentation are aggressively open science. See `../LICENSE` for full text. Any derivative work, including network-accessible services using hotSpring code, must publish source under the same license.

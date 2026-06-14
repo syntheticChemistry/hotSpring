@@ -1,0 +1,73 @@
+{
+  "target": "01_alanine_dipeptide",
+  "method": "well-tempered_metadynamics",
+  "minima_found": 4,
+  "top_3_minima": [
+    {
+      "phi": -1.382300768,
+      "psi": 0.963421747,
+      "fe": 0.0
+    },
+    {
+      "phi": -2.597049927,
+      "psi": 2.764601535,
+      "fe": 0.706304964
+    },
+    {
+      "phi": 1.047197551,
+      "psi": -0.712094335,
+      "fe": 4.88218602
+    }
+  ],
+  "fes_resolution": "150x150",
+  "basin_classification": {
+    "C7eq": {
+      "found_phi": -1.382300768,
+      "found_psi": 0.963421747,
+      "found_fe": 0.0,
+      "distance_to_ref": 0.040635346755279814,
+      "within_tolerance": "True"
+    },
+    "C7ax": {
+      "found_phi": 1.047197551,
+      "found_psi": -0.712094335,
+      "found_fe": 4.88218602,
+      "distance_to_ref": 0.048722497467697884,
+      "within_tolerance": "True"
+    }
+  },
+  "barrier_C7eq_to_C7ax": 35.048179633,
+  "barrier_within_reference": true,
+  "block_averaging": {
+    "n_blocks": 5,
+    "max_stderr_kj": 3.2825283858244405,
+    "mean_stderr_kj": 0.6385675791524378,
+    "converged": true
+  },
+  "convergence": {
+    "n_windows": 11,
+    "final_barrier_kj": 35.048179633,
+    "barrier_std_last_3": 0.3116352169709639,
+    "converged": true
+  },
+  "hills": {
+    "total_gaussians": 10000,
+    "total_time_ps": 10000.0,
+    "mean_height_kj": 0.17292969942957034,
+    "final_height_kj": 0.07003858871200724,
+    "height_decay_ratio": 0.07247909309879372
+  },
+  "validation": {
+    "passes": [
+      "Barrier height within published range",
+      "C7eq minimum within 0.5 rad",
+      "C7ax minimum within 0.5 rad",
+      "Block averaging converged (max stderr 3.28 kJ/mol)",
+      "Barrier convergence < 3 kJ/mol over last 3 windows"
+    ],
+    "fails": [],
+    "total_checks": 5,
+    "pass_rate": 1.0,
+    "industry_standard": true
+  }
+}

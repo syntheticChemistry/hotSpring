@@ -1,0 +1,54 @@
+{
+  "title": "Cross-GPU BAR0 Comparison: K80 (GK210/Kepler) vs Titan V (GV100/Volta)",
+  "date": "2026-03-30",
+  "captures": {
+    "k80": {
+      "gpu": "Tesla K80 die2 (GK210)",
+      "bdf_host": "0000:4d:00.0",
+      "driver": "nvidia-470",
+      "recipe_size": 10283,
+      "cold_regs": 10283,
+      "warm_regs": "not analyzed (driver init was part of cold capture)",
+      "pclock_regs": 64,
+      "security": "None (pre-Maxwell, no signed firmware)",
+      "sovereign_readiness": "HIGH - direct register replay viable"
+    },
+    "titanv": {
+      "gpu": "NVIDIA TITAN V (GV100)",
+      "bdf_host": "0000:03:00.0",
+      "driver": "nvidia-535.230.02",
+      "recipe_size": 6468,
+      "cold_regs_raw": 15363,
+      "cold_regs_badf_excluded": 8895,
+      "warm_regs_raw": 14437,
+      "driver_delta": 255,
+      "pclock_regs": 99,
+      "security": "SEC2/ACR/WPR2 (falcon-based authenticated boot)",
+      "sec2_acr_visible": "5 ACR + 0 SEC2 regs (rest hidden behind falcon DMA)",
+      "sovereign_readiness": "MEDIUM - VBIOS recipe captured, but SEC2/ACR falcon init requires signed microcode"
+    }
+  },
+  "cross_comparison": {
+    "shared_offsets": 6119,
+    "k80_only_offsets": 4164,
+    "titanv_only_offsets": 349,
+    "shared_same_value": 90,
+    "shared_different_value": 6029,
+    "note": "98.5% of shared offsets have different values (expected: different architectures)"
+  },
+  "key_findings": [
+    "K80 BOOT0=0x0f22d0a1 (GK210), Titan V BOOT0=0x140000a1 (GV100)",
+    "K80 PGRAPH: 2048 regs initialized by VBIOS (no falcon gates)",
+    "Titan V PGRAPH: 0 regs in cold (all BADF) \u2014 requires FECS/GPCCS falcon init",
+    "Titan V SEC2/ACR: almost entirely inaccessible through BAR0 MMIO (falcon DMA window)",
+    "Titan V nvidia-535 changes only 255 regs on top of VBIOS \u2014 surprisingly small delta",
+    "Titan V FECS cold: 42 real regs among 873 raw (831 BADF excluded)",
+    "K80 has no PMU/FECS/GPCCS/ACR/SEC2 in its BAR0 recipe \u2014 these engines don't exist or are uninitialized in Kepler"
+  ],
+  "next_steps": [
+    "K80: Attempt sovereign cold-boot by replaying 10283-register recipe from coral-driver",
+    "Titan V: Extract SEC2/ACR falcon microcode from nvidia-535 .run package",
+    "Titan V: Map PRAMIN window to read falcon DMEM/IMEM for SEC2 bootstrapping",
+    "Both: Build register replay engine in coral-driver for automated init"
+  ]
+}

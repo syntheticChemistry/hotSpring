@@ -1,0 +1,23 @@
+[package]
+name = "nest-validate"
+version = "0.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "PLUMED-NEST validation suite — Rust replacement for bash/Python orchestration"
+
+[[bin]]
+name = "nest-validate"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+ureq = "3"
+flate2 = "1"
+tar = "0.4"
+blake3 = "1"
+cazyme-fel = { path = "../../../staging/cazyme-fel" }
+
+[dev-dependencies]
+approx = "0.5"

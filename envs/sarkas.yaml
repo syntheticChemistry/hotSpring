@@ -1,0 +1,49 @@
+# Sarkas conda environment
+# Source: https://github.com/murillo-group/sarkas/blob/master/sarkas_env.yaml
+#
+# KNOWN ISSUES (fixed in our patched sarkas-upstream):
+#   1. NumPy 2.x removed np.int → patched to use built-in int
+#   2. pandas 2.x removed .mean(level=) → patched to use .groupby()
+#   3. Numba 0.60 defaults @jit to nopython=True → breaks pyfftw in PPPM
+#      → patched force_pm.py to use @jit(nopython=False)
+#
+# Python 3.9 required: Numba 0.58–0.60 best supports 3.9
+# After creating this env, install Sarkas:
+#   cd control/sarkas/sarkas-upstream && pip install -e .
+name: sarkas
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.9
+  - pip
+
+  # Core scientific stack
+  - numpy>=1.24,<2.0       # Pin <2.0 to avoid upstream np.int breakage
+  - scipy>=1.10,<2.0
+  - pandas>=2.0,<3.0
+
+  # JIT compilation (force kernel hotspot: 97.2% of runtime)
+  - numba>=0.58,<0.61
+
+  # FFT (needed for PPPM / κ=0 Coulomb cases)
+  - pyfftw>=0.12            # Needs system libfftw3-dev
+
+  # HDF5 output
+  - pytables
+  - h5py>=3.8
+
+  # I/O
+  - pyyaml
+  - tqdm
+  - pyfiglet=0.8.post1
+
+  # Analysis
+  - matplotlib
+  - seaborn
+
+  - pip:
+      # Sarkas itself installed from our patched fork (see setup-envs.sh)
+      # - sarkas  # DO NOT install from PyPI — use patched upstream
+      - fmm3dpy

@@ -1,0 +1,247 @@
+;
+;	File 'xylose_tmp.top' was generated
+;	By user: strandgate (1000)
+;	On host: pop-os
+;	At date: Wed May 27 15:32:53 2026
+;
+;	This is a standalone topology file
+;
+;	Created by:
+;	              :-) GROMACS - gmx pdb2gmx, 2026.0-conda_forge (-:
+;	
+;	Executable:   /home/strandgate/miniconda3/envs/gromacs-fel/bin.AVX2_256/gmx
+;	Data prefix:  /home/strandgate/miniconda3/envs/gromacs-fel
+;	Working dir:  /home/strandgate/Development/ecoPrimals/springs/hotSpring/control/gromacs_fel/guidestone_refresh/enzyme_bound_m2_1d
+;	Command line:
+;	  gmx pdb2gmx -f /home/strandgate/Development/ecoPrimals/springs/hotSpring/control/gromacs_fel/cazyme_gh10/xylose_m2_charmm.pdb -o xylose.gro -p xylose_tmp.top -water tip3p -ff charmm36-jul2022
+;	Force field was read from current directory or a relative path - path added.
+;
+
+; Include forcefield parameters
+#include "./charmm36-jul2022.ff/forcefield.itp"
+
+[ moleculetype ]
+; Name            nrexcl
+Other_chain_A       3
+
+[ atoms ]
+;   nr       type  resnr residue  atom   cgnr     charge       mass  typeB    chargeB      massB
+; residue   1 BXYL rtp BXYL q  0.0
+     1     CC3162      1   BXYL     C1      1       0.34     12.011
+     2       HCA1      1   BXYL     H1      2       0.09      1.008
+     3      OC311      1   BXYL     O1      3      -0.65    15.9994
+     4       HCP1      1   BXYL    HO1      4       0.42      1.008
+     5     CC3263      1   BXYL     C5      5       0.02     12.011
+     6       HCA2      1   BXYL    H51      6       0.09      1.008
+     7       HCA2      1   BXYL    H52      7       0.09      1.008
+     8     OC3C61      1   BXYL     O5      8       -0.4    15.9994
+     9     CC3161      1   BXYL     C2      9       0.14     12.011
+    10       HCA1      1   BXYL     H2     10       0.09      1.008
+    11      OC311      1   BXYL     O2     11      -0.65    15.9994
+    12       HCP1      1   BXYL    HO2     12       0.42      1.008
+    13     CC3161      1   BXYL     C3     13       0.14     12.011
+    14       HCA1      1   BXYL     H3     14       0.09      1.008
+    15      OC311      1   BXYL     O3     15      -0.65    15.9994
+    16       HCP1      1   BXYL    HO3     16       0.42      1.008
+    17     CC3161      1   BXYL     C4     17       0.14     12.011
+    18       HCA1      1   BXYL     H4     18       0.09      1.008
+    19      OC311      1   BXYL     O4     19      -0.65    15.9994
+    20       HCP1      1   BXYL    HO4     20       0.42      1.008   ; qtot 0
+
+[ bonds ]
+;  ai    aj funct            c0            c1            c2            c3
+    1     2     1 
+    1     3     1 
+    1     8     1 
+    1     9     1 
+    3     4     1 
+    5     6     1 
+    5     7     1 
+    5     8     1 
+    5    17     1 
+    9    10     1 
+    9    11     1 
+    9    13     1 
+   11    12     1 
+   13    14     1 
+   13    15     1 
+   13    17     1 
+   15    16     1 
+   17    18     1 
+   17    19     1 
+   19    20     1 
+
+[ pairs ]
+;  ai    aj funct            c0            c1            c2            c3
+    1     6     1 
+    1     7     1 
+    1    12     1 
+    1    14     1 
+    1    15     1 
+    1    17     1 
+    2     4     1 
+    2     5     1 
+    2    10     1 
+    2    11     1 
+    2    13     1 
+    3     5     1 
+    3    10     1 
+    3    11     1 
+    3    13     1 
+    4     8     1 
+    4     9     1 
+    5     9     1 
+    5    14     1 
+    5    15     1 
+    5    20     1 
+    6    13     1 
+    6    18     1 
+    6    19     1 
+    7    13     1 
+    7    18     1 
+    7    19     1 
+    8    10     1 
+    8    11     1 
+    8    13     1 
+    8    18     1 
+    8    19     1 
+    9    16     1 
+    9    18     1 
+    9    19     1 
+   10    12     1 
+   10    14     1 
+   10    15     1 
+   10    17     1 
+   11    14     1 
+   11    15     1 
+   11    17     1 
+   12    13     1 
+   13    20     1 
+   14    16     1 
+   14    18     1 
+   14    19     1 
+   15    18     1 
+   15    19     1 
+   16    17     1 
+   18    20     1 
+
+[ angles ]
+;  ai    aj    ak funct            c0            c1            c2            c3
+    2     1     3     5 
+    2     1     8     5 
+    2     1     9     5 
+    3     1     8     5 
+    3     1     9     5 
+    8     1     9     5 
+    1     3     4     5 
+    6     5     7     5 
+    6     5     8     5 
+    6     5    17     5 
+    7     5     8     5 
+    7     5    17     5 
+    8     5    17     5 
+    1     8     5     5 
+    1     9    10     5 
+    1     9    11     5 
+    1     9    13     5 
+   10     9    11     5 
+   10     9    13     5 
+   11     9    13     5 
+    9    11    12     5 
+    9    13    14     5 
+    9    13    15     5 
+    9    13    17     5 
+   14    13    15     5 
+   14    13    17     5 
+   15    13    17     5 
+   13    15    16     5 
+    5    17    13     5 
+    5    17    18     5 
+    5    17    19     5 
+   13    17    18     5 
+   13    17    19     5 
+   18    17    19     5 
+   17    19    20     5 
+
+[ dihedrals ]
+;  ai    aj    ak    al funct            c0            c1            c2            c3            c4            c5
+    2     1     3     4     9 
+    8     1     3     4     9 
+    9     1     3     4     9 
+    2     1     8     5     9 
+    3     1     8     5     9 
+    9     1     8     5     9 
+    2     1     9    10     9 
+    2     1     9    11     9 
+    2     1     9    13     9 
+    3     1     9    10     9 
+    3     1     9    11     9 
+    3     1     9    13     9 
+    8     1     9    10     9 
+    8     1     9    11     9 
+    8     1     9    13     9 
+    6     5     8     1     9 
+    7     5     8     1     9 
+   17     5     8     1     9 
+    6     5    17    13     9 
+    6     5    17    18     9 
+    6     5    17    19     9 
+    7     5    17    13     9 
+    7     5    17    18     9 
+    7     5    17    19     9 
+    8     5    17    13     9 
+    8     5    17    18     9 
+    8     5    17    19     9 
+    1     9    11    12     9 
+   10     9    11    12     9 
+   13     9    11    12     9 
+    1     9    13    14     9 
+    1     9    13    15     9 
+    1     9    13    17     9 
+   10     9    13    14     9 
+   10     9    13    15     9 
+   10     9    13    17     9 
+   11     9    13    14     9 
+   11     9    13    15     9 
+   11     9    13    17     9 
+    9    13    15    16     9 
+   14    13    15    16     9 
+   17    13    15    16     9 
+    9    13    17     5     9 
+    9    13    17    18     9 
+    9    13    17    19     9 
+   14    13    17     5     9 
+   14    13    17    18     9 
+   14    13    17    19     9 
+   15    13    17     5     9 
+   15    13    17    18     9 
+   15    13    17    19     9 
+    5    17    19    20     9 
+   13    17    19    20     9 
+   18    17    19    20     9 
+
+; Include Position restraint file
+#ifdef POSRES
+#include "posre.itp"
+#endif
+
+; Include water topology
+#include "./charmm36-jul2022.ff/tip3p.itp"
+
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+;  i funct       fcx        fcy        fcz
+   1    1       1000       1000       1000
+#endif
+
+; Include topology for ions
+#include "./charmm36-jul2022.ff/ions.itp"
+
+[ system ]
+; Name
+Protein
+
+[ molecules ]
+; Compound        #mols
+Other_chain_A       1

@@ -1,0 +1,127 @@
+{
+  "paper": "Chuna & Murillo, Phys. Rev. E 111, 035206 (2024)",
+  "arxiv": "2405.07871",
+  "checks_passed": 19,
+  "checks_total": 19,
+  "test_cases": {
+    "Gamma1.0_kappa1.0": {
+      "debye_screening": {
+        "k": 1.0,
+        "eps_static": 3.5985180598138355,
+        "eps_debye_expected": 3.5985180598138355,
+        "rel_error": 0.0
+      },
+      "f_sum_rule": {
+        "k": 1.0,
+        "computed": -6.8390647529409545,
+        "expected": -19.739208802178712,
+        "rel_error": 0.653528932112715
+      },
+      "dissipation_sign": {
+        "fraction_correct": 0.9936
+      },
+      "dsf": {
+        "k": 1.0,
+        "n_negative": 28,
+        "S_max": 0.20949261437572228,
+        "S_sum": 0.5678366593365319,
+        "fraction_positive": 0.986
+      },
+      "conductivity": {
+        "sigma_dc": 2.820947917738781,
+        "sigma_dc_expected": 2.820947917738781,
+        "rel_error": 0.0
+      },
+      "high_freq_limit": {
+        "omega": 354.4907701811032,
+        "eps_real": 0.9999666654171414,
+        "eps_imag": 3.3336721120633575e-08,
+        "deviation_from_1": 3.333459952801629e-05
+      }
+    },
+    "Gamma10.0_kappa1.0": {
+      "debye_screening": {
+        "k": 1.0,
+        "eps_static": 3.5985180598138355,
+        "eps_debye_expected": 3.5985180598138355,
+        "rel_error": 0.0
+      },
+      "f_sum_rule": {
+        "k": 1.0,
+        "computed": -0.6887172044621724,
+        "expected": -19.739208802178712,
+        "rel_error": 0.9651091788245254
+      },
+      "dissipation_sign": {
+        "fraction_correct": 0.9982
+      },
+      "dsf": {
+        "k": 1.0,
+        "n_negative": 7,
+        "S_max": 0.05502583060215288,
+        "S_sum": 0.05344518468384387,
+        "fraction_positive": 0.9965
+      },
+      "conductivity": {
+        "sigma_dc": 2.820947917738781,
+        "sigma_dc_expected": 2.820947917738781,
+        "rel_error": 0.0
+      },
+      "high_freq_limit": {
+        "omega": 354.4907701811032,
+        "eps_real": 0.9999966666571722,
+        "eps_imag": 3.3333642065711727e-09,
+        "deviation_from_1": 3.3333444944528087e-06
+      }
+    },
+    "Gamma10.0_kappa2.0": {
+      "debye_screening": {
+        "k": 1.0,
+        "eps_static": 11.394072239255342,
+        "eps_debye_expected": 11.394072239255342,
+        "rel_error": 0.0
+      },
+      "f_sum_rule": {
+        "k": 1.0,
+        "computed": -2.6476282689363164,
+        "expected": -19.739208802178712,
+        "rel_error": 0.8658695849732293
+      },
+      "dissipation_sign": {
+        "fraction_correct": 0.9982
+      },
+      "dsf": {
+        "k": 1.0,
+        "n_negative": 7,
+        "S_max": 0.08624162383302095,
+        "S_sum": 0.07092987100136557,
+        "fraction_positive": 0.9965
+      },
+      "conductivity": {
+        "sigma_dc": 2.820947917738781,
+        "sigma_dc_expected": 2.820947917738781,
+        "rel_error": 0.0
+      },
+      "high_freq_limit": {
+        "omega": 354.4907701811032,
+        "eps_real": 0.9999866666286888,
+        "eps_imag": 1.3333456826395713e-08,
+        "deviation_from_1": 1.3333377977922257e-05
+      }
+    },
+    "dispersion": {
+      "k_values": [
+        0.5,
+        1.0,
+        2.0,
+        4.0
+      ],
+      "peak_omegas": [
+        2.3506597429382188,
+        2.9003601371131036,
+        3.7160445929855133,
+        5.684326649547198
+      ]
+    }
+  }
+}

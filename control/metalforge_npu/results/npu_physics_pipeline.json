@@ -1,0 +1,117 @@
+{
+  "checks": [
+    {
+      "label": "Single-output NPU latency < 1200\u03bcs",
+      "passed": true,
+      "detail": "700\u03bcs"
+    },
+    {
+      "label": "Batch=8 throughput > 1500/s",
+      "passed": true,
+      "detail": "2606/s"
+    },
+    {
+      "label": "Multi-output overhead < 20% vs single",
+      "passed": true,
+      "detail": "-9.3%"
+    },
+    {
+      "label": "3 transport coefficients in single NPU dispatch",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "Streaming throughput > 2000 inferences/s",
+      "passed": true,
+      "detail": "2469/s"
+    },
+    {
+      "label": "NPU inference energy < 10J for 800 predictions",
+      "passed": true,
+      "detail": "0.32J"
+    },
+    {
+      "label": "NPU energy < CPU Green-Kubo energy",
+      "passed": true,
+      "detail": "8796\u00d7 less"
+    },
+    {
+      "label": "NPU time < CPU Green-Kubo time",
+      "passed": true,
+      "detail": "93\u00d7 faster"
+    },
+    {
+      "label": "NPU keeps up with GPU MD at 100-step intervals",
+      "passed": true,
+      "detail": "2245\u00d7 headroom"
+    },
+    {
+      "label": "Zero GPU overhead for transport prediction",
+      "passed": true,
+      "detail": "NPU is independent PCIe device"
+    }
+  ],
+  "measurements": {
+    "single_output": {
+      "lat_us": 700.3313599852845,
+      "batch_lat_us": 383.7026750079531,
+      "throughput": 2606.1761794561307
+    },
+    "multi_output": {
+      "lat_us": 635.396660072729,
+      "batch_lat_us": 389.5832281159528,
+      "throughput": 2566.8367141315016,
+      "overhead_pct": -9.271996603710555
+    },
+    "streaming": {
+      "total_inferences": 8000,
+      "elapsed_s": 3.240084852994187,
+      "throughput": 2469.0711394817763,
+      "per_sample_us": 405.01060662427335
+    },
+    "cost_analysis": {
+      "gpu_md_energy_j": 47272.72727272727,
+      "gpu_md_time_s": 727.2727272727273,
+      "gpu_md_cost": 0.0015757575757575756,
+      "npu_infer_energy_j": 0.32400848529941867,
+      "npu_infer_time_s": 0.32400848529941867,
+      "npu_infer_cost": 1.0800282843313954e-08,
+      "cpu_gk_energy_j": 2850.0,
+      "cpu_gk_time_s": 30.0,
+      "cpu_gk_cost": 9.499999999999999e-05,
+      "npu_vs_cpu_energy_ratio": 8796.065934403829,
+      "npu_vs_cpu_time_ratio": 92.5901677305666
+    }
+  },
+  "pipeline": {
+    "md_cases": 6,
+    "esn_train_ms": 2.537780994316563,
+    "composition": {
+      "md_step_ms": 9.090909090909092,
+      "npu_infer_ms": 0.40501060662427335,
+      "predict_every_n_steps": 100,
+      "npu_can_keep_up": true,
+      "headroom_factor": 2244.6101268016146
+    },
+    "continuous_monitoring": {
+      "gpu_overhead_pct": 0.0,
+      "npu_power_w": 1.0,
+      "npu_latency_ms": 0.40501060662427335,
+      "cpu_gk_latency_s": 30.0,
+      "speedup_vs_cpu_gk": 74072.13418445329
+    }
+  },
+  "provenance": {
+    "generator": "control/metalforge_npu/scripts/npu_physics_pipeline.py",
+    "method": "End-to-end GPU\u2192NPU physics pipeline validation",
+    "date": "2026-02-20",
+    "akida_sdk": "2.19.1",
+    "device": "PCIe/NSoC_v2/0",
+    "numpy_version": "2.1.3"
+  },
+  "summary": {
+    "passed": 10,
+    "total": 10,
+    "all_pass": true
+  }
+}

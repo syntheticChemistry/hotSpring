@@ -1,0 +1,16 @@
+# tracer: mmiotrace
+#
+# entries-in-buffer/entries-written: 4/4   #P:1
+#
+#                                _-----=> irqs-off/BH-disabled
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                              || / _--=> preempt-depth
+#                              ||| / _-=> migrate-disable
+#                              |||| /     delay
+#           TASK-PID     CPU#  |||||  TIMESTAMP  FUNCTION
+#              | |         |   |||||     |         |
+MAP 1744.130845 1 0xce000000 0xffffce5cfb000000 0x1000000 0x0 0
+R 4 1744.130864 1 0xce000004 0x0 0x0 0
+R 4 1744.130867 1 0xce000000 0xf22d0a1 0x0 0
+UNMAP 1744.130877 1 0x0 0

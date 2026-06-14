@@ -1,0 +1,1049 @@
+{
+  "vendor": "nvidia",
+  "arch": "GV100",
+  "pci_id": "0x10de:0x102d",
+  "bdf": "0000:4c:00.0",
+  "timestamp": "2026-04-07T20:00:26Z",
+  "registers": [
+    {
+      "offset": "0x000000",
+      "name": "BOOT0",
+      "group": "PMC",
+      "value": "0x0f22d0a1",
+      "raw_offset": 0,
+      "raw_value": 253939873
+    },
+    {
+      "offset": "0x000004",
+      "name": "BOOT1",
+      "group": "PMC",
+      "value": "0x00000000",
+      "raw_offset": 4,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x000200",
+      "name": "PMC_ENABLE",
+      "group": "PMC",
+      "value": "0xc0003020",
+      "raw_offset": 512,
+      "raw_value": 3221237792
+    },
+    {
+      "offset": "0x000204",
+      "name": "PMC_DEVICE_ENABLE",
+      "group": "PMC",
+      "value": "0x00000007",
+      "raw_offset": 516,
+      "raw_value": 7
+    },
+    {
+      "offset": "0x001c00",
+      "name": "PBUS_EXT_CG",
+      "group": "PBUS",
+      "value": "0x00000000",
+      "raw_offset": 7168,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x001c04",
+      "name": "PBUS_EXT_CG1",
+      "group": "PBUS",
+      "value": "0x00000000",
+      "raw_offset": 7172,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x002004",
+      "name": "PFIFO_PBDMA_MAP",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8196,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002100",
+      "name": "PFIFO_INTR",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8448,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002140",
+      "name": "PFIFO_INTR_EN",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8512,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002200",
+      "name": "PFIFO_ENABLE",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8704,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002254",
+      "name": "PFIFO_FB_TIMEOUT",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8788,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002270",
+      "name": "RUNLIST_BASE",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8816,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002274",
+      "name": "RUNLIST_SUBMIT",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8820,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002280",
+      "name": "RUNLIST0_BASE",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8832,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002284",
+      "name": "RUNLIST0_INFO",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8836,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x00228c",
+      "name": "RUNLIST1_INFO",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 8844,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002390",
+      "name": "PBDMA_RUNL_MAP_0",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9104,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002394",
+      "name": "PBDMA_RUNL_MAP_1",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9108,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002398",
+      "name": "PBDMA_RUNL_MAP_2",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9112,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x00239c",
+      "name": "PBDMA_RUNL_MAP_3",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9116,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002504",
+      "name": "SCHED_EN",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9476,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002508",
+      "name": "SCHED_STATUS",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9480,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x00252c",
+      "name": "BIND_ERROR",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9516,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002630",
+      "name": "SCHED_DISABLE",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9776,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002634",
+      "name": "PREEMPT",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9780,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002638",
+      "name": "PREEMPT_PENDING",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9784,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002640",
+      "name": "ENGN0_STATUS",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 9792,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002a00",
+      "name": "RUNLIST_ACK",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 10752,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x002a04",
+      "name": "PBDMA_INTR_EN",
+      "group": "PFIFO",
+      "value": "0xbad0da1f",
+      "raw_offset": 10756,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x003080",
+      "name": "PBDMA0_IDLE",
+      "group": "PBDMA_IDLE",
+      "value": "0xbad0da1f",
+      "raw_offset": 12416,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x003084",
+      "name": "PBDMA1_IDLE",
+      "group": "PBDMA_IDLE",
+      "value": "0xbad0da1f",
+      "raw_offset": 12420,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x003088",
+      "name": "PBDMA2_IDLE",
+      "group": "PBDMA_IDLE",
+      "value": "0xbad0da1f",
+      "raw_offset": 12424,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x00308c",
+      "name": "PBDMA3_IDLE",
+      "group": "PBDMA_IDLE",
+      "value": "0xbad0da1f",
+      "raw_offset": 12428,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x040040",
+      "name": "PBDMA0_GP_BASE_LO",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262208,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x040044",
+      "name": "PBDMA0_GP_BASE_HI",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262212,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x040048",
+      "name": "PBDMA0_GP_FETCH",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262216,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x04004c",
+      "name": "PBDMA0_GP_STATE",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262220,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x040050",
+      "name": "PBDMA0_GP_PUT_HI",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262224,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x040054",
+      "name": "PBDMA0_GP_PUT_LO",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262228,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0400a8",
+      "name": "PBDMA0_TARGET",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262312,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0400ac",
+      "name": "PBDMA0_SET_CHANNEL_INFO",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262316,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0400b0",
+      "name": "PBDMA0_CHANNEL_STATE",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262320,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0400c0",
+      "name": "PBDMA0_SIGNATURE",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262336,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0400d0",
+      "name": "PBDMA0_USERD_LO",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262352,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0400d4",
+      "name": "PBDMA0_USERD_HI",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262356,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x040108",
+      "name": "PBDMA0_INTR",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262408,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x04010c",
+      "name": "PBDMA0_INTR_EN",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262412,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x040148",
+      "name": "PBDMA0_HCE",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262472,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x04014c",
+      "name": "PBDMA0_HCE_EN",
+      "group": "PBDMA0",
+      "value": "0xbad0da1f",
+      "raw_offset": 262476,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x044040",
+      "name": "PBDMA2_GP_BASE_LO",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278592,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x044044",
+      "name": "PBDMA2_GP_BASE_HI",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278596,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x044048",
+      "name": "PBDMA2_GP_FETCH",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278600,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x04404c",
+      "name": "PBDMA2_GP_STATE",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278604,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x044054",
+      "name": "PBDMA2_GP_PUT_LO",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278612,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0440a8",
+      "name": "PBDMA2_TARGET",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278696,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0440ac",
+      "name": "PBDMA2_SET_CHANNEL_INFO",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278700,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0440b0",
+      "name": "PBDMA2_CHANNEL_STATE",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278704,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0440c0",
+      "name": "PBDMA2_SIGNATURE",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278720,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0440d0",
+      "name": "PBDMA2_USERD_LO",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278736,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x0440d4",
+      "name": "PBDMA2_USERD_HI",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278740,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x044108",
+      "name": "PBDMA2_INTR",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278792,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x04410c",
+      "name": "PBDMA2_INTR_EN",
+      "group": "PBDMA2",
+      "value": "0xbad0da1f",
+      "raw_offset": 278796,
+      "raw_value": 3134249503
+    },
+    {
+      "offset": "0x012070",
+      "name": "PRIV_RING_INTR",
+      "group": "PRIV",
+      "value": "0xbad0011f",
+      "raw_offset": 73840,
+      "raw_value": 3134193951
+    },
+    {
+      "offset": "0x020460",
+      "name": "GPU_TEMP",
+      "group": "THERM",
+      "value": "0xbadf5040",
+      "raw_offset": 132192,
+      "raw_value": 3135197248
+    },
+    {
+      "offset": "0x022700",
+      "name": "PTOP_INFO_0",
+      "group": "PTOP",
+      "value": "0x8006183e",
+      "raw_offset": 141056,
+      "raw_value": 2147883070
+    },
+    {
+      "offset": "0x022704",
+      "name": "PTOP_INFO_1",
+      "group": "PTOP",
+      "value": "0x00000003",
+      "raw_offset": 141060,
+      "raw_value": 3
+    },
+    {
+      "offset": "0x022708",
+      "name": "PTOP_INFO_2",
+      "group": "PTOP",
+      "value": "0x90828c3e",
+      "raw_offset": 141064,
+      "raw_value": 2424474686
+    },
+    {
+      "offset": "0x02270c",
+      "name": "PTOP_INFO_3",
+      "group": "PTOP",
+      "value": "0x00000007",
+      "raw_offset": 141068,
+      "raw_value": 7
+    },
+    {
+      "offset": "0x087100",
+      "name": "SEC2_CPUCTL",
+      "group": "SEC2",
+      "value": "0xbadf1100",
+      "raw_offset": 553216,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x087104",
+      "name": "SEC2_BOOTVEC",
+      "group": "SEC2",
+      "value": "0xbadf1100",
+      "raw_offset": 553220,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x087240",
+      "name": "SEC2_SCTL",
+      "group": "SEC2",
+      "value": "0xbadf1100",
+      "raw_offset": 553536,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x409100",
+      "name": "FECS_CPUCTL",
+      "group": "FECS",
+      "value": "0x00000010",
+      "raw_offset": 4231424,
+      "raw_value": 16
+    },
+    {
+      "offset": "0x409104",
+      "name": "FECS_BOOTVEC",
+      "group": "FECS",
+      "value": "0x00000000",
+      "raw_offset": 4231428,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x409110",
+      "name": "FECS_PC",
+      "group": "FECS",
+      "value": "0x00000000",
+      "raw_offset": 4231440,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x409240",
+      "name": "FECS_SCTL",
+      "group": "FECS",
+      "value": "0x00000000",
+      "raw_offset": 4231744,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x10a100",
+      "name": "PMU_CPUCTL",
+      "group": "PMU",
+      "value": "0x00000020",
+      "raw_offset": 1089792,
+      "raw_value": 32
+    },
+    {
+      "offset": "0x10a104",
+      "name": "PMU_BOOTVEC",
+      "group": "PMU",
+      "value": "0x00000000",
+      "raw_offset": 1089796,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x10a240",
+      "name": "PMU_SCTL",
+      "group": "PMU",
+      "value": "0x00000000",
+      "raw_offset": 1090112,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x100a2c",
+      "name": "MMU_FAULT_STATUS",
+      "group": "MMU",
+      "value": "0xbadf1201",
+      "raw_offset": 1051180,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100a30",
+      "name": "MMU_FAULT_ADDR_LO",
+      "group": "MMU",
+      "value": "0xbadf1201",
+      "raw_offset": 1051184,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100a34",
+      "name": "MMU_FAULT_ADDR_HI",
+      "group": "MMU",
+      "value": "0xbadf1201",
+      "raw_offset": 1051188,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100a38",
+      "name": "MMU_FAULT_INST_LO",
+      "group": "MMU",
+      "value": "0xbadf1201",
+      "raw_offset": 1051192,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100a3c",
+      "name": "MMU_FAULT_INST_HI",
+      "group": "MMU",
+      "value": "0xbadf1201",
+      "raw_offset": 1051196,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100a40",
+      "name": "MMU_FAULT_INFO",
+      "group": "MMU",
+      "value": "0xbadf1201",
+      "raw_offset": 1051200,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100c80",
+      "name": "MMU_PRI_CTRL",
+      "group": "MMU",
+      "value": "0xbadf1201",
+      "raw_offset": 1051776,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100cbc",
+      "name": "MMU_TLB_FLUSH",
+      "group": "MMU",
+      "value": "0xbadf1201",
+      "raw_offset": 1051836,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100e24",
+      "name": "MMU_FAULT_BUF0_LO",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052196,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e28",
+      "name": "MMU_FAULT_BUF0_HI",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052200,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e2c",
+      "name": "MMU_FAULT_BUF0_SIZE",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052204,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e30",
+      "name": "MMU_FAULT_BUF0_GET",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052208,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e34",
+      "name": "MMU_FAULT_BUF0_PUT",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052212,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e44",
+      "name": "MMU_FAULT_BUF1_LO",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052228,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e48",
+      "name": "MMU_FAULT_BUF1_HI",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052232,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e4c",
+      "name": "MMU_FAULT_BUF1_SIZE",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052236,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e50",
+      "name": "MMU_FAULT_BUF1_GET",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052240,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100e54",
+      "name": "MMU_FAULT_BUF1_PUT",
+      "group": "MMU",
+      "value": "0xbadf1100",
+      "raw_offset": 1052244,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x001704",
+      "name": "BAR1_BLOCK",
+      "group": "BAR",
+      "value": "0x00000000",
+      "raw_offset": 5892,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x001710",
+      "name": "BIND_STATUS",
+      "group": "BAR",
+      "value": "0xbad0011f",
+      "raw_offset": 5904,
+      "raw_value": 3134193951
+    },
+    {
+      "offset": "0x001714",
+      "name": "BAR2_BLOCK",
+      "group": "BAR",
+      "value": "0x40000000",
+      "raw_offset": 5908,
+      "raw_value": 1073741824
+    },
+    {
+      "offset": "0x100000",
+      "name": "PFB_BOOT0",
+      "group": "PFB",
+      "value": "0xbadf1100",
+      "raw_offset": 1048576,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100200",
+      "name": "PFB_CFG",
+      "group": "PFB",
+      "value": "0xbadf1100",
+      "raw_offset": 1049088,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100204",
+      "name": "PFB_SIZE",
+      "group": "PFB",
+      "value": "0xbadf1100",
+      "raw_offset": 1049092,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x100800",
+      "name": "FBHUB_0",
+      "group": "FBHUB",
+      "value": "0xbadf1201",
+      "raw_offset": 1050624,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x100804",
+      "name": "FBHUB_4",
+      "group": "FBHUB",
+      "value": "0xbadf1201",
+      "raw_offset": 1050628,
+      "raw_value": 3135181313
+    },
+    {
+      "offset": "0x10a000",
+      "name": "PMU_FALCON_HWCFG",
+      "group": "PMU",
+      "value": "0x00000000",
+      "raw_offset": 1089536,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x10a040",
+      "name": "PMU_FALCON_DMACTL",
+      "group": "PMU",
+      "value": "0x00000300",
+      "raw_offset": 1089600,
+      "raw_value": 768
+    },
+    {
+      "offset": "0x10a044",
+      "name": "PMU_FALCON_DMATRFBASE",
+      "group": "PMU",
+      "value": "0x00000000",
+      "raw_offset": 1089604,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x137000",
+      "name": "PCLOCK_BASE",
+      "group": "PCLOCK",
+      "value": "0xbadf3000",
+      "raw_offset": 1273856,
+      "raw_value": 3135188992
+    },
+    {
+      "offset": "0x137050",
+      "name": "NVPLL",
+      "group": "PCLOCK",
+      "value": "0x00000000",
+      "raw_offset": 1273936,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x137100",
+      "name": "MEMPLL",
+      "group": "PCLOCK",
+      "value": "0x00000000",
+      "raw_offset": 1274112,
+      "raw_value": 0
+    },
+    {
+      "offset": "0x700000",
+      "name": "NV_PRAMIN_0",
+      "group": "PRAMIN",
+      "value": "0xffffffff",
+      "raw_offset": 7340032,
+      "raw_value": 4294967295
+    },
+    {
+      "offset": "0x700004",
+      "name": "NV_PRAMIN_4",
+      "group": "PRAMIN",
+      "value": "0xffffffff",
+      "raw_offset": 7340036,
+      "raw_value": 4294967295
+    },
+    {
+      "offset": "0x300000",
+      "name": "PROM_0",
+      "group": "PROM",
+      "value": "0xeb7baa55",
+      "raw_offset": 3145728,
+      "raw_value": 3950750293
+    },
+    {
+      "offset": "0x300004",
+      "name": "PROM_4",
+      "group": "PROM",
+      "value": "0x3034374b",
+      "raw_offset": 3145732,
+      "raw_value": 808728395
+    },
+    {
+      "offset": "0x800000",
+      "name": "PCCSR_INST_0",
+      "group": "PCCSR",
+      "value": "0xbad0da1d",
+      "raw_offset": 8388608,
+      "raw_value": 3134249501
+    },
+    {
+      "offset": "0x800004",
+      "name": "PCCSR_CHAN_0",
+      "group": "PCCSR",
+      "value": "0xbad0da1d",
+      "raw_offset": 8388612,
+      "raw_value": 3134249501
+    },
+    {
+      "offset": "0x800008",
+      "name": "PCCSR_INST_1",
+      "group": "PCCSR",
+      "value": "0xbad0da1d",
+      "raw_offset": 8388616,
+      "raw_value": 3134249501
+    },
+    {
+      "offset": "0x80000c",
+      "name": "PCCSR_CHAN_1",
+      "group": "PCCSR",
+      "value": "0xbad0da1d",
+      "raw_offset": 8388620,
+      "raw_value": 3134249501
+    },
+    {
+      "offset": "0x810000",
+      "name": "USERMODE_CFG",
+      "group": "USERMODE",
+      "value": "0xbadf1100",
+      "raw_offset": 8454144,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x810004",
+      "name": "USERMODE_4",
+      "group": "USERMODE",
+      "value": "0xbadf1100",
+      "raw_offset": 8454148,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x810010",
+      "name": "USERMODE_TIME_LO",
+      "group": "USERMODE",
+      "value": "0xbadf1100",
+      "raw_offset": 8454160,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x810014",
+      "name": "USERMODE_TIME_HI",
+      "group": "USERMODE",
+      "value": "0xbadf1100",
+      "raw_offset": 8454164,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x810090",
+      "name": "USERMODE_NOTIFY_CHAN_PENDING",
+      "group": "USERMODE",
+      "value": "0xbadf1100",
+      "raw_offset": 8454288,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x400000",
+      "name": "GPC0_BOOT0",
+      "group": "GPCCS",
+      "value": "0xbadf1002",
+      "raw_offset": 4194304,
+      "raw_value": 3135180802
+    },
+    {
+      "offset": "0x418000",
+      "name": "GPC0_GPCCS_BOOT0",
+      "group": "GPCCS",
+      "value": "0xbadf1100",
+      "raw_offset": 4292608,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x418100",
+      "name": "GPC0_GPCCS_CPUCTL",
+      "group": "GPCCS",
+      "value": "0xbadf1100",
+      "raw_offset": 4292864,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x418110",
+      "name": "GPC0_GPCCS_PC",
+      "group": "GPCCS",
+      "value": "0xbadf1100",
+      "raw_offset": 4292880,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x420000",
+      "name": "GPC1_BOOT0",
+      "group": "GPCCS",
+      "value": "0xbadf1100",
+      "raw_offset": 4325376,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x428000",
+      "name": "GPC1_GPCCS_BOOT0",
+      "group": "GPCCS",
+      "value": "0xbadf1100",
+      "raw_offset": 4358144,
+      "raw_value": 3135181056
+    },
+    {
+      "offset": "0x428100",
+      "name": "GPC1_GPCCS_CPUCTL",
+      "group": "GPCCS",
+      "value": "0xbadf1100",
+      "raw_offset": 4358400,
+      "raw_value": 3135181056
+    }
+  ]
+}

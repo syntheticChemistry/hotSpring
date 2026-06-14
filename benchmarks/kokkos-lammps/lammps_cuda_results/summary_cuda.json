@@ -1,0 +1,20 @@
+{"backend": "Kokkos-CUDA", "gpu": "NVIDIA GeForce RTX 3090", "results": [
+  {"label": "k1_G14", "kappa": 1.0, "gamma": 14.0, "wall_seconds": 41.094, "steps_per_s": 730.0, "n_particles": 2048, "prod_steps": 30000}
+,
+  {"label": "k1_G72", "kappa": 1.0, "gamma": 72.0, "wall_seconds": 18.108, "steps_per_s": 1656.7, "n_particles": 2048, "prod_steps": 30000}
+,
+  {"label": "k1_G217", "kappa": 1.0, "gamma": 217.0, "wall_seconds": 15.983, "steps_per_s": 1877.0, "n_particles": 2048, "prod_steps": 30000}
+,
+  {"label": "k2_G31", "kappa": 2.0, "gamma": 31.0, "wall_seconds": 11.925, "steps_per_s": 2515.7, "n_particles": 2048, "prod_steps": 30000}
+,
+  {"label": "k2_G158", "kappa": 2.0, "gamma": 158.0, "wall_seconds": 9.844, "steps_per_s": 3047.5, "n_particles": 2048, "prod_steps": 30000}
+,
+  {"label": "k2_G476", "kappa": 2.0, "gamma": 476.0, "wall_seconds": 9.693, "steps_per_s": 3095.0, "n_particles": 2048, "prod_steps": 30000}
+,
+  {"label": "k3_G100", "kappa": 3.0, "gamma": 100.0, "wall_seconds": 9.981, "steps_per_s": 3005.7, "n_particles": 2048, "prod_steps": 30000}
+,
+  {"label": "k3_G503", "kappa": 3.0, "gamma": 503.0, "wall_seconds": 8.612, "steps_per_s": 3483.5, "n_particles": 2048, "prod_steps": 30000}
+,
+  {"label": "k3_G1510", "kappa": 3.0, "gamma": 1510.0, "wall_seconds": 8.11, "steps_per_s": 3699.1, "n_particles": 2048, "prod_steps": 30000}
+
+]}

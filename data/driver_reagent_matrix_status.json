@@ -1,0 +1,96 @@
+{
+  "matrix": "GPU Cracking Driver Reagent Matrix",
+  "date": "2026-03-29",
+  "captures": {
+    "nouveau-titanv": {
+      "status": "CAPTURED",
+      "traces": 3,
+      "total_lines": 97641,
+      "total_writes": 22029,
+      "notes": "Captures basic device init, PRIV_RING, PMC. NO SEC2/ACR/FECS/GPCCS/PMU writes (nouveau cannot init GR on Volta without signed firmware).",
+      "files": [
+        "data/titanv/reagent-captures/nouveau_titanv_trace1.mmiotrace",
+        "data/titanv/reagent-captures/nouveau_titanv_trace2.mmiotrace",
+        "data/titanv/reagent-captures/nouveau_titanv_trace3_fresh.mmiotrace"
+      ]
+    },
+    "nouveau-k80": {
+      "status": "CAPTURED_MINIMAL",
+      "traces": 1,
+      "total_lines": 16,
+      "notes": "Nouveau cannot init cold K80 from vfio-pci. Trace is near-empty.",
+      "files": [
+        "data/k80/reagent-captures/nouveau_k80_trace1.mmiotrace"
+      ]
+    },
+    "nvidia390-k80": {
+      "status": "TEMPLATE_READY",
+      "template": "reagent-nvidia390-k80.yaml",
+      "requires": "VM-based capture (VFIO passthrough)"
+    },
+    "nvidia418-k80": {
+      "status": "TEMPLATE_READY",
+      "template": "reagent-nvidia418-k80.yaml",
+      "requires": "VM-based capture"
+    },
+    "nvidia418-titanv": {
+      "status": "TEMPLATE_READY",
+      "template": "reagent-nvidia418-titanv.yaml",
+      "requires": "VM-based capture"
+    },
+    "nvidia470-k80": {
+      "status": "TEMPLATE_READY",
+      "template": "reagent-nvidia470-k80.yaml",
+      "requires": "VM-based capture"
+    },
+    "nvidia470-titanv": {
+      "status": "TEMPLATE_READY",
+      "template": "reagent-nvidia470-titanv.yaml",
+      "requires": "VM-based capture"
+    },
+    "nvidia510-titanv": {
+      "status": "TEMPLATE_READY",
+      "template": "reagent-nvidia510-titanv.yaml",
+      "requires": "VM-based capture"
+    },
+    "nvidia535-titanv": {
+      "status": "TEMPLATE_READY",
+      "template": "reagent-nvidia535-titanv.yaml",
+      "requires": "VM-based capture"
+    },
+    "nvidiaopen535-titanv": {
+      "status": "TEMPLATE_READY",
+      "template": "reagent-nvidiaopen535-titanv.yaml",
+      "requires": "VM-based capture"
+    },
+    "nouveau-titanv-from-vfio": {
+      "status": "CAPTURED",
+      "traces": 1,
+      "notes": "Pre-existing trace from 0000:4a:00.0 (earlier BDF assignment). 32K+ lines.",
+      "files": [
+        "/var/lib/coralreef/traces/0000-4a-00.0_nouveau_1774445882.mmiotrace"
+      ]
+    }
+  },
+  "analysis": {
+    "titanv_nouveau_summary": {
+      "total_ops": 21929,
+      "total_writes": 7343,
+      "key_regions": {
+        "PMC": 3800,
+        "PRIV_RING": 945,
+        "PPCI": 949,
+        "PFB": 162,
+        "PDISP": 170,
+        "PFIFO": 10,
+        "PTIMER": 9,
+        "SEC2": 0,
+        "ACR": 0,
+        "FECS": 0,
+        "GPCCS": 0,
+        "PMU": 0
+      },
+      "diagnosis": "Nouveau init covers basic device bring-up but cannot do GR/compute init on Volta (needs signed firmware). Closed-source driver traces needed for SEC2/ACR/FECS boot sequence."
+    }
+  }
+}

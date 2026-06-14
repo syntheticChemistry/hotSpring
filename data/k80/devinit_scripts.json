@@ -1,0 +1,1864 @@
+[
+  {
+    "id": 0,
+    "addr": "0x924d",
+    "ops": [
+      {
+        "type": "ZM_REG",
+        "reg": 512,
+        "val": 8224
+      },
+      {
+        "type": "NV_REG",
+        "reg": 0,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 512,
+        "val": 1073815845
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1188144,
+        "mask": 4294963199,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 140288,
+        "mask": 4294965247,
+        "or_val": 2048
+      },
+      {
+        "type": "NV_REG",
+        "reg": 140764,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 140680,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 140684,
+        "val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 140676,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 140744,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 140756,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 577820,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 577836,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 577832,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 577848,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 573504,
+        "mask": 4294967280,
+        "or_val": 1
+      },
+      {
+        "type": "TIME",
+        "usec": 37
+      },
+      {
+        "type": "NV_REG",
+        "reg": 573504,
+        "mask": 4294967280,
+        "or_val": 2
+      },
+      {
+        "type": "TIME",
+        "usec": 37
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274024,
+        "mask": 4294967040,
+        "or_val": 5
+      },
+      {
+        "type": "TIME",
+        "usec": 1
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274024,
+        "mask": 4294967291,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274252,
+        "mask": 4294770684,
+        "or_val": 196608
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132300,
+        "val": 93
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132300,
+        "val": 93
+      },
+      {
+        "type": "NV_REG",
+        "reg": 131364,
+        "mask": 4294966271,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132296,
+        "val": 158
+      },
+      {
+        "type": "NV_REG",
+        "reg": 131364,
+        "mask": 4294966783,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131088,
+        "val": 99287984
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131084,
+        "val": 40003
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131316,
+        "val": 0
+      },
+      {
+        "type": "TIME",
+        "usec": 10000
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131312,
+        "val": 24444928
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131316,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131080,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132228,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132232,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132864,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132868,
+        "val": 50332160
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132872,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132876,
+        "val": 7785
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132880,
+        "val": 50331648
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132884,
+        "val": 16780902
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132888,
+        "val": 33555044
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132892,
+        "val": 117440870
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132896,
+        "val": 134218081
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132900,
+        "val": 3584
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132936,
+        "val": 85
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132944,
+        "val": 520093952
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132948,
+        "val": 520093952
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132952,
+        "val": 520093952
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132956,
+        "val": 520093952
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132960,
+        "val": 520093952
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132964,
+        "val": 520093952
+      },
+      {
+        "type": "ZM_MASK_ADD",
+        "reg": 132876,
+        "inv_mask": 4294967040,
+        "add_val": 244
+      },
+      {
+        "type": "ZM_MASK_ADD",
+        "reg": 132880,
+        "inv_mask": 4294967040,
+        "add_val": 244
+      },
+      {
+        "type": "ZM_MASK_ADD",
+        "reg": 132884,
+        "inv_mask": 4294967040,
+        "add_val": 244
+      },
+      {
+        "type": "ZM_MASK_ADD",
+        "reg": 132888,
+        "inv_mask": 4294967040,
+        "add_val": 244
+      },
+      {
+        "type": "ZM_MASK_ADD",
+        "reg": 132892,
+        "inv_mask": 4294967040,
+        "add_val": 244
+      },
+      {
+        "type": "ZM_MASK_ADD",
+        "reg": 132896,
+        "inv_mask": 4294967040,
+        "add_val": 244
+      },
+      {
+        "type": "ZM_MASK_ADD",
+        "reg": 132936,
+        "inv_mask": 4294967040,
+        "add_val": 244
+      },
+      {
+        "type": "ZM_MASK_ADD",
+        "reg": 132900,
+        "inv_mask": 4294967040,
+        "add_val": 244
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132108,
+        "val": 1
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132112,
+        "val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 55184,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131220,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131424,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131428,
+        "val": 128
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131432,
+        "val": 128
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131436,
+        "val": 128
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131456,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131460,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131488,
+        "val": 16448
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131492,
+        "val": 16448
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131496,
+        "val": 16448
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131500,
+        "val": 16448
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132032,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132036,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132040,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132044,
+        "val": 65536
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132048,
+        "val": 65536
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132052,
+        "val": 65536
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132056,
+        "val": 65536
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132060,
+        "val": 65536
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132064,
+        "val": 65536
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 132132,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 59172,
+        "val": 27000000
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 59168,
+        "val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 57620,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 57624,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 54820,
+        "mask": 4294934527,
+        "or_val": 32768
+      },
+      {
+        "type": "NV_REG",
+        "reg": 54836,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 54848,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 54896,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 55104,
+        "mask": 4294967039,
+        "or_val": 256
+      },
+      {
+        "type": "NV_REG",
+        "reg": 55108,
+        "mask": 4294967039,
+        "or_val": 256
+      },
+      {
+        "type": "NV_REG",
+        "reg": 55112,
+        "mask": 4294967039,
+        "or_val": 256
+      },
+      {
+        "type": "NV_REG",
+        "reg": 55116,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 55188,
+        "mask": 4294967039,
+        "or_val": 256
+      },
+      {
+        "type": "NV_REG",
+        "reg": 55192,
+        "mask": 4294967039,
+        "or_val": 256
+      },
+      {
+        "type": "NV_REG",
+        "reg": 131904,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 131908,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 5508,
+        "mask": 4294967231,
+        "or_val": 64
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131072,
+        "val": 3221225472
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131076,
+        "val": 17891328
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131744,
+        "val": 187549376
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131748,
+        "val": 128
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131376,
+        "val": 2164724751
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131396,
+        "val": 65536
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131776,
+        "val": 1
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131780,
+        "val": 64
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131784,
+        "val": 303571008
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 131788,
+        "val": 1056698270
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 133016,
+        "val": 106
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1052672,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1052684,
+        "mask": 4294967295,
+        "or_val": 2147483648
+      },
+      {
+        "type": "NV_REG",
+        "reg": 140316,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570404,
+        "mask": 4294959104,
+        "or_val": 402
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570408,
+        "mask": 4294959104,
+        "or_val": 354
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570412,
+        "mask": 4294959104,
+        "or_val": 244
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570416,
+        "mask": 4294959104,
+        "or_val": 288
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570420,
+        "mask": 4294959104,
+        "or_val": 297
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570424,
+        "mask": 4294959104,
+        "or_val": 648
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570468,
+        "mask": 4294959104,
+        "or_val": 642
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570472,
+        "mask": 4294959104,
+        "or_val": 474
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570476,
+        "mask": 4294959104,
+        "or_val": 304
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570480,
+        "mask": 4294959104,
+        "or_val": 432
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570484,
+        "mask": 4294959104,
+        "or_val": 369
+      },
+      {
+        "type": "NV_REG",
+        "reg": 570488,
+        "mask": 4294959104,
+        "or_val": 252
+      },
+      {
+        "type": "NV_REG",
+        "reg": 577792,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 557392,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 577792,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 579840,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 577796,
+        "mask": 4294967293,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 577808,
+        "mask": 4292870143,
+        "or_val": 0
+      },
+      {
+        "type": "TIME",
+        "usec": 7
+      },
+      {
+        "type": "TIME",
+        "usec": 9
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59896,
+        "mask": 4294967294,
+        "or_val": 1
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59896,
+        "mask": 4294967293,
+        "or_val": 2
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274448,
+        "val": 2165309440
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274452,
+        "val": 2165309440
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274456,
+        "val": 2165309440
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274176,
+        "val": 2165310982
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274180,
+        "val": 2165309954
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274184,
+        "val": 2165309954
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274348,
+        "val": 2165309440
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274204,
+        "val": 2165309954
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274672,
+        "val": 2165310982
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274568,
+        "val": 2165309440
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274572,
+        "val": 2165309440
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 59876,
+        "val": 2165310982
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 59888,
+        "val": 2165309440
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274320,
+        "val": 2165310211
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274324,
+        "val": 2165310211
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274328,
+        "val": 2165310211
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274492,
+        "val": 2165316636
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274496,
+        "val": 2165311496
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274476,
+        "val": 2165310211
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274480,
+        "val": 2165310211
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274504,
+        "val": 2165310982
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 59400,
+        "val": 16
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 59432,
+        "val": 16
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59392,
+        "mask": 4294967294,
+        "or_val": 1
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59424,
+        "mask": 4294967294,
+        "or_val": 1
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59436,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59440,
+        "mask": 2147483648,
+        "or_val": 1842177
+      },
+      {
+        "type": "TIME",
+        "usec": 8
+      },
+      {
+        "type": "TIME",
+        "usec": 10
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59392,
+        "mask": 4294967291,
+        "or_val": 4
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59424,
+        "mask": 4278190075,
+        "or_val": 16777220
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59896,
+        "mask": 4294967294,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59896,
+        "mask": 4294967293,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59436,
+        "mask": 4294967287,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59440,
+        "mask": 2147483647,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 59436,
+        "mask": 4294967291,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 4294432,
+        "mask": 4294377471,
+        "or_val": 589824
+      },
+      {
+        "type": "NV_REG",
+        "reg": 4294720,
+        "mask": 4294963263,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 4294724,
+        "mask": 4286578751,
+        "or_val": 7895040
+      },
+      {
+        "type": "NV_REG",
+        "reg": 4294436,
+        "mask": 4292873215,
+        "or_val": 29696
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274312,
+        "val": 2
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274316,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274208,
+        "val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274212,
+        "val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274216,
+        "val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274256,
+        "val": 536870915
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1089568,
+        "val": 324000
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 59812,
+        "val": 196608
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 59824,
+        "val": 67108866
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274236,
+        "mask": 0,
+        "or_val": 536870915
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274240,
+        "mask": 4294967036,
+        "or_val": 3
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274264,
+        "mask": 3,
+        "or_val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274144,
+        "val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274148,
+        "val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274152,
+        "val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274172,
+        "val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1277952,
+        "val": 260
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1255552,
+        "mask": 4294967286,
+        "or_val": 9
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274688,
+        "mask": 4294967160,
+        "or_val": 1
+      },
+      {
+        "type": "NV_REG",
+        "reg": 512,
+        "mask": 535822327,
+        "or_val": 3759144968
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274640,
+        "val": 2165311496
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1274624,
+        "val": 259
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 558608,
+        "val": 4097
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1566936,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1050624,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1188864,
+        "val": 1166880
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1188992,
+        "val": 4261425152
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1189376,
+        "val": 2048
+      },
+      {
+        "type": "NV_REG",
+        "reg": 574340,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1179808,
+        "val": 1
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1188636,
+        "val": 61440
+      }
+    ]
+  },
+  {
+    "id": 1,
+    "addr": "0x9b7f",
+    "ops": [
+      {
+        "type": "NV_REG",
+        "reg": 1114192,
+        "mask": 4294967264,
+        "or_val": 19
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1118288,
+        "mask": 4294967264,
+        "or_val": 5
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1122384,
+        "mask": 4294967264,
+        "or_val": 16
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1126480,
+        "mask": 4294967264,
+        "or_val": 23
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1130576,
+        "mask": 4294967264,
+        "or_val": 11
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1134672,
+        "mask": 4294967264,
+        "or_val": 2
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1110656,
+        "mask": 4294967292,
+        "or_val": 3
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1172880,
+        "val": 50332164
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1172752,
+        "val": 2147483648
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173720,
+        "val": 21845
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173724,
+        "val": 9
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173020,
+        "val": 17891601
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1173084,
+        "mask": 240,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1173084,
+        "mask": 15,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1172744,
+        "val": 2147483658
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1252376,
+        "val": 268488704
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1111564,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1171552,
+        "val": 15
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174836,
+        "val": 524296
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274672,
+        "mask": 2147483584,
+        "or_val": 2147483700
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274656,
+        "mask": 4294770684,
+        "or_val": 0
+      },
+      {
+        "type": "TIME",
+        "usec": 17
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1252388,
+        "val": 205569
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1252396,
+        "mask": 0,
+        "or_val": 768
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1252400,
+        "val": 268439559
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1252404,
+        "val": 171839488
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1252384,
+        "val": 1
+      },
+      {
+        "type": "TIME",
+        "usec": 19
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274720,
+        "mask": 4294967293,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274752,
+        "mask": 4294967293,
+        "or_val": 2
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274868,
+        "mask": 4294901487,
+        "or_val": 65808
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274868,
+        "mask": 4294967292,
+        "or_val": 1
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1274868,
+        "mask": 4294901487,
+        "or_val": 16
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1171584,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1172220,
+        "val": 90
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174276,
+        "val": 1431633920
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174280,
+        "val": 1431633920
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174292,
+        "val": 1431633920
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174296,
+        "val": 1431633920
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173712,
+        "val": 3342387
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173604,
+        "val": 16842752
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173608,
+        "val": 16846864
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174272,
+        "val": 3947527
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174840,
+        "val": 1431655765
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1171968,
+        "mask": 4294963199,
+        "or_val": 4096
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1173512,
+        "mask": 4244635647,
+        "or_val": 33554432
+      },
+      {
+        "type": "TIME",
+        "usec": 100
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1172672,
+        "val": 4128
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1171992,
+        "val": 16781312
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1171996,
+        "val": 1
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1171992,
+        "val": 16781568
+      },
+      {
+        "type": "TIME",
+        "usec": 200
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1171992,
+        "val": 16781569
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1172300,
+        "val": 15728640
+      },
+      {
+        "type": "NV_REG",
+        "reg": 54840,
+        "mask": 4294955007,
+        "or_val": 12288
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 54788,
+        "val": 1
+      },
+      {
+        "type": "TIME",
+        "usec": 20
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1172308,
+        "val": 8388608
+      },
+      {
+        "type": "TIME",
+        "usec": 1000
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174256,
+        "val": 255
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1171984,
+        "val": 2147483648
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1172736,
+        "val": 2149580821
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173924,
+        "val": 335616
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173932,
+        "val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1173916,
+        "mask": 4286644223,
+        "or_val": 65536
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1173920,
+        "mask": 4042326015,
+        "or_val": 33685504
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173880,
+        "val": 2298101257
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173896,
+        "val": 537001728
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173964,
+        "val": 2149056640
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173968,
+        "val": 134303744
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173972,
+        "val": 50626433
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173976,
+        "val": 537980928
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173980,
+        "val": 67272448
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173984,
+        "val": 536870912
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173988,
+        "val": 4371
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173992,
+        "val": 496
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173996,
+        "val": 16914536
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173892,
+        "val": 2304
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173908,
+        "val": 5
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173912,
+        "val": 72448
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173928,
+        "val": 67328
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173936,
+        "val": 89210689
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1174000,
+        "val": 89210689
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1173104,
+        "mask": 4278190080,
+        "or_val": 529158
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173900,
+        "val": 64
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173904,
+        "val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173776,
+        "val": 2281832448
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1173780,
+        "val": 2281832448
+      },
+      {
+        "type": "TIME",
+        "usec": 100
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1111072,
+        "mask": 4294967294,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1111088,
+        "mask": 4294967294,
+        "or_val": 0
+      },
+      {
+        "type": "TIME",
+        "usec": 1000
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1171968,
+        "mask": 4294965247,
+        "or_val": 2048
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1173552,
+        "mask": 4278190079,
+        "or_val": 16777216
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1173552,
+        "mask": 4278190079,
+        "or_val": 0
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "addr": "0x65cd",
+    "ops": []
+  },
+  {
+    "id": 3,
+    "addr": "0xb6b2",
+    "ops": []
+  },
+  {
+    "id": 4,
+    "addr": "0xb6b3",
+    "ops": [
+      {
+        "type": "NV_REG",
+        "reg": 1273868,
+        "mask": 16777215,
+        "or_val": 33554432
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1273880,
+        "mask": 4278255615,
+        "or_val": 196608
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1111104,
+        "val": 586698512
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1111108,
+        "val": 80513087
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1111144,
+        "val": 4101
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 565384,
+        "val": 268435459
+      },
+      {
+        "type": "NV_REG",
+        "reg": 131096,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 58624,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 58704,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 58784,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 58864,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 1566840,
+        "val": 65791
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 58880,
+        "val": 2690687072
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 58892,
+        "val": 2147486218
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 58896,
+        "val": 131072
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 58900,
+        "val": 4164812800
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 58904,
+        "val": 2147486218
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 58908,
+        "val": 131072
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 58912,
+        "val": 4164812800
+      },
+      {
+        "type": "NV_REG",
+        "reg": 558108,
+        "mask": 4294967295,
+        "or_val": 0
+      },
+      {
+        "type": "ZM_REG",
+        "reg": 140928,
+        "val": 2147483648
+      },
+      {
+        "type": "NV_REG",
+        "reg": 140288,
+        "mask": 4294965247,
+        "or_val": 0
+      },
+      {
+        "type": "NV_REG",
+        "reg": 140300,
+        "mask": 4294967293,
+        "or_val": 2
+      },
+      {
+        "type": "NV_REG",
+        "reg": 131108,
+        "mask": 4294967040,
+        "or_val": 211
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1105944,
+        "mask": 4294967040,
+        "or_val": 125
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1105948,
+        "mask": 4294967040,
+        "or_val": 255
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1106176,
+        "mask": 16777215,
+        "or_val": 318767104
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1106180,
+        "mask": 4294901760,
+        "or_val": 25
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1277952,
+        "mask": 4294966331,
+        "or_val": 128
+      },
+      {
+        "type": "NV_REG",
+        "reg": 578048,
+        "mask": 4278124541,
+        "or_val": 65538
+      },
+      {
+        "type": "NV_REG",
+        "reg": 578048,
+        "mask": 4294967287,
+        "or_val": 8
+      },
+      {
+        "type": "NV_REG",
+        "reg": 1277952,
+        "mask": 4294966331,
+        "or_val": 196
+      },
+      {
+        "type": "NV_REG",
+        "reg": 578048,
+        "mask": 4294967287,
+        "or_val": 0
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "addr": "0xb817",
+    "ops": []
+  },
+  {
+    "id": -1,
+    "addr": "0xb87c",
+    "ops": [
+      {
+        "type": "NV_REG",
+        "reg": 54880,
+        "mask": 4294954752,
+        "or_val": 12288
+      },
+      {
+        "type": "NV_REG",
+        "reg": 54788,
+        "mask": 4294967294,
+        "or_val": 1
+      }
+    ]
+  }
+]

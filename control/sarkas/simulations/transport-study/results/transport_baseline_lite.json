@@ -1,0 +1,27 @@
+{
+  "provenance": {
+    "generator": "hotSpring/control/sarkas/simulations/transport-study/scripts/run_transport.py",
+    "sarkas_commit": "fd908c41a949",
+    "date": "2026-02-19T02:12:22.605716+00:00",
+    "python_version": "3.9.23 | packaged by conda-forge | (main, Jun  4 2025, 17:57:12) \n[GCC 13.3.0]",
+    "numpy_version": "1.26.4",
+    "total_wall_time_s": 76.43849587440491,
+    "n_cases": 1,
+    "n_failed": 0
+  },
+  "results": [
+    {
+      "case": "transport_k1_G50_lite",
+      "kappa": 1.0,
+      "gamma": 50.0,
+      "D_star_reduced": 1.3289976522862925,
+      "D_mks": 6.213215707908774e-06,
+      "C0": 156171689.58953816,
+      "C_tail_ratio": 1.0000000000002065,
+      "n_vacf_points": 4001,
+      "t_max": 1.1935356e-13,
+      "sim_wall_time_s": 69.4683313369751
+    }
+  ],
+  "failed": []
+}

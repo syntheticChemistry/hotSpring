@@ -1,0 +1,43 @@
+# toadStool ember daemon configuration
+# biomeGate: 2× Titan V (GV100) + RTX 5060 (display)
+#
+# Fleet evolution (May 2026):
+#   K80 retired (caught fire Exp 199). Second Titan V replaces K80.
+#   PLX PEX 8747 switch still present in chassis but unused.
+#
+# health_policy: "passive" (default) = sysfs-only, no BAR0 reads
+#                "active" = full BAR0 register probing each tick
+
+[daemon]
+socket = "/run/toadstool/ember.sock"
+log_level = "info"
+health_interval_ms = 5000
+
+# RTX 5060 (GB206) — Blackwell display + shared compute, LOCKED to nvidia
+# PROTECTED: ember will not hold VFIO fds, swaps are forbidden
+[[device]]
+bdf = "0000:21:00.0"
+name = "rtx-5060-display"
+boot_personality = "nvidia"
+power_policy = "always_on"
+role = "display"
+
+# Titan V #1 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
+# IOMMU group 69 (root complex 0000:00) — isolated from USB
+[[device]]
+bdf = "0000:02:00.0"
+name = "titan-v-1"
+boot_personality = "vfio"
+power_policy = "always_on"
+health_policy = "active"
+role = "oracle"
+
+# Titan V #2 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
+# Replaces retired Tesla K80 (Exp 199 fire incident).
+[[device]]
+bdf = "0000:03:00.0"
+name = "titan-v-2"
+boot_personality = "vfio"
+power_policy = "always_on"
+health_policy = "active"
+role = "compute"

@@ -1,0 +1,493 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+#![expect(clippy::expect_used, clippy::unwrap_used, reason = "test assertions")]
+
+use crate::md::reservoir::heads;
+use crate::md::reservoir::{
+    EchoStateNetwork, EsnConfig, MultiHeadNpu, NpuSimulator, Xoshiro256pp,
+    spectral_radius_estimate, velocity_features,
+};
+
+#[test]
+fn esn_trains_and_predicts() {
+    let config = EsnConfig {
+        input_size: 2,
+        reservoir_size: 50,
+        output_size: 1,
+        spectral_radius: 0.9,
+        connectivity: 0.2,
+        leak_rate: 0.3,
+        regularization: 1e-4,
+        seed: 42,
+        ..Default::default()
+    };
+    let mut esn = EchoStateNetwork::new(config);
+
+    let seq1: Vec<Vec<f64>> = (0..100)
+        .map(|t| {
+            let x = f64::from(t) * 0.1;
+            vec![x.sin(), x.cos()]
+        })
+        .collect();
+    let seq2: Vec<Vec<f64>> = (0..100)
+        .map(|t| {
+            let x = f64::from(t) * 0.2;
+            vec![x.sin(), x.cos()]
+        })
+        .collect();
+
+    esn.train(&[seq1.clone(), seq2.clone()], &[vec![1.0], vec![2.0]]);
+
+    let p1 = esn.predict(&seq1).expect("ESN trained");
+    let p2 = esn.predict(&seq2).expect("ESN trained");
+
+    assert!((p1[0] - 1.0).abs() < 0.5, "p1={}", p1[0]);
+    assert!((p2[0] - 2.0).abs() < 0.5, "p2={}", p2[0]);
+}
+
+#[test]
+fn esn_default_config() {
+    let config = EsnConfig::default();
+    assert_eq!(config.reservoir_size, 50);
+    assert_eq!(config.input_size, 8);
+    assert!((config.spectral_radius - 0.95).abs() < 1e-10);
+}
+
+#[test]
+fn velocity_features_correct_shape() {
+    let n = 10;
+    let frame = vec![0.1; n * 3];
+    let features = velocity_features(&[frame], n, 2.0, 100.0);
+    assert_eq!(features.len(), 1);
+    assert_eq!(features[0].len(), 8);
+}
+
+#[test]
+fn export_and_npu_parity() {
+    let config = EsnConfig {
+        input_size: 2,
+        reservoir_size: 30,
+        output_size: 1,
+        spectral_radius: 0.9,
+        connectivity: 0.2,
+        leak_rate: 0.3,
+        regularization: 1e-4,
+        seed: 42,
+        ..Default::default()
+    };
+    let mut esn = EchoStateNetwork::new(config);
+
+    let seq1: Vec<Vec<f64>> = (0..50)
+        .map(|t| {
+            let x = f64::from(t) * 0.1;
+            vec![x.sin(), x.cos()]
+        })
+        .collect();
+    let seq2: Vec<Vec<f64>> = (0..50)
+        .map(|t| {
+            let x = f64::from(t) * 0.2;
+            vec![x.sin(), x.cos()]
+        })
+        .collect();
+
+    let sequences = vec![seq1, seq2];
+    esn.train(&sequences, &[vec![1.0], vec![2.0]]);
+
+    let exported = esn.export_weights().expect("ESN export_weights");
+    assert_eq!(exported.w_in.len(), 30 * 2);
+    assert_eq!(exported.w_res.len(), 30 * 30);
+    assert_eq!(exported.w_out.len(), 30);
+
+    let mut npu = NpuSimulator::from_exported(&exported);
+    let cpu_pred = esn.predict(&sequences[0]).expect("ESN trained")[0];
+    let npu_pred = npu.predict(&sequences[0])[0];
+    let diff = (cpu_pred - npu_pred).abs() / cpu_pred.abs().max(1e-10);
+    assert!(diff < 0.01, "CPU/NPU diff {diff} should be < 1%");
+}
+
+#[test]
+fn esn_benchmark_vs_python() {
+    use std::time::Instant;
+
+    let n_features = 8;
+    let n_frames = 500;
+    let n_cases = 6;
+
+    let config = EsnConfig {
+        input_size: n_features,
+        reservoir_size: 50,
+        output_size: 1,
+        spectral_radius: 0.95,
+        connectivity: 0.2,
+        leak_rate: 0.3,
+        regularization: 1e-2,
+        seed: 42,
+        ..Default::default()
+    };
+
+    let mut rng = Xoshiro256pp::new(99);
+    let sequences: Vec<Vec<Vec<f64>>> = (0..n_cases)
+        .map(|_| {
+            (0..n_frames)
+                .map(|_| (0..n_features).map(|_| rng.standard_normal()).collect())
+                .collect()
+        })
+        .collect();
+    let targets: Vec<Vec<f64>> = (0..n_cases).map(|_| vec![rng.standard_normal()]).collect();
+
+    let n_reps = if cfg!(debug_assertions) { 3 } else { 100 };
+    let t0 = Instant::now();
+    for _ in 0..n_reps {
+        let mut esn = EchoStateNetwork::new(config.clone());
+        esn.train(&sequences[..4], &targets[..4]);
+        for seq in &sequences {
+            let _ = esn.predict(seq).expect("ESN trained");
+        }
+    }
+    let elapsed = t0.elapsed().as_secs_f64();
+    let per_iter_ms = elapsed * 1000.0 / f64::from(n_reps);
+
+    println!("Rust ESN: {n_reps} reps in {elapsed:.3}s");
+    println!("  Per iteration (train+6 predict): {per_iter_ms:.1} ms");
+    if !cfg!(debug_assertions) {
+        assert!(
+            per_iter_ms < 50.0,
+            "ESN should complete in <50ms per iteration (release)"
+        );
+    }
+}
+
+#[test]
+fn spectral_radius_identity() {
+    let n = 5;
+    let w: Vec<Vec<f64>> = (0..n)
+        .map(|i| (0..n).map(|j| if i == j { 1.0 } else { 0.0 }).collect())
+        .collect();
+    let sr = spectral_radius_estimate(&w);
+    assert!((sr - 1.0).abs() < 0.01, "sr={sr}");
+}
+
+#[test]
+fn velocity_features_known_values() {
+    let vels = vec![vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0]]; // 2 particles
+    let feats = velocity_features(&vels, 2, 1.5, 100.0);
+    assert_eq!(feats.len(), 1);
+    let f = &feats[0];
+    assert_eq!(f.len(), 8);
+    assert!((f[0] - 0.5).abs() < 1e-10, "mean_vx: {}", f[0]); // (1+0)/2
+    assert!((f[1] - 0.5).abs() < 1e-10, "mean_vy: {}", f[1]); // (0+1)/2
+    assert!((f[2] - 0.0).abs() < 1e-10, "mean_vz: {}", f[2]); // (0+0)/2
+    assert!((f[3] - 1.0).abs() < 1e-10, "mean_speed: {}", f[3]); // (1+1)/2
+    assert!((f[4] - 0.5).abs() < 1e-10, "ke_per_particle: {}", f[4]); // (0.5+0.5)/2
+    let v_rms_expected = 1.0; // sqrt((1+1)/2) = 1.0
+    assert!((f[5] - v_rms_expected).abs() < 1e-10, "v_rms: {}", f[5]);
+    let kappa_scaled = 1.5 / 3.0;
+    assert!(
+        (f[6] - kappa_scaled).abs() < 1e-10,
+        "kappa_scaled: {}",
+        f[6]
+    );
+    let gamma_scaled = 100.0_f64.log10() / 3.0;
+    assert!(
+        (f[7] - gamma_scaled).abs() < 1e-10,
+        "gamma_scaled: {}",
+        f[7]
+    );
+}
+
+#[test]
+fn velocity_features_multiple_frames() {
+    let frame1 = vec![3.0, 0.0, 0.0]; // 1 particle, speed=3
+    let frame2 = vec![0.0, 4.0, 0.0]; // 1 particle, speed=4
+    let feats = velocity_features(&[frame1, frame2], 1, 1.0, 1.0);
+    assert_eq!(feats.len(), 2);
+    assert!((feats[0][3] - 3.0).abs() < 1e-10, "frame1 speed");
+    assert!((feats[1][3] - 4.0).abs() < 1e-10, "frame2 speed");
+}
+
+#[test]
+#[expect(
+    clippy::expect_used,
+    reason = "export_weights is infallible for trained ESN in this test"
+)]
+fn npu_predict_return_state_consistent() {
+    let config = EsnConfig {
+        input_size: 3,
+        reservoir_size: 15,
+        output_size: 1,
+        spectral_radius: 0.9,
+        connectivity: 0.3,
+        leak_rate: 0.3,
+        regularization: 1e-2,
+        seed: 77,
+        ..Default::default()
+    };
+    let seq: Vec<Vec<f64>> = (0..5)
+        .map(|i| vec![f64::from(i) * 0.1, 0.5, -0.2])
+        .collect();
+    let mut esn = EchoStateNetwork::new(config);
+    esn.train(std::slice::from_ref(&seq), &[vec![1.0]]);
+    let exported = esn.export_weights().expect("export");
+
+    let mut npu1 = NpuSimulator::from_exported(&exported);
+    let mut npu2 = NpuSimulator::from_exported(&exported);
+
+    let pred = npu1.predict(&seq);
+    let state = npu2.predict_return_state(&seq);
+
+    assert_eq!(state.len(), exported.reservoir_size);
+    let readout_from_state: f64 = exported
+        .w_out
+        .chunks(exported.reservoir_size)
+        .next()
+        .expect("w_out row")
+        .iter()
+        .zip(state.iter())
+        .map(|(&w, &s)| f64::from(w) * f64::from(s))
+        .sum();
+    assert!(
+        (pred[0] - readout_from_state).abs() < 1e-4,
+        "predict vs state readout: {} vs {}",
+        pred[0],
+        readout_from_state
+    );
+}
+
+#[test]
+fn multi_head_esn_nine_outputs() {
+    let config = EsnConfig {
+        input_size: 4,
+        reservoir_size: 50,
+        output_size: heads::NUM_HEADS,
+        spectral_radius: 0.95,
+        connectivity: 0.2,
+        leak_rate: 0.3,
+        regularization: 1e-3,
+        seed: 42,
+        ..Default::default()
+    };
+    let mut esn = EchoStateNetwork::new(config);
+
+    let seqs: Vec<Vec<Vec<f64>>> = (0..5)
+        .map(|i| {
+            (0..10)
+                .map(|t| {
+                    let x = (t as f64 + i as f64) * 0.1;
+                    vec![x.sin(), x.cos(), x * 0.5, (x * 2.0).sin()]
+                })
+                .collect()
+        })
+        .collect();
+    let targets: Vec<Vec<f64>> = (0..5)
+        .map(|i| {
+            (0..heads::NUM_HEADS)
+                .map(|h| (i + h) as f64 * 0.1)
+                .collect()
+        })
+        .collect();
+
+    esn.train(&seqs, &targets);
+    let exported = esn.export_weights().expect("export");
+    assert_eq!(exported.output_size, heads::NUM_HEADS);
+    assert_eq!(exported.w_out.len(), heads::NUM_HEADS * 50);
+
+    let mut multi = MultiHeadNpu::from_exported(&exported);
+    let outputs = multi.predict_all_heads(&seqs[0]);
+    assert_eq!(outputs.len(), heads::NUM_HEADS);
+
+    let head_2 = multi.predict_head(&seqs[0], heads::THERM_DETECT);
+    assert!(head_2.is_finite());
+}
+
+#[test]
+fn npu_readout_weight_swap() {
+    let config = EsnConfig {
+        input_size: 2,
+        reservoir_size: 20,
+        output_size: 1,
+        spectral_radius: 0.9,
+        connectivity: 0.2,
+        leak_rate: 0.3,
+        regularization: 1e-3,
+        seed: 42,
+        ..Default::default()
+    };
+    let mut esn = EchoStateNetwork::new(config);
+    let seq: Vec<Vec<f64>> = (0..10).map(|i| vec![i as f64 * 0.1, 0.5]).collect();
+    esn.train(std::slice::from_ref(&seq), &[vec![1.0]]);
+    let exported = esn.export_weights().expect("export");
+
+    let mut npu = NpuSimulator::from_exported(&exported);
+    let pred_before = npu.predict(&seq)[0];
+
+    let swapped_w_out: Vec<f32> = exported.w_out.iter().map(|w| w * 2.0).collect();
+    npu.set_readout_weights(&swapped_w_out);
+    let pred_after = npu.predict(&seq)[0];
+
+    assert!(
+        (pred_after - pred_before * 2.0).abs() < 0.01,
+        "doubled weights should double output: {pred_before} -> {pred_after}"
+    );
+}
+
+#[test]
+fn esn_predict_determinism() {
+    let config = EsnConfig {
+        input_size: 3,
+        reservoir_size: 20,
+        output_size: 1,
+        spectral_radius: 0.95,
+        connectivity: 0.3,
+        leak_rate: 0.3,
+        regularization: 1e-2,
+        seed: 42,
+        ..Default::default()
+    };
+    let seqs: Vec<Vec<Vec<f64>>> = vec![
+        (0..10)
+            .map(|i| vec![f64::from(i) * 0.1, 0.5, -0.3])
+            .collect(),
+        (0..10)
+            .map(|i| vec![0.0, f64::from(i) * 0.05, 0.2])
+            .collect(),
+    ];
+    let targets = vec![vec![1.0], vec![0.0]];
+
+    let results: Vec<Vec<f64>> = (0..2)
+        .map(|_| {
+            let mut esn = EchoStateNetwork::new(config.clone());
+            esn.train(&seqs, &targets);
+            esn.predict(&seqs[0]).expect("ESN trained")
+        })
+        .collect();
+    assert!(
+        (results[0][0] - results[1][0]).abs() < f64::EPSILON,
+        "ESN predictions must be identical: {} vs {}",
+        results[0][0],
+        results[1][0]
+    );
+}
+
+#[test]
+fn exported_weights_serde_compatible_with_toadstool() {
+    let config = EsnConfig {
+        input_size: 5,
+        reservoir_size: 20,
+        output_size: heads::NUM_HEADS,
+        spectral_radius: 0.9,
+        connectivity: 0.2,
+        leak_rate: 0.3,
+        regularization: 1e-3,
+        seed: 42,
+        ..Default::default()
+    };
+    let mut esn = EchoStateNetwork::new(config);
+    let seqs: Vec<Vec<Vec<f64>>> = (0..3)
+        .map(|i| {
+            (0..8)
+                .map(|t| {
+                    let x = (t + i) as f64 * 0.1;
+                    vec![x.sin(), x.cos(), 0.5, x * 0.3, 0.1]
+                })
+                .collect()
+        })
+        .collect();
+    let targets: Vec<Vec<f64>> = (0..3)
+        .map(|i| {
+            (0..heads::NUM_HEADS)
+                .map(|h| (i + h) as f64 * 0.05)
+                .collect()
+        })
+        .collect();
+    esn.train(&seqs, &targets);
+
+    let exported = esn.export_weights().expect("export weights");
+
+    // Serialize hotSpring format
+    let json = serde_json::to_string(&exported).expect("serialize");
+
+    // Deserialize with toadStool-compatible format (w_out: Option, head_labels: default)
+    #[derive(serde::Deserialize)]
+    struct ToadStoolWeights {
+        w_in: Vec<f32>,
+        w_res: Vec<f32>,
+        w_out: Option<Vec<f32>>,
+        #[serde(default)]
+        input_size: usize,
+        #[serde(default)]
+        reservoir_size: usize,
+        #[serde(default)]
+        output_size: usize,
+        #[serde(default)]
+        leak_rate: f32,
+        #[serde(default)]
+        head_labels: Vec<String>,
+    }
+
+    let ts: ToadStoolWeights = serde_json::from_str(&json).expect("deserialize as toadstool");
+    assert_eq!(ts.w_in.len(), exported.w_in.len());
+    assert_eq!(ts.w_res.len(), exported.w_res.len());
+    assert!(ts.w_out.is_some());
+    assert_eq!(ts.w_out.as_ref().unwrap().len(), exported.w_out.len());
+    assert_eq!(ts.input_size, 5);
+    assert_eq!(ts.reservoir_size, 20);
+    assert_eq!(ts.output_size, heads::NUM_HEADS);
+    assert!((ts.leak_rate - exported.leak_rate).abs() < f32::EPSILON);
+    assert!(
+        ts.head_labels.is_empty(),
+        "hotSpring format omits head_labels; toadStool defaults"
+    );
+
+    // Reverse direction: toadStool → hotSpring
+    let ts_json = serde_json::json!({
+        "w_in": exported.w_in,
+        "w_res": exported.w_res,
+        "w_out": exported.w_out,
+        "input_size": exported.input_size,
+        "reservoir_size": exported.reservoir_size,
+        "output_size": exported.output_size,
+        "leak_rate": exported.leak_rate,
+        "head_labels": ["A0","A1","A2","A3","A4","A5",
+                         "B0","B1","B2","B3","B4","B5",
+                         "C0","C1","C2","C3","C4","C5",
+                         "D0","D1","D2","D3","D4","D5",
+                         "E0","E1","E2","E3","E4","E5",
+                         "M0","M1","M2","M3","M4","M5"]
+    });
+    let round_trip: crate::md::reservoir::ExportedWeights =
+        serde_json::from_value(ts_json).expect("toadstool → hotspring round-trip");
+    assert_eq!(round_trip.output_size, heads::NUM_HEADS);
+}
+
+#[test]
+#[cfg(feature = "barracuda-local")]
+fn head_group_layout_matches_toadstool_head_group() {
+    use barracuda::esn_v2::HeadGroup;
+
+    let groups = [
+        (HeadGroup::Anderson, heads::GROUP_A, "Anderson"),
+        (HeadGroup::Qcd, heads::GROUP_B, "QCD"),
+        (HeadGroup::Potts, heads::GROUP_C, "Potts"),
+        (HeadGroup::Steering, heads::GROUP_D, "Steering"),
+        (HeadGroup::Brain, heads::GROUP_E, "Brain/Monitor"),
+        (HeadGroup::Meta, heads::GROUP_M, "Meta"),
+    ];
+
+    for (ts_group, hs_base, label) in &groups {
+        let expected_base = match ts_group {
+            HeadGroup::Anderson => 0,
+            HeadGroup::Qcd => 6,
+            HeadGroup::Potts => 12,
+            HeadGroup::Steering => 18,
+            HeadGroup::Brain => 24,
+            HeadGroup::Meta => 30,
+            _ => unreachable!("test only covers hotSpring physics groups"),
+        };
+        assert_eq!(
+            *hs_base, expected_base,
+            "Group {label} base index mismatch: hotSpring={hs_base} expected={expected_base}"
+        );
+    }
+    assert_eq!(heads::NUM_HEADS, 36, "Total head count must be 36");
+    assert_eq!(heads::GROUP_SIZE, 6, "Group size must be 6");
+}

@@ -1,0 +1,99 @@
+[software]
+gromacs = "2026.0-conda_forge"
+plumed = "2.9.2"
+charmm36 = "jul2022"
+conda = "gromacs-fel"
+cuda = "12.9"
+python = "3.12"
+rdkit = "2026.3.2"
+numpy = "2.4.6"
+
+[hardware]
+hostname = "strandGate"
+gpu = "NVIDIA RTX 3090 (GA102, SM86)"
+cpu = "AMD (64 threads)"
+os = "linux 6.17.9-76061709-generic"
+
+[parameters.ala_dipeptide]
+integrator = "md"
+dt_ps = 0.002
+nsteps = 5000000
+duration_ns = 10
+temperature_K = 300
+thermostat = "v-rescale"
+pbc = "xyz"
+box_nm = 10.0
+cutoff_nm = 4.5
+metad_height_kJmol = 1.2
+metad_sigma_rad = 0.35
+metad_pace = 500
+metad_biasfactor = 6.0
+metad_grid = "[-pi,pi] x [-pi,pi], spacing 0.1"
+force_field = "AMBER99SB-ILDN"
+water = "none (vacuum, large box)"
+
+[parameters.xylose_puckering]
+integrator = "md"
+dt_ps = 0.002
+nsteps = 5000000
+duration_ns = 10
+temperature_K = 300
+thermostat = "v-rescale"
+barostat = "c-rescale"
+pressure_bar = 1.0
+pbc = "xyz"
+box_type = "cubic"
+box_padding_nm = 1.2
+coulombtype = "PME"
+rcoulomb_nm = 1.2
+rvdw_nm = 1.2
+vdw_modifier = "force-switch"
+rvdw_switch_nm = 1.0
+n_waters = 863
+total_atoms = 2609
+force_field = "CHARMM36-jul2022"
+water = "TIP3P"
+metad_cv = "Cremer-Pople theta"
+metad_ring_atoms = "C1(1)-C2(9)-C3(13)-C4(17)-C5(5)-O5(8)"
+metad_height_kJmol = 1.5
+metad_sigma_rad = 0.1
+metad_pace = 500
+metad_biasfactor = 15.0
+metad_grid = "[0,pi], 100 bins"
+
+[parameters.enzyme_bound_puckering]
+pdb = "2D24"
+integrator = "md"
+dt_ps = 0.002
+nsteps = 5000000
+duration_ns = 10
+temperature_K = 300
+thermostat = "v-rescale"
+barostat = "Parrinello-Rahman"
+pressure_bar = 1.0
+pbc = "xyz"
+box_type = "dodecahedron"
+box_padding_nm = 1.2
+coulombtype = "PME"
+rcoulomb_nm = 1.2
+rvdw_nm = 1.2
+vdw_modifier = "force-switch"
+rvdw_switch_nm = 1.0
+n_waters = 28758
+n_ions_na = 88
+n_ions_cl = 86
+ion_concentration_mM = 150
+total_atoms = 92745
+force_field = "CHARMM36-jul2022"
+water = "TIP3P"
+protein_chain = "A (427 residues, 6277 atoms)"
+substrate = "BXYL at -1 subsite (XYS C res 4 from crystal)"
+substrate_origin = "Crystal coordinates from 2D24, O1 placed at glycosidic oxygen position"
+catalytic_residues = "Glu236 (nucleophile, 5.76 A), His128 (mutant acid/base, 7.53 A)"
+metad_cv = "Cremer-Pople theta"
+metad_ring_atoms = "C1(6278)-C2(6286)-C3(6290)-C4(6294)-C5(6282)-O5(6285)"
+metad_height_kJmol = 1.5
+metad_sigma_rad = 0.1
+metad_pace = 500
+metad_biasfactor = 15.0
+metad_grid = "[0,pi], 100 bins"

@@ -1,0 +1,25 @@
+{
+  "provenance": {
+    "generator": "hotSpring/benchmarks/kokkos-lammps/validate_9cases_python.py",
+    "method": "velocity_verlet_reduced_units_vectorized_numpy",
+    "date": "2026-03-05T11:59:00Z",
+    "n_particles": 500,
+    "units": "reduced (a_ws=1, omega_p=1)"
+  },
+  "results": [
+    {"label": "k1_G14",   "kappa": 1.0, "gamma":   14.0, "drift_pct": 0.001, "energy_per_particle": 14.1308, "steps_per_sec": 28, "passed": true},
+    {"label": "k1_G72",   "kappa": 1.0, "gamma":   72.0, "drift_pct": 0.000, "energy_per_particle": 71.6410, "steps_per_sec": 28, "passed": true},
+    {"label": "k1_G217",  "kappa": 1.0, "gamma":  217.0, "drift_pct": 0.000, "energy_per_particle": 215.8074, "steps_per_sec": 27, "passed": true},
+    {"label": "k2_G31",   "kappa": 2.0, "gamma":   31.0, "drift_pct": 0.000, "energy_per_particle": 3.3744, "steps_per_sec": 30, "passed": true},
+    {"label": "k2_G158",  "kappa": 2.0, "gamma":  158.0, "drift_pct": 0.000, "energy_per_particle": 16.7507, "steps_per_sec": 31, "passed": true},
+    {"label": "k2_G476",  "kappa": 2.0, "gamma":  476.0, "drift_pct": 0.000, "energy_per_particle": 50.4157, "steps_per_sec": 31, "passed": true},
+    {"label": "k3_G100",  "kappa": 3.0, "gamma":  100.0, "drift_pct": 0.000, "energy_per_particle": 1.5753, "steps_per_sec": 33, "passed": true},
+    {"label": "k3_G503",  "kappa": 3.0, "gamma":  503.0, "drift_pct": 0.000, "energy_per_particle": 7.7885, "steps_per_sec": 33, "passed": true},
+    {"label": "k3_G1510", "kappa": 3.0, "gamma": 1510.0, "drift_pct": 0.000, "energy_per_particle": 23.3660, "steps_per_sec": 33, "passed": true}
+  ],
+  "summary": {
+    "n_passed": 9,
+    "n_total": 9,
+    "total_wall_seconds": 3581.6
+  }
+}

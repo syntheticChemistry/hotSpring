@@ -1,0 +1,6 @@
+#!/bin/sh
+# Backward-compatible entry point. Forwards to ./hotspring.
+# chuna-engine subcommands map directly: generate, flow, measure, etc.
+CMD="${1:-help}"
+shift 2>/dev/null || true
+exec "$(dirname "$0")/hotspring" "$CMD" "$@"

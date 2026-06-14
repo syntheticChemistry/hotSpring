@@ -1,0 +1,3 @@
+#!/bin/sh
+# Backward-compatible entry point. Forwards to ./hotspring deploy.
+exec "$(dirname "$0")/hotspring" deploy "$@"

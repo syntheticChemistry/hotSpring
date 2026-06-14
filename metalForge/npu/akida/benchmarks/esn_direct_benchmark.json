@@ -1,0 +1,20 @@
+{
+  "software": {
+    "fps": 143709.89692927254,
+    "latency_us": 6.958462996408343,
+    "backend": "software"
+  },
+  "hardware": {
+    "fps": 1524.7178118626668,
+    "latency_us": 655.8590659988113,
+    "backend": "hardware"
+  },
+  "model": {
+    "architecture": "InputConvolutional(1,1,8\u219250) + FullyConnected(50\u21921)",
+    "total_weights": 450,
+    "weight_bits": 4,
+    "weight_bytes": 225
+  },
+  "timestamp": "2026-02-20T10:57:30",
+  "akida_version": "2.19.1"
+}

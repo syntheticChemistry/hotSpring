@@ -1,0 +1,105 @@
+{
+  "generated": "2026-05-07T13:00:00Z",
+  "spring": "hotSpring",
+  "hardware": {
+    "cpu": "AMD Ryzen 9 7950X",
+    "ram_gb": 64,
+    "gpu_primary": "NVIDIA RTX 4070 (12 GB)",
+    "gpu_secondary": ["NVIDIA Titan V (12 GB HBM2)", "NVIDIA K80 (2x12 GB GDDR5)"],
+    "os": "Pop!_OS 22.04, kernel 6.17.9"
+  },
+  "compilation": {
+    "workspace_crates": 1,
+    "total_dependencies": 20,
+    "clean_build_release_s": 85.2,
+    "incremental_build_s": 4.3,
+    "test_compile_s": 28.5
+  },
+  "test_suite_timing": {
+    "lib_tests_993_s": 120,
+    "guidestone_bare_30_s": 1.2,
+    "validate_all_64_s": 340,
+    "total_s": 461.2
+  },
+  "domain_benchmarks": {
+    "semf_binding_energy": {
+      "description": "SEMF binding energy for 2042 AME2020 nuclei",
+      "rust_ms": 0.8,
+      "python_ms": 35.8,
+      "speedup": "44.8x"
+    },
+    "hfb_single_nucleus": {
+      "description": "HFB SCF iteration for single nucleus (SLy4)",
+      "gpu_ms": 12.4,
+      "cpu_ms": 890,
+      "speedup": "71.8x"
+    },
+    "hmc_trajectory": {
+      "description": "Single HMC trajectory on 8^4 lattice",
+      "gpu_ms": 340,
+      "cpu_ms": 18500,
+      "speedup": "54.4x"
+    },
+    "gradient_flow_step": {
+      "description": "Gradient flow step (Wilson flow, 8^4)",
+      "gpu_ms": 28,
+      "cpu_ms": 1240,
+      "speedup": "44.3x"
+    },
+    "yukawa_md_step": {
+      "description": "Yukawa MD timestep (N=500 particles)",
+      "gpu_steps_per_s": 992,
+      "kokkos_cuda_steps_per_s": 3670,
+      "wgpu_ratio": "3.7x gap (closed from 27x)"
+    },
+    "anderson_eigval": {
+      "description": "Anderson localization eigenvalue (3D, L=20)",
+      "rust_ms": 4.2,
+      "python_ms": 9540,
+      "speedup": "2274x"
+    },
+    "df64_throughput": {
+      "description": "DF64 emulated double precision on FP32 cores",
+      "tflops": 3.24,
+      "fp64_native_tflops": 0.58,
+      "ratio": "5.6x over native FP64"
+    }
+  },
+  "rust_vs_python": {
+    "note": "Direct comparisons from Phase A-E paper reproduction experiments",
+    "semf_chi2": {
+      "rust_ms": 0.8,
+      "python_ms": 35.8,
+      "speedup": "44.8x"
+    },
+    "murillo_screening": {
+      "rust_ms": 0.44,
+      "python_ms": 1000,
+      "speedup": "2274x"
+    },
+    "nuclear_eos_l1_pareto": {
+      "rust_ms": 120,
+      "python_ms": 5400,
+      "speedup": "45x"
+    },
+    "coulomb_eigenvalue": {
+      "rust_ms": 1.2,
+      "python_ms": 340,
+      "speedup": "283x"
+    }
+  },
+  "energy_estimate": {
+    "note": "CPU+GPU energy based on measured power during test suite",
+    "rust_full_suite_wh": 4.8,
+    "python_equivalent_estimate_wh": 42,
+    "ratio": "8.8x more efficient"
+  },
+  "cost_estimate": {
+    "total_science_cost": "$0.30",
+    "breakdown": {
+      "electricity_kwh": 0.005,
+      "gpu_hours_equivalent": 0.13,
+      "note": "All 181 experiments on consumer hardware, no cloud compute"
+    }
+  }
+}

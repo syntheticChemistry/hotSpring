@@ -1,0 +1,125 @@
+{
+  "lattice_dims": [
+    4,
+    4,
+    4,
+    4
+  ],
+  "beta_values": [
+    5.2,
+    5.3,
+    5.4,
+    5.5,
+    5.6000000000000005,
+    5.7,
+    5.800000000000001,
+    5.9,
+    6.0,
+    6.1000000000000005,
+    6.2
+  ],
+  "n_thermalization": 50,
+  "n_measurement": 100,
+  "n_md_steps": 20,
+  "dt": 0.05,
+  "known_beta_c": 5.69,
+  "scan_results": [
+    {
+      "beta": 5.2,
+      "mean_plaquette": 0.4300495024036525,
+      "chi_plaquette": 0.02061605400826494,
+      "mean_polyakov": 0.2979775773863455,
+      "chi_polyakov": 0.019189425826795947,
+      "acceptance_rate": 0.86
+    },
+    {
+      "beta": 5.3,
+      "mean_plaquette": 0.45395477568073866,
+      "chi_plaquette": 0.02827139630021236,
+      "mean_polyakov": 0.2998963151313111,
+      "chi_polyakov": 0.023255405779416982,
+      "acceptance_rate": 0.91
+    },
+    {
+      "beta": 5.4,
+      "mean_plaquette": 0.4760991011854767,
+      "chi_plaquette": 0.042803393818914515,
+      "mean_polyakov": 0.3024736703961469,
+      "chi_polyakov": 0.030171911109509786,
+      "acceptance_rate": 0.86
+    },
+    {
+      "beta": 5.5,
+      "mean_plaquette": 0.49464066029081233,
+      "chi_plaquette": 0.04574088953863509,
+      "mean_polyakov": 0.29770787481506233,
+      "chi_polyakov": 0.020733403690440078,
+      "acceptance_rate": 0.85
+    },
+    {
+      "beta": 5.6000000000000005,
+      "mean_plaquette": 0.5418405305033336,
+      "chi_plaquette": 0.026559125684073592,
+      "mean_polyakov": 0.3124613728951381,
+      "chi_polyakov": 0.03944516619070004,
+      "acceptance_rate": 0.87
+    },
+    {
+      "beta": 5.7,
+      "mean_plaquette": 0.561005129422004,
+      "chi_plaquette": 0.035486194403475224,
+      "mean_polyakov": 0.30505936628642494,
+      "chi_polyakov": 0.025988661506844757,
+      "acceptance_rate": 0.84
+    },
+    {
+      "beta": 5.800000000000001,
+      "mean_plaquette": 0.5710870392370546,
+      "chi_plaquette": 0.021024979450785963,
+      "mean_polyakov": 0.3249303053538493,
+      "chi_polyakov": 0.05657180210937085,
+      "acceptance_rate": 0.85
+    },
+    {
+      "beta": 5.9,
+      "mean_plaquette": 0.5856198177778295,
+      "chi_plaquette": 0.012018937138975616,
+      "mean_polyakov": 0.31035478917505893,
+      "chi_polyakov": 0.06962112141036947,
+      "acceptance_rate": 0.84
+    },
+    {
+      "beta": 6.0,
+      "mean_plaquette": 0.5950190811098873,
+      "chi_plaquette": 0.015428211823063975,
+      "mean_polyakov": 0.2983067337740899,
+      "chi_polyakov": 0.033579346427415224,
+      "acceptance_rate": 0.87
+    },
+    {
+      "beta": 6.1000000000000005,
+      "mean_plaquette": 0.6074576870827232,
+      "chi_plaquette": 0.015962078297434346,
+      "mean_polyakov": 0.3432042972675317,
+      "chi_polyakov": 0.060949000650619034,
+      "acceptance_rate": 0.91
+    },
+    {
+      "beta": 6.2,
+      "mean_plaquette": 0.6179879389225826,
+      "chi_plaquette": 0.015030565767276016,
+      "mean_polyakov": 0.3436499356440786,
+      "chi_polyakov": 0.09498066729743737,
+      "acceptance_rate": 0.83
+    }
+  ],
+  "beta_c_plaquette": 5.5,
+  "beta_c_polyakov": 6.2,
+  "beta_c_plaq_error_pct": 3.339191564147634,
+  "beta_c_poly_error_pct": 8.963093145869943,
+  "plaquette_monotone": true,
+  "polyakov_transition_detected": true,
+  "checks_passed": 8,
+  "checks_total": 8,
+  "wall_time_s": 4778.315053670085
+}

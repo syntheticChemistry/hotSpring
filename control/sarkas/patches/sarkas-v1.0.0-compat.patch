@@ -1,0 +1,129 @@
+diff --git a/sarkas/potentials/force_pm.py b/sarkas/potentials/force_pm.py
+index ec7c94eb..42ffa827 100644
+--- a/sarkas/potentials/force_pm.py
++++ b/sarkas/potentials/force_pm.py
+@@ -526,7 +526,7 @@ def calc_acc_pm(E_x_r, E_y_r, E_z_r, pos, charges, N, cao, masses, mesh_sz, h_ar
+ 
+ 
+ # FFTW version
+-@jit  # Numba does not support pyfftw yet, however, this decorator still speeds up the function.
++@jit(forceobj=True)  # Numba does not support pyfftw yet; forceobj=True needed for numba>=0.60 (nopython default changed)
+ def update(pos, charges, masses, mesh_sizes, box_lengths, G_k, kx_v, ky_v, kz_v, cao):
+     """ 
+     Calculate the long range part of particles' accelerations.
+diff --git a/sarkas/tools/observables.py b/sarkas/tools/observables.py
+index 56004808..00e2668d 100644
+--- a/sarkas/tools/observables.py
++++ b/sarkas/tools/observables.py
+@@ -1117,14 +1117,14 @@ class CurrentCorrelationFunction(Observable):
+                 ]
+ 
+                 # Mean: level = 1 corresponds to averaging all the k harmonics with the same magnitude
+-                df_mean = self.dataframe_slices["Longitudinal"][comp_name].mean(level=1, axis="columns")
++                df_mean = self.dataframe_slices["Longitudinal"][comp_name].T.groupby(level=1).mean().T
+                 df_mean = df_mean.rename(col_mapper(df_mean.columns, ka_columns), axis=1)
+                 # Std
+                 ka_columns = [
+                     "Longitudinal_" + comp_name + "_Std_ka{} = {:.4f}".format(ik + 1, ka)
+                     for ik, ka in enumerate(self.ka_values)
+                 ]
+-                df_std = self.dataframe_slices["Longitudinal"][comp_name].std(level=1, axis="columns")
++                df_std = self.dataframe_slices["Longitudinal"][comp_name].T.groupby(level=1).std().T
+                 df_std = df_std.rename(col_mapper(df_std.columns, ka_columns), axis=1)
+ 
+                 self.dataframe = pd.concat([self.dataframe, df_mean, df_std], axis=1)
+@@ -1137,14 +1137,14 @@ class CurrentCorrelationFunction(Observable):
+                 ]
+ 
+                 # Mean: level = 1 corresponds to averaging all the k harmonics with the same magnitude
+-                tdf_mean = self.dataframe_slices["Transverse"][comp_name].mean(level=1, axis="columns")
++                tdf_mean = self.dataframe_slices["Transverse"][comp_name].T.groupby(level=1).mean().T
+                 tdf_mean = tdf_mean.rename(col_mapper(tdf_mean.columns, ka_columns), axis=1)
+                 # Std
+                 ka_columns = [
+                     "Transverse_" + comp_name + "_Std_ka{} = {:.4f}".format(ik + 1, ka)
+                     for ik, ka in enumerate(self.ka_values)
+                 ]
+-                tdf_std = self.dataframe_slices["Transverse"][comp_name].std(level=1, axis="columns")
++                tdf_std = self.dataframe_slices["Transverse"][comp_name].T.groupby(level=1).std().T
+                 tdf_std = tdf_std.rename(col_mapper(tdf_std.columns, ka_columns), axis=1)
+ 
+                 self.dataframe = pd.concat([self.dataframe, tdf_mean, tdf_std], axis=1)
+@@ -1451,11 +1451,11 @@ class DynamicStructureFactor(Observable):
+                 # Rename the columns with values of ka
+                 ka_columns = [skw_name + "_Mean_ka{} = {:.4f}".format(ik + 1, ka) for ik, ka in enumerate(self.ka_values)]
+                 # Mean: level = 1 corresponds to averaging all the k harmonics with the same magnitude
+-                df_mean = self.dataframe_slices[skw_name].mean(level=1, axis="columns")
++                df_mean = self.dataframe_slices[skw_name].T.groupby(level=1).mean().T
+                 df_mean = df_mean.rename(col_mapper(df_mean.columns, ka_columns), axis=1)
+                 # Std
+                 ka_columns = [skw_name + "_Std_ka{} = {:.4f}".format(ik + 1, ka) for ik, ka in enumerate(self.ka_values)]
+-                df_std = self.dataframe_slices[skw_name].std(level=1, axis="columns")
++                df_std = self.dataframe_slices[skw_name].T.groupby(level=1).std().T
+                 df_std = df_std.rename(col_mapper(df_std.columns, ka_columns), axis=1)
+ 
+                 self.dataframe = pd.concat([self.dataframe, df_mean, df_std], axis=1)
+@@ -4204,7 +4204,7 @@ def kspace_setup(box_lengths, angle_averaging, max_k_harmonics, max_aa_harmonics
+             for k in range(max_k_harmonics[2] + 1)
+         ]
+         harmonics = [
+-            np.array([i, j, k], dtype=np.int)
++            np.array([i, j, k], dtype=int)
+             for i in range(max_k_harmonics[0] + 1)
+             for j in range(max_k_harmonics[1] + 1)
+             for k in range(max_k_harmonics[2] + 1)
+@@ -4214,15 +4214,15 @@ def kspace_setup(box_lengths, angle_averaging, max_k_harmonics, max_aa_harmonics
+         first_non_zero = 0
+         # Calculate the k vectors along the principal axis only
+         k_arr = [np.array([i / box_lengths[0], 0, 0]) for i in range(1, max_k_harmonics[0] + 1)]
+-        harmonics = [np.array([i, 0, 0], dtype=np.int) for i in range(1, max_k_harmonics[0] + 1)]
++        harmonics = [np.array([i, 0, 0], dtype=int) for i in range(1, max_k_harmonics[0] + 1)]
+         k_arr = np.append(k_arr, [np.array([0, i / box_lengths[1], 0]) for i in range(1, max_k_harmonics[1] + 1)], axis=0)
+         harmonics = np.append(
+-            harmonics, [np.array([0, i, 0], dtype=np.int) for i in range(1, max_k_harmonics[1] + 1)], axis=0
++            harmonics, [np.array([0, i, 0], dtype=int) for i in range(1, max_k_harmonics[1] + 1)], axis=0
+         )
+ 
+         k_arr = np.append(k_arr, [np.array([0, 0, i / box_lengths[2]]) for i in range(1, max_k_harmonics[2] + 1)], axis=0)
+         harmonics = np.append(
+-            harmonics, [np.array([0, 0, i], dtype=np.int) for i in range(1, max_k_harmonics[2] + 1)], axis=0
++            harmonics, [np.array([0, 0, i], dtype=int) for i in range(1, max_k_harmonics[2] + 1)], axis=0
+         )
+ 
+     elif angle_averaging == "custom":
+@@ -4237,7 +4237,7 @@ def kspace_setup(box_lengths, angle_averaging, max_k_harmonics, max_aa_harmonics
+         ]
+ 
+         harmonics = [
+-            np.array([i, j, k], dtype=np.int)
++            np.array([i, j, k], dtype=int)
+             for i in range(max_aa_harmonics[0] + 1)
+             for j in range(max_aa_harmonics[1] + 1)
+             for k in range(max_aa_harmonics[2] + 1)
+@@ -4250,7 +4250,7 @@ def kspace_setup(box_lengths, angle_averaging, max_k_harmonics, max_aa_harmonics
+         )
+         harmonics = np.append(
+             harmonics,
+-            [np.array([i, 0, 0], dtype=np.int) for i in range(max_aa_harmonics[0] + 1, max_k_harmonics[0] + 1)],
++            [np.array([i, 0, 0], dtype=int) for i in range(max_aa_harmonics[0] + 1, max_k_harmonics[0] + 1)],
+             axis=0,
+         )
+ 
+@@ -4261,7 +4261,7 @@ def kspace_setup(box_lengths, angle_averaging, max_k_harmonics, max_aa_harmonics
+         )
+         harmonics = np.append(
+             harmonics,
+-            [np.array([0, i, 0], dtype=np.int) for i in range(max_aa_harmonics[1] + 1, max_k_harmonics[1] + 1)],
++            [np.array([0, i, 0], dtype=int) for i in range(max_aa_harmonics[1] + 1, max_k_harmonics[1] + 1)],
+             axis=0,
+         )
+ 
+@@ -4272,7 +4272,7 @@ def kspace_setup(box_lengths, angle_averaging, max_k_harmonics, max_aa_harmonics
+         )
+         harmonics = np.append(
+             harmonics,
+-            [np.array([0, 0, i], dtype=np.int) for i in range(max_aa_harmonics[2] + 1, max_k_harmonics[2] + 1)],
++            [np.array([0, 0, i], dtype=int) for i in range(max_aa_harmonics[2] + 1, max_k_harmonics[2] + 1)],
+             axis=0,
+         )
+     # Compute wave number magnitude - don't use |k| (skipping first entry in k_arr)

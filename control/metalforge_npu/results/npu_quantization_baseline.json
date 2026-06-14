@@ -1,0 +1,121 @@
+{
+  "provenance": {
+    "generator": "control/metalforge_npu/scripts/npu_quantization_parity.py",
+    "method": "ESN quantization cascade (f64\u2192f32\u2192int8\u2192int4)",
+    "date": "2026-02-20",
+    "akida_sdk": "2.19.1",
+    "numpy_version": "2.1.3",
+    "esn_config": {
+      "input_size": 8,
+      "reservoir_size": 50,
+      "spectral_radius": 0.95,
+      "connectivity": 0.2,
+      "leak_rate": 0.3,
+      "regularization": 0.01,
+      "seed": 42
+    }
+  },
+  "cases": [
+    {
+      "case": 0,
+      "split": "train",
+      "target": 0.6277905135167615,
+      "pred_f64": 0.6199762153156049,
+      "pred_f32": 0.6199761629104614,
+      "pred_int8": 0.6222871068325282,
+      "pred_int4": 0.7050910850379705,
+      "pred_int4_act4": 0.6681245141360213,
+      "err_f32_pct": 8.452766759814614e-06,
+      "err_int8_pct": 0.3727387373638096,
+      "err_int4_pct": 13.72873146093791,
+      "err_int4_act4_pct": 7.766152576660707
+    },
+    {
+      "case": 1,
+      "split": "train",
+      "target": 1.6710789692465364,
+      "pred_f64": 1.6461246816784545,
+      "pred_f32": 1.6461248397827148,
+      "pred_int8": 1.644255434296116,
+      "pred_int4": 1.6666793707191752,
+      "pred_int4_act4": 1.6334677553381667,
+      "err_f32_pct": 9.604634576601222e-06,
+      "err_int8_pct": 0.11355442289052815,
+      "err_int4_pct": 1.2486714566336665,
+      "err_int4_act4_pct": 0.7688923251780845
+    },
+    {
+      "case": 2,
+      "split": "train",
+      "target": 1.0874923189332322,
+      "pred_f64": 1.0962771574429164,
+      "pred_f32": 1.0962773561477661,
+      "pred_int8": 1.0998287530087847,
+      "pred_int4": 1.1049848882298232,
+      "pred_int4_act4": 1.0139035823912264,
+      "err_f32_pct": 1.812542096096477e-05,
+      "err_int8_pct": 0.3239687648105714,
+      "err_int4_pct": 0.7943001208944009,
+      "err_int4_act4_pct": 7.513937008760424
+    },
+    {
+      "case": 3,
+      "split": "train",
+      "target": 0.4551040255220883,
+      "pred_f64": 0.44662211106747407,
+      "pred_f32": 0.4466221332550049,
+      "pred_int8": 0.44640917121235674,
+      "pred_int4": 0.43404800566836466,
+      "pred_int4_act4": 0.41840086063944026,
+      "err_f32_pct": 4.967853194637494e-06,
+      "err_int8_pct": 0.04767785782221678,
+      "err_int4_pct": 2.815379061519362,
+      "err_int4_act4_pct": 6.3188207051778145
+    },
+    {
+      "case": 4,
+      "split": "test",
+      "target": 1.0610119513295364,
+      "pred_f64": 0.634068872624034,
+      "pred_f32": 0.6340688467025757,
+      "pred_int8": 0.6321468782983962,
+      "pred_int4": 0.6614728425267914,
+      "pred_int4_act4": 0.6803161301496006,
+      "err_f32_pct": 4.088113993969774e-06,
+      "err_int8_pct": 0.3031207505398878,
+      "err_int4_pct": 4.32192323041323,
+      "err_int4_act4_pct": 7.293727782942046
+    },
+    {
+      "case": 5,
+      "split": "test",
+      "target": 0.40378911756483205,
+      "pred_f64": -0.6592661283993706,
+      "pred_f32": -0.6592662334442139,
+      "pred_int8": -0.6648987593881143,
+      "pred_int4": -0.5936883917273986,
+      "pred_int4_act4": -0.5039744647259532,
+      "err_f32_pct": 1.5933602341025698e-05,
+      "err_int8_pct": 0.8543789444209897,
+      "err_int4_pct": 9.947081132650919,
+      "err_int4_act4_pct": 23.555231640741102
+    }
+  ],
+  "summary": {
+    "f32_mean_err_pct": 1.0195398637835596e-05,
+    "f32_max_err_pct": 1.812542096096477e-05,
+    "int8_mean_err_pct": 0.3359065796413339,
+    "int8_max_err_pct": 0.8543789444209897,
+    "int4_mean_err_pct": 5.476014410508248,
+    "int4_max_err_pct": 13.72873146093791,
+    "int4_act4_mean_err_pct": 8.86946033991003,
+    "int4_act4_max_err_pct": 23.555231640741102
+  },
+  "hardware": {
+    "fps": 1459.5611223372555,
+    "latency_us": 685.1374599500559,
+    "inference_clk": 661,
+    "program_clk": 460,
+    "program_bytes": 752
+  }
+}

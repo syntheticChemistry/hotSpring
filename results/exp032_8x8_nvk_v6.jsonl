@@ -1,0 +1,3 @@
+{"accepted":true,"beta":5.69,"cg_iters":0,"delta_h":0.006773553439415991,"mass":0.1,"npu_budget":1,"phase":"quenched_pretherm","plaquette":0.44431185444903404,"traj_idx":0}
+{"accepted":false,"beta":5.69,"cg_iters":25751,"delta_h":0.9926816445076838,"mass":0.1,"phase":"dynamical_therm","plaquette":0.44431185444903404,"traj_idx":1}
+{"accepted":false,"action_density":3.3341288733057954,"beta":5.69,"cg_iters":25675,"delta_h":1.26541125078802,"mass":0.1,"phase":"measurement","plaquette":0.44431185444903404,"plaquette_var":0.0,"polyakov_phase":-0.3242943323698922,"polyakov_re":0.002644939227000758,"traj_idx":2,"wall_us":131089044}

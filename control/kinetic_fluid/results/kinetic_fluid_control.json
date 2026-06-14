@@ -1,0 +1,48 @@
+{
+  "paper": 45,
+  "title": "Multi-species kinetic-fluid coupling (Haack, Murillo, Sagert & Chuna 2024)",
+  "reference": "doi:10.1016/j.jcp.2024.112908",
+  "substrate": "python",
+  "timestamp": "2026-05-08T17:30:00Z",
+  "total_checks": 18,
+  "passed_checks": 18,
+  "all_passed": true,
+  "phases": {
+    "1_bgk_relaxation": {
+      "checks": 7,
+      "passed": 7,
+      "results": [
+        {"name": "species_1_mass_conservation", "value": 0.0, "tolerance": 1e-10, "passed": true},
+        {"name": "species_2_mass_conservation", "value": 0.0, "tolerance": 1e-10, "passed": true},
+        {"name": "total_momentum_conservation", "value": 0.0, "tolerance": 1e-10, "passed": true},
+        {"name": "total_energy_conservation", "value": 0.0, "tolerance": 0.05, "passed": true},
+        {"name": "entropy_monotonic_h_theorem", "value": true, "passed": true},
+        {"name": "temperature_relaxation", "value": 0.0, "tolerance": 0.3, "passed": true},
+        {"name": "equilibrium_temperature", "tolerance": 0.5, "passed": true}
+      ]
+    },
+    "2_sod_shock_tube": {
+      "checks": 5,
+      "passed": 5,
+      "results": [
+        {"name": "shock_tube_mass_conservation", "tolerance": 1e-10, "passed": true},
+        {"name": "shock_tube_energy_conservation", "tolerance": 1e-10, "passed": true},
+        {"name": "contact_discontinuity_detected", "passed": true},
+        {"name": "shock_wave_detected", "passed": true},
+        {"name": "density_range_physical", "passed": true}
+      ]
+    },
+    "3_coupled_kinetic_fluid": {
+      "checks": 6,
+      "passed": 6,
+      "results": [
+        {"name": "coupled_mass_conservation", "value": 1.5084e-3, "tolerance": 0.15, "passed": true},
+        {"name": "coupled_momentum_conservation", "value": 2.0773e-1, "tolerance": 0.25, "passed": true},
+        {"name": "coupled_energy_conservation", "value": 3.3364e-2, "tolerance": 0.15, "passed": true},
+        {"name": "interface_density_continuity", "value": 1.3053e-1, "tolerance": 0.5, "passed": true},
+        {"name": "fluid_density_physical", "passed": true},
+        {"name": "simulation_completed", "n_steps": 61, "passed": true}
+      ]
+    }
+  }
+}

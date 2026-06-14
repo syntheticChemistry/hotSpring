@@ -1,0 +1,210 @@
+PLUMED: PLUMED is starting
+PLUMED: Version: 2.10.0 (git: Unknown) compiled on May 25 2026 at 20:41:31
+PLUMED: Please cite these papers when using PLUMED [1][2]
+PLUMED: For further information see the PLUMED web page at http://www.plumed.org
+PLUMED: Root: /home/strandgate/Development/ecoPrimals/springs/hotSpring/control/plumed_nest/build/install/lib/plumed
+PLUMED: LibraryPath: /home/strandgate/miniconda3/envs/gromacs-fel/lib/libplumedKernel.so
+PLUMED: For installed feature, see /home/strandgate/Development/ecoPrimals/springs/hotSpring/control/plumed_nest/build/install/lib/plumed/src/config/config.txt
+PLUMED: Molecular dynamics engine: gromacs
+PLUMED: Precision of reals: 4
+PLUMED: Running over 1 node
+PLUMED: Number of threads: 1
+PLUMED: Cache line size: 512
+PLUMED: Number of atoms: 5889
+PLUMED: File suffix: 
+PLUMED: FILE: plumed/plumed_gromacs.dat
+PLUMED: Action MOLINFO
+PLUMED:   with label @0
+PLUMED:   pdb file named chignolin-ref.pdb contains 1 chains 
+PLUMED:   chain named   contains residues 1 to 10 and atoms 1 to 166 
+PLUMED: Action WHOLEMOLECULES
+PLUMED:   with label @1
+PLUMED:   with stride 1
+PLUMED:   atoms in entity 0 : 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 
+PLUMED: Action GROUP
+PLUMED:   with label PROTEIN
+PLUMED:   list of atoms:
+PLUMED:  1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
+PLUMED:  26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50
+PLUMED:  51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75
+PLUMED:  76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100
+PLUMED:  101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125
+PLUMED:  126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150
+PLUMED:  151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166
+PLUMED: Action GROUP
+PLUMED:   with label CA
+PLUMED:   list of atoms:
+PLUMED:  5 26 47 61 73 88 102 109 123 147
+PLUMED: Action RMSD
+PLUMED:   with label rmsd_ca
+PLUMED: Action RMSD_SCALAR
+PLUMED:   with label rmsd_ca
+PLUMED:   reference from file chignolin-ca.pdb
+PLUMED:   which contains 166 atoms
+PLUMED:   with indices : 
+PLUMED: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 
+PLUMED: 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 
+PLUMED: 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 
+PLUMED: 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 
+PLUMED: 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 
+PLUMED: 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 
+PLUMED: 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 
+PLUMED:   method for alignment : OPTIMAL 
+PLUMED:   using periodic boundary conditions
+PLUMED: Action DISTANCE
+PLUMED:   with label end
+PLUMED:   between atoms 5 147
+PLUMED:   using periodic boundary conditions
+PLUMED: Action CONTACTMAP
+PLUMED:   with label hbonds
+PLUMED:   The 1th contact is calculated from atoms : 23 145. Inflection point of switching function is at 0.4.  Using rational switching function with parameters d0=0 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED:   The 2th contact is calculated from atoms : 45 120. Inflection point of switching function is at 0.4.  Using rational switching function with parameters d0=0 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED:   The 3th contact is calculated from atoms : 56 100. Inflection point of switching function is at 0.4.  Using rational switching function with parameters d0=0 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED:   The 4th contact is calculated from atoms : 56 107. Inflection point of switching function is at 0.4.  Using rational switching function with parameters d0=0 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED: WARNING for action CONTACTMAP with label hbonds : documentation for the value calculated by this action has not been included 
+PLUMED:   colvar is sum of all contacts in contact map
+PLUMED: Action CONTACTMAP
+PLUMED:   with label d1
+PLUMED:   added component to this action:  d1.contact-1 
+PLUMED:   The 1th contact is calculated from atoms : 23 146. Inflection point of switching function is at 0.3.  Using rational switching function with parameters d0=0 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED: Action CONTACTMAP
+PLUMED:   with label d2
+PLUMED:   added component to this action:  d2.contact-1 
+PLUMED:   The 1th contact is calculated from atoms : 120 46. Inflection point of switching function is at 0.3.  Using rational switching function with parameters d0=0 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED: Action CONTACTMAP
+PLUMED:   with label d3
+PLUMED:   added component to this action:  d3.contact-1 
+PLUMED:   The 1th contact is calculated from atoms : 56 101. Inflection point of switching function is at 0.3.  Using rational switching function with parameters d0=0 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED: Action CONTACTMAP
+PLUMED:   with label d4
+PLUMED:   added component to this action:  d4.contact-1 
+PLUMED:   The 1th contact is calculated from atoms : 56 108. Inflection point of switching function is at 0.3.  Using rational switching function with parameters d0=0 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED: Action CONTACTMAP
+PLUMED:   with label d5
+PLUMED:   added component to this action:  d5.contact-1 
+PLUMED:   The 1th contact is calculated from atoms : 87 101. Inflection point of switching function is at 0.15.  Using rational switching function with parameters d0=0.08 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED: Action CONTACTMAP
+PLUMED:   with label d6
+PLUMED:   added component to this action:  d6.contact-1 
+PLUMED:   The 1th contact is calculated from atoms : 72 87. Inflection point of switching function is at 0.12.  Using rational switching function with parameters d0=0.17 nn=6 mm=8. Reference contact value is 0.000000
+PLUMED: Action COMBINE
+PLUMED:   with label hlda
+PLUMED:   with arguments : 
+PLUMED:    scalar with label d1.contact-1 
+PLUMED:    scalar with label d2.contact-1 
+PLUMED:    scalar with label d3.contact-1 
+PLUMED:    scalar with label d4.contact-1 
+PLUMED:    scalar with label d5.contact-1 
+PLUMED:    scalar with label d6.contact-1 
+PLUMED:   with coefficients: 0.618800 0.597500 0.504500 -0.070800 0.021700 0.014000
+PLUMED:   with parameters: 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000
+PLUMED:   and powers: 1.000000 1.000000 1.000000 1.000000 1.000000 1.000000
+PLUMED: Action OPES_METAD_EXPLORE
+PLUMED:   with label opesE
+PLUMED:   with arguments : 
+PLUMED:    scalar with label hlda 
+PLUMED:   added component to this action:  opesE.bias 
+PLUMED:   RESTART - make sure all used options are compatible
+PLUMED:     restarting from: compressedE.Kernels
+PLUMED:     it should be a STATE file (not a KERNELS file)
+PLUMED:     a total of 36 kernels where read
+PLUMED:   added component to this action:  opesE.rct 
+PLUMED:   added component to this action:  opesE.zed 
+PLUMED:   added component to this action:  opesE.neff 
+PLUMED:   added component to this action:  opesE.nker 
+PLUMED:   temperature = 340
+PLUMED:   beta = 0.353742
+PLUMED:   depositing new kernels with PACE = 500
+PLUMED:   expected BARRIER is 20
+PLUMED:   using target distribution with BIASFACTOR gamma = 7.07484
+PLUMED:   adaptive SIGMA will be used, with ADAPTIVE_SIGMA_STRIDE = 5000
+PLUMED:     thus the first x kernel depositions will be skipped, x = ADAPTIVE_SIGMA_STRIDE/PACE = 10
+PLUMED:   kernels are truncated with KERNELS_CUTOFF = 3.76161
+PLUMED:   the value at cutoff is = 0.000846124
+PLUMED:   regularization EPSILON = 0.312043
+PLUMED:   kernels will be compressed when closer than COMPRESSION_THRESHOLD = 1
+PLUMED:   state checkpoints are written on file compressedE.Kernels only on CPT events (or never if MD code does define them!)
+PLUMED:   Bibliography: [3][4]
+PLUMED: Action OPES_METAD
+PLUMED:   with label opes
+PLUMED:   with arguments : 
+PLUMED:    scalar with label hlda 
+PLUMED:   added component to this action:  opes.bias 
+PLUMED:   RESTART - make sure all used options are compatible
+PLUMED:     restarting from: compressed.Kernels
+PLUMED:     it should be a STATE file (not a KERNELS file)
+PLUMED:     a total of 83 kernels where read
+PLUMED:   added component to this action:  opes.rct 
+PLUMED:   added component to this action:  opes.zed 
+PLUMED:   added component to this action:  opes.neff 
+PLUMED:   added component to this action:  opes.nker 
+PLUMED:   temperature = 340
+PLUMED:   beta = 0.353742
+PLUMED:   depositing new kernels with PACE = 500
+PLUMED:   expected BARRIER is 30
+PLUMED:   using target distribution with BIASFACTOR gamma = 10.6123
+PLUMED:   adaptive SIGMA will be used, with ADAPTIVE_SIGMA_STRIDE = 5000
+PLUMED:     thus the first x kernel depositions will be skipped, x = ADAPTIVE_SIGMA_STRIDE/PACE = 10
+PLUMED:   kernels are truncated with KERNELS_CUTOFF = 4.84072
+PLUMED:   the value at cutoff is = 8.15972e-06
+PLUMED:   regularization EPSILON = 8.15972e-06
+PLUMED:   kernels will be compressed when closer than COMPRESSION_THRESHOLD = 1
+PLUMED:   state checkpoints are written on file compressed.Kernels only on CPT events (or never if MD code does define them!)
+PLUMED:   Bibliography: [3][4]
+PLUMED: Action PRINT
+PLUMED:   with label @19
+PLUMED:   with stride 100
+PLUMED:   with arguments : 
+PLUMED:    scalar with label hlda 
+PLUMED:    scalar with label rmsd_ca 
+PLUMED:    scalar with label opes.bias 
+PLUMED:    scalar with label opesE.bias 
+PLUMED:   on file COLVARb
+PLUMED:   with format  %f
+PLUMED: Action PRINT
+PLUMED:   with label @20
+PLUMED:   with stride 500
+PLUMED:   with arguments : 
+PLUMED:    scalar with label rmsd_ca 
+PLUMED:    scalar with label end 
+PLUMED:    scalar with label hbonds 
+PLUMED:    scalar with label d1.contact-1 
+PLUMED:    scalar with label d2.contact-1 
+PLUMED:    scalar with label d3.contact-1 
+PLUMED:    scalar with label d4.contact-1 
+PLUMED:    scalar with label d5.contact-1 
+PLUMED:    scalar with label d6.contact-1 
+PLUMED:    scalar with label hlda 
+PLUMED:    scalar with label opesE.bias 
+PLUMED:    scalar with label opesE.rct 
+PLUMED:    scalar with label opesE.zed 
+PLUMED:    scalar with label opesE.neff 
+PLUMED:    scalar with label opesE.nker 
+PLUMED:    scalar with label opes.bias 
+PLUMED:    scalar with label opes.rct 
+PLUMED:    scalar with label opes.zed 
+PLUMED:    scalar with label opes.neff 
+PLUMED:    scalar with label opes.nker 
+PLUMED:   on file COLVAR
+PLUMED:   with format  %f
+PLUMED: Action FLUSH
+PLUMED:   with label @21
+PLUMED:   with stride 1000
+PLUMED: END FILE: plumed/plumed_gromacs.dat
+PLUMED: Timestep: 0.002000
+PLUMED: KbT: 2.826917
+PLUMED: Relevant bibliography:
+PLUMED:   [1] The PLUMED consortium, Nat. Methods 16, 670 (2019)
+PLUMED:   [2] Tribello, Bonomi, Branduardi, Camilloni, and Bussi, Comput. Phys. Commun. 185, 604 (2014)
+PLUMED:   [3] M. Invernizzi and M. Parrinello, J. Phys. Chem. Lett. 11, 2731-2736 (2020)
+PLUMED:   [4] M. Invernizzi and M. Parrinello, J. Chem. Theory Comput. 18, 3988-3996 (2022)
+PLUMED: Please read and cite where appropriate!
+PLUMED: Finished setup
+PLUMED:                                               Cycles        Total      Average      Minimum      Maximum
+PLUMED:                                                    1 20135.097986 20135.097986 20135.097986 20135.097986
+PLUMED: 1 Prepare dependencies                      25000001    26.478896     0.000001     0.000001     0.000280
+PLUMED: 2 Sharing data                              25000001   136.511206     0.000005     0.000004     0.000315
+PLUMED: 3 Waiting for data                          25000001    35.601169     0.000001     0.000001     0.000310
+PLUMED: 4 Calculating (forward loop)                25000001   349.420051     0.000014     0.000011     0.000405
+PLUMED: 5 Applying (backward loop)                  25000001   165.165293     0.000007     0.000005     0.000367
+PLUMED: 6 Update                                    25000001 19298.022087     0.000772     0.000002     0.015271

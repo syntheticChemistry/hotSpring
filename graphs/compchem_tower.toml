@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# CompChem Explorer Deploy Graph — Tower (Minimum Secure Transport)
+#
+# Tier 1 foundation: signed transport layer only.
+# Enables encrypted artifact transfer and pseudoSpore signing.
+# No compute, no storage — just secure communication.
+#
+# Usage: biomeos deploy --graph graphs/compchem_tower.toml
+
+[graph]
+name = "compchem_tower"
+description = "CompChem Explorer — secure transport foundation (bearDog + songbird)"
+version = "0.1.0"
+coordination = "sequential"
+
+[graph.metadata]
+security_model = "btsp_enforced"
+secure_by_default = true
+transport = "uds_only"
+tcp_ports = 0
+owner = "hotSpring"
+pattern = "deploy"
+proto_nucleate = "primalSpring/graphs/downstream/downstream_manifest.toml"
+particle_profile = "proton_heavy"
+science_domain = "computational_chemistry"
+composition_model = "nucleated"
+fragments = ["tower_atomic"]
+product = "compchem-explorer"
+tier = 1
+
+[graph.bonding_policy]
+bond_type = "Metallic"
+trust_model = "InternalNucleus"
+tower_internal = "covalent"
+encryption_tiers.tower = "full"
+
+# Tower Atomic
+[[graph.nodes]]
+name = "beardog"
+binary = "beardog"
+order = 1
+required = true
+spawn = false
+health_method = "health.liveness"
+by_capability = "security"
+
+[[graph.nodes]]
+name = "songbird"
+binary = "songbird"
+order = 2
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "discovery"
+
+[[graph.nodes]]
+name = "skunkbat"
+binary = "skunkbat"
+order = 3
+required = false
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "defense"

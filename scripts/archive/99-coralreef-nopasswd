@@ -1,0 +1,56 @@
+# coralReef — passwordless sudo for GPU lifecycle operations
+# Members of the 'coralreef' group can manage ember/glowplug services,
+# deploy binaries, and perform PCI sysfs operations without a password.
+#
+# Installed to /etc/sudoers.d/99-coralreef-nopasswd
+
+# Service lifecycle
+%coralreef ALL=(root) NOPASSWD: /usr/bin/systemctl start coral-ember, \
+                                /usr/bin/systemctl stop coral-ember, \
+                                /usr/bin/systemctl restart coral-ember, \
+                                /usr/bin/systemctl reload coral-ember, \
+                                /usr/bin/systemctl status coral-ember, \
+                                /usr/bin/systemctl start coral-glowplug, \
+                                /usr/bin/systemctl stop coral-glowplug, \
+                                /usr/bin/systemctl restart coral-glowplug, \
+                                /usr/bin/systemctl status coral-glowplug, \
+                                /usr/bin/systemctl daemon-reload
+
+# Binary deployment (exact paths only)
+%coralreef ALL=(root) NOPASSWD: /usr/bin/cp * /usr/local/bin/coral-ember, \
+                                /usr/bin/cp * /usr/local/bin/coralctl, \
+                                /usr/bin/install -m 755 * /usr/local/bin/coral-ember, \
+                                /usr/bin/install -m 755 * /usr/local/bin/coralctl
+
+# PCI sysfs operations (vfio bind/unbind, device reset, config)
+%coralreef ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/drivers/vfio-pci/unbind, \
+                                /usr/bin/tee /sys/bus/pci/drivers/vfio-pci/bind, \
+                                /usr/bin/tee /sys/bus/pci/drivers/vfio-pci/new_id, \
+                                /usr/bin/tee /sys/bus/pci/drivers/vfio-pci/remove_id, \
+                                /usr/bin/tee /sys/bus/pci/devices/*/reset, \
+                                /usr/bin/tee /sys/bus/pci/devices/*/driver_override, \
+                                /usr/bin/tee /sys/bus/pci/rescan, \
+                                /usr/bin/tee /sys/bus/pci/devices/*/remove
+
+# Binary cleanup (rm stale binaries before deploy)
+%coralreef ALL=(root) NOPASSWD: /usr/bin/rm -f /usr/local/bin/coral-ember, \
+                                /usr/bin/rm -f /usr/local/bin/coralctl
+
+# Config file deployment
+%coralreef ALL=(root) NOPASSWD: /usr/bin/cp * /etc/coralreef/glowplug.toml, \
+                                /usr/bin/install -m 644 * /etc/coralreef/glowplug.toml, \
+                                /usr/bin/cp * /etc/systemd/system/coral-ember.service, \
+                                /usr/bin/install -m 644 * /etc/systemd/system/coral-ember.service, \
+                                /usr/bin/cp * /etc/systemd/system/coral-glowplug.service, \
+                                /usr/bin/install -m 644 * /etc/systemd/system/coral-glowplug.service
+
+# Kernel log access (dmesg)
+%coralreef ALL=(root) NOPASSWD: /usr/bin/dmesg, \
+                                /usr/bin/dmesg *
+
+# Shell helper for compound deploy operations
+%coralreef ALL=(root) NOPASSWD: /usr/local/bin/coralctl shutdown, \
+                                /usr/local/bin/coralctl deploy *
+
+# Install script (one-time bootstrap)
+%coralreef ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/boot/install-coralreef-perms.sh
