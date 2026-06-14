@@ -27,7 +27,7 @@ use hotspring_forge::probe;
 use hotspring_forge::substrate::{Capability, Fp64Rate, Fp64Strategy, SubstrateKind};
 use log::{error, info, warn};
 use serde_json::{Value, json};
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader};
 use std::net::TcpListener;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -732,27 +732,32 @@ fn handle_connection_generic<S: std::io::Read + std::io::Write>(mut stream: S, s
         return;
     }
 
-    match first_byte[0] {
-        0xEC => {
-            let mut protocol_type = [0u8; 1];
-            if stream.read_exact(&mut protocol_type).is_err() {
-                return;
-            }
-            if protocol_type[0] != 0x01 {
-                warn!(target: "serve", "riboCipher: unsupported protocol type 0x{:02X}", protocol_type[0]);
-                return;
-            }
-            handle_ndjson_loop(stream, state);
+    if first_byte[0] == 0xEC {
+        let mut protocol_type = [0u8; 1];
+        if stream.read_exact(&mut protocol_type).is_err() {
+            return;
         }
-        b'{' | b'[' => {
-            error!(target: "serve", "DEPRECATED: unsignalled connection (legacy JSON). Prepend [0xEC, 0x01] per riboCipher standard.");
-            handle_ndjson_loop_with_prefix(stream, state, first_byte[0]);
+        if protocol_type[0] != 0x01 {
+            warn!(target: "serve", "riboCipher: unsupported protocol type 0x{:02X}", protocol_type[0]);
+            return;
         }
-        _ => {
-            error!(target: "serve", "DEPRECATED: unsignalled connection (first byte 0x{:02X}). Prepend [0xEC, 0x01] per riboCipher standard.", first_byte[0]);
-            handle_ndjson_loop_with_prefix(stream, state, first_byte[0]);
-        }
+        handle_ndjson_loop(stream, state);
+    } else {
+        error!(target: "serve", "REJECTED: unsignalled connection (first byte 0x{:02X}). riboCipher signal required.", first_byte[0]);
+        let reject = json!({
+            "jsonrpc": "2.0",
+            "error": { "code": -32002, "message": "riboCipher signal required. Prepend [0xEC, 0x01] for NDJSON JSON-RPC." },
+            "id": null
+        });
+        let _ = write_reject(&mut stream, &reject);
     }
+}
+
+fn write_reject<W: std::io::Write>(stream: &mut W, response: &Value) -> std::io::Result<()> {
+    let mut out = response.to_string();
+    out.push('\n');
+    stream.write_all(out.as_bytes())?;
+    stream.flush()
 }
 
 fn handle_ndjson_loop<S: std::io::Read + std::io::Write>(stream: S, state: &HotSpringState) {
@@ -799,41 +804,6 @@ fn handle_ndjson_loop<S: std::io::Read + std::io::Write>(stream: S, state: &HotS
         if write_response(reader.get_mut(), &response).is_err() {
             break;
         }
-    }
-}
-
-fn handle_ndjson_loop_with_prefix<S: std::io::Read + std::io::Write>(stream: S, state: &HotSpringState, prefix_byte: u8) {
-    let combined = PrefixedStream { prefix: Some(prefix_byte), inner: stream };
-    handle_ndjson_loop(combined, state);
-}
-
-struct PrefixedStream<S> {
-    prefix: Option<u8>,
-    inner: S,
-}
-
-impl<S: Read> Read for PrefixedStream<S> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if let Some(b) = self.prefix.take() {
-            if !buf.is_empty() {
-                buf[0] = b;
-                if buf.len() > 1 {
-                    let n = self.inner.read(&mut buf[1..])?;
-                    return Ok(n + 1);
-                }
-                return Ok(1);
-            }
-        }
-        self.inner.read(buf)
-    }
-}
-
-impl<S: std::io::Write> std::io::Write for PrefixedStream<S> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.inner.write(buf)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.inner.flush()
     }
 }
 
@@ -937,7 +907,7 @@ mod tests {
     }
 
     #[test]
-    fn ribocipher_legacy_json_still_works() {
+    fn ribocipher_unsignalled_json_is_rejected() {
         use std::io::Cursor;
         let state = test_state();
         let request = r#"{"jsonrpc":"2.0","method":"health","params":null,"id":1}"#;
@@ -948,7 +918,8 @@ mod tests {
         let combined = TestDuplex { read: &mut stream, write: &mut output };
         handle_connection_generic(combined, &state);
         let resp: Value = serde_json::from_slice(&output.split(|&b| b == b'\n').next().unwrap()).unwrap();
-        assert_eq!(resp["result"]["status"], "ok");
+        assert_eq!(resp["error"]["code"], -32002);
+        assert!(resp["error"]["message"].as_str().unwrap().contains("riboCipher"));
     }
 
     struct TestDuplex<'a> {

@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 13, 2026 (Wave 112 kickoff: riboCipher deprecation escalated WARN→ERROR per schedule. 627 lib tests pass, 0 clippy. strandGate riboCipher: COMPLIANT, ERROR on unsignalled. No new assigned work — holding pattern.)
+**Last audited:** Jun 14, 2026 (Wave 113: riboCipher REJECT shipped — unsignalled connections refused with -32002. Legacy fallback code removed (PrefixedStream eliminated). 627 lib tests pass, 0 clippy. strandGate riboCipher: REJECT mode active.)
 **License:** AGPL-3.0-or-later
 
 ---
