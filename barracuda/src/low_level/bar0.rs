@@ -25,10 +25,10 @@
 //! let pmc = bar.read_u32(0x0000_0200)?;
 //! ```
 
-use std::fmt;
 use std::io;
 
 use rustix::mm::{MapFlags, ProtFlags, mmap, munmap};
+use thiserror::Error;
 
 /// Default BAR0 mapping size (16 MiB). Overridden by actual resource file
 /// size when available, so this serves as a fallback for platforms where
@@ -115,59 +115,37 @@ impl Drop for MmioRegion {
 // ── Bar0Error ────────────────────────────────────────────────────────────────
 
 /// Errors from BAR0 open/map and checked register access.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Bar0Error {
     /// `resource0` could not be opened.
-    Open(std::io::Error),
+    #[error("cannot open BAR0 resource0: {0}")]
+    Open(#[from] std::io::Error),
     /// `mmap` of `resource0` failed.
-    Mmap(rustix::io::Errno),
+    #[error("mmap of BAR0 resource0 failed: {0}")]
+    Mmap(#[from] rustix::io::Errno),
     /// PCIe link is down — all reads return `0xFFFF_FFFF`.
+    #[error("BAR0 dead link at {offset:#x} (0xFFFFFFFF)")]
     DeadLink { offset: u32 },
     /// Register offset is not 4-byte aligned.
+    #[error("BAR0 offset {offset:#x} is not 4-byte aligned")]
     Unaligned { offset: u32 },
     /// Register offset falls outside all allowed domains.
+    #[error("offset {offset:#x}..{end:#x} outside allowed domains: {domains:?}")]
     OutOfDomain {
         offset: u32,
         end: u32,
         domains: Vec<&'static str>,
     },
     /// Write to a deny-listed register offset was rejected.
+    #[error("write to {offset:#x} denied: {reason}")]
     DenyListed { offset: u32, reason: &'static str },
     /// Offset arithmetic overflow.
+    #[error("offset {offset:#x} + {width} overflows")]
     Overflow { offset: u32, width: u32 },
     /// Offset exceeds the mapped region.
+    #[error("offset {offset:#x} out of BAR0 range (len={map_len:#x})")]
     OutOfBounds { offset: u32, map_len: usize },
 }
-
-impl fmt::Display for Bar0Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Open(e) => write!(f, "cannot open BAR0 resource0: {e}"),
-            Self::Mmap(e) => write!(f, "mmap of BAR0 resource0 failed: {e}"),
-            Self::DeadLink { offset } => write!(f, "BAR0 dead link at {offset:#x} (0xFFFFFFFF)"),
-            Self::Unaligned { offset } => {
-                write!(f, "BAR0 offset {offset:#x} is not 4-byte aligned")
-            }
-            Self::OutOfDomain {
-                offset,
-                end,
-                domains,
-            } => write!(
-                f,
-                "offset {offset:#x}..{end:#x} outside allowed domains: {domains:?}"
-            ),
-            Self::DenyListed { offset, reason } => {
-                write!(f, "write to {offset:#x} denied: {reason}")
-            }
-            Self::Overflow { offset, width } => write!(f, "offset {offset:#x} + {width} overflows"),
-            Self::OutOfBounds { offset, map_len } => {
-                write!(f, "offset {offset:#x} out of BAR0 range (len={map_len:#x})")
-            }
-        }
-    }
-}
-
-impl std::error::Error for Bar0Error {}
 
 // ── Read-only MMIO ────────────────────────────────────────────────────────────
 

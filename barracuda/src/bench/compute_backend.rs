@@ -11,38 +11,25 @@
 use std::fmt;
 use std::time::Duration;
 
+use thiserror::Error;
+
 /// Errors from benchmark backend execution.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum BenchError {
     /// GPU initialization or dispatch failure.
+    #[error("GPU error: {0}")]
     Gpu(String),
     /// Invalid or unavailable benchmark configuration.
+    #[error("config error: {0}")]
     Config(String),
     /// Runtime failure during benchmark execution.
-    Runtime(String),
+    #[error("runtime error: {0}")]
+    Runtime(#[from] String),
 }
-
-impl fmt::Display for BenchError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Gpu(msg) => write!(f, "GPU error: {msg}"),
-            Self::Config(msg) => write!(f, "config error: {msg}"),
-            Self::Runtime(msg) => write!(f, "runtime error: {msg}"),
-        }
-    }
-}
-
-impl std::error::Error for BenchError {}
 
 impl From<std::io::Error> for BenchError {
     fn from(e: std::io::Error) -> Self {
         Self::Runtime(e.to_string())
-    }
-}
-
-impl From<String> for BenchError {
-    fn from(s: String) -> Self {
-        Self::Runtime(s)
     }
 }
 

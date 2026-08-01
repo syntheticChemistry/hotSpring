@@ -275,8 +275,12 @@ fn toadstool_compute_socket() -> PathBuf {
     }
     dirs.first().map_or_else(
         || {
-            let base = std::env::var("TOADSTOOL_RUN_DIR")
-                .map_or_else(|_| PathBuf::from("/run/biomeos"), PathBuf::from);
+            let base = std::env::var("TOADSTOOL_RUN_DIR").map_or_else(
+                |_| {
+                    PathBuf::from(niche::FALLBACK_RUN_DIR).join(niche::ECOSYSTEM_SOCKET_DIR)
+                },
+                PathBuf::from,
+            );
             base.join("compute.sock")
         },
         |d| d.join("compute.sock"),
@@ -299,7 +303,7 @@ fn toadstool_run_dir() -> PathBuf {
         }
     }
     // Fallback for environments without NUCLEUS: scan generic runtime root.
-    PathBuf::from("/run")
+    PathBuf::from(niche::FALLBACK_RUN_DIR)
 }
 
 /// Candidate ember socket paths for a given PCI BDF, in priority order.

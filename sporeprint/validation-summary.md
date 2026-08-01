@@ -1,6 +1,6 @@
 +++
 title = "hotSpring Validation Summary"
-description = "Computational physics on consumer GPU — 720/596/1,045 tests, 234 experiments, guideStone Level 6, 25 papers reproduced, $0.30 total science cost"
+description = "Computational physics on consumer GPU — 720/627/1,045 tests, 234 experiments, guideStone Level 6, 25 papers reproduced, $0.30 total science cost"
 date = 2026-05-23
 
 [taxonomies]
@@ -10,13 +10,13 @@ springs = ["hotspring"]
 
 ## Status
 
-- **720 (cylinder) / 596 / 1,045 tests** passing (IPC-first default / barracuda-local), 0 failed, 6 GPU-heavy ignored
+- **720 (cylinder) / 627 / 1,045 tests** passing (IPC-first default / barracuda-local), 0 failed, 6 GPU-heavy ignored
 - **234 experiments** across 12 physics categories + sovereign GPU
 - **25 papers** reproduced (25/25 CPU, 20/25 GPU)
 - **guideStone Level 6 CERTIFIED** — NUCLEUS Deployment Validation
 - **155 binaries**, **65 validation suites** (smoke/nucleus/silicon), **154 WGSL shaders**, **7 deploy graphs**
 - **$0.30** total science cost on consumer hardware
-- **Tier 4 IPC-first** — `primal-proof` feature, `barracuda` optional
+- **Tier 4 IPC-first** — `barracuda` optional
 - **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** — Tier 1 sovereign infrastructure validated
 - **Sovereignty Tier Model** — Tier 0 (cold), Tier 1 (warm infra — validated), Tier 2 (warm compute — blocked by GPC power), Tier 3 (full sovereign)
 - **183ms warm pipeline** — falcon preservation, fd store e2e, 76× faster than cold

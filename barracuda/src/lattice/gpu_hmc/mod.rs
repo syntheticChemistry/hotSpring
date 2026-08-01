@@ -122,7 +122,7 @@ pub use unidirectional_rhmc::gpu_rhmc_trajectory_unidirectional;
 
 #[expect(
     deprecated,
-    reason = "gpu_dot_re re-export retained for legacy gpu_cg_solve_internal (streaming) and rhmc_shifted_cg validation"
+    reason = "gpu_dot_re re-export retained for legacy gpu_cg_solve_internal (streaming.rs)"
 )]
 pub(super) use fermion_bridge::{gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch};
 pub use fp64_substrate::substrate_fp64_strategy;

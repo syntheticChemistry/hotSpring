@@ -7,6 +7,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Deep Debt Sprint + Modernization — Wave 155n (August 1, 2026)
+
+### Changed
+- **`serve.rs` refactored:** Monolithic 944-line file split into `serve/` module
+  directory: `mod.rs` (310L, public types + server), `dispatch.rs` (434L, routing),
+  `transport.rs` (181L, UDS/TCP/riboCipher), `params.rs` (56L, JSON parsing helpers).
+- **`cazyme-fel` refactored:** Monolithic 1303-line `lib.rs` split into 12
+  domain-focused modules, all under 800 lines. Edition upgraded to 2024,
+  `rust-version = "1.87"`.
+- **Error types migrated to `thiserror`:** 8 error types across `error.rs`,
+  `squirrel_client.rs`, `ttm.rs`, `base64_encode.rs`, `compchem/topology/gromacs.rs`,
+  `bench/compute_backend.rs`, `low_level/bar0.rs` — manual `Display`/`From` impls
+  replaced with `#[derive(thiserror::Error)]`.
+- **`.expect()` violations fixed:** 6 GPU readback `.expect()` calls in
+  `resident_cg.rs` and `resident_cg_brain.rs` replaced with `Result` propagation.
+- **`gpu_dot_re` evolved:** Returns `Result<f64, HotSpringError>` instead of
+  `f64::NAN` sentinel on failure.
+- **`naga` made optional:** Shader introspection dependency gated behind `naga`
+  feature flag, reducing default build footprint.
+
+### Added
+- **`thiserror` dependency** (v2).
+- **SPMV CPU fallback:** Dense matrix-vector product implemented in
+  `compute_dispatch/mod.rs` (was placeholder stub).
+- **BCS density pass:** `run_bcs_density_pass` in `physics/hfb_gpu_types.rs`
+  implemented with GPU dispatch for BCS v² and density reconstruction.
+- **Hardcoded path constants:** `FALLBACK_RUN_DIR` and `FALLBACK_HOSTNAME_PATH`
+  centralized in `niche/mod.rs` with environment variable overrides.
+
+### Removed
+- **`rhmc_shifted_cg.rs`:** Entire deprecated legacy RHMC module removed.
+- **`mapped_bytes_to_f32`:** Dead code in `gpu/buffers.rs` removed.
+- **`primal-proof` feature:** Unused feature flag cleaned from `Cargo.toml`.
+
+### Fixed
+- Test count: 627 lib tests (unchanged from Wave 111).
+- 0 clippy warnings on lib code.
+- No files exceed 800 lines.
+
 ## riboCipher Transport Signal Convergence — Wave 111 (June 13, 2026)
 
 ### Added

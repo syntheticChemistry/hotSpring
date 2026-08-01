@@ -300,9 +300,6 @@ pub(super) fn fermion_force_dispatch(
     gpu.dispatch(&pipelines.fermion_force_pipeline, &bg, wg);
 }
 
-#[path = "rhmc_shifted_cg.rs"]
-mod rhmc_shifted_cg;
-
 // ═══════════════════════════════════════════════════════════════════
 //  RHMC Heatbath, Action, Force (legacy helpers removed — use
 //  unidirectional_rhmc::gpu_rhmc_trajectory_unidirectional)

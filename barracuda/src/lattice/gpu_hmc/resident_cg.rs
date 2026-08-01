@@ -225,6 +225,10 @@ fn gpu_total_force_dispatch_resident(
 /// Transfer budget per trajectory:
 ///   CPU→GPU: 0 bytes (GPU PRNG for momenta + pseudofermion)
 ///   GPU→CPU: ~480 bytes for CG convergence + 24 bytes for ΔH
+///
+/// # Errors
+///
+/// Returns `GpuCompute` if gauge/KE or plaquette readback fails.
 pub fn gpu_dynamical_hmc_trajectory_resident(
     gpu: &GpuF64,
     streaming_pipelines: &GpuDynHmcStreamingPipelines,
@@ -236,7 +240,7 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
     traj_id: u32,
     seed: &mut u64,
     check_interval: usize,
-) -> GpuDynHmcResult {
+) -> Result<GpuDynHmcResult, crate::error::HotSpringError> {
     let vol = state.gauge.volume;
     let n_links = state.gauge.n_links;
     let gs = &state.gauge;
@@ -307,8 +311,7 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
         gs,
         &streaming_pipelines.reduce_pipeline,
         &obs,
-    )
-    .expect("gauge_ke_resident readback failed");
+    )?;
     let s_gauge_old = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_sum_old);
     let (s_ferm_old, cg_iters_old) = gpu_fermion_action_resident_all(
         gpu,
@@ -362,8 +365,7 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
         gs,
         &streaming_pipelines.reduce_pipeline,
         &obs,
-    )
-    .expect("gauge_ke_resident readback failed");
+    )?;
     let s_gauge_new = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_sum_new);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_resident_all(
         gpu,
@@ -399,13 +401,12 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
         gs,
         &streaming_pipelines.reduce_pipeline,
         &obs,
-    )
-    .expect("plaquette_resident readback failed");
+    )?;
 
-    GpuDynHmcResult {
+    Ok(GpuDynHmcResult {
         accepted,
         delta_h,
         plaquette,
         cg_iterations: total_cg,
-    }
+    })
 }

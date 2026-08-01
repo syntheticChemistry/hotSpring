@@ -5,9 +5,10 @@
 Future handoffs go to the ecosystem hub at `ecoPrimals/infra/wateringHole/`.
 This local directory retains lab artifacts (firmware extracts, VBIOS data,
 mmiotraces) that are too large or hardware-specific for the centralized hub,
-plus a **6-handoff local archive** from the Exp 226–234 sovereignty sprint.
+plus an **8-handoff local archive** from the Exp 226–234 sovereignty sprint
+and Wave 155n deep-debt modernization.
 
-## Local Handoffs (6)
+## Local Handoffs (8)
 
 | Handoff | Date |
 |---------|------|
@@ -17,6 +18,8 @@ plus a **6-handoff local archive** from the Exp 226–234 sovereignty sprint.
 | `HOTSPRING_v0.6.32_CRASH_VECTOR_REPROFILE_HANDOFF_2026-05-28.md` | 2026-05-28 |
 | `HOTSPRING_v0.6.32_DIESEL_SILICON_DEISTIC_HANDOFF_2026-05-28.md` | 2026-05-28 |
 | `HOTSPRING_v0.6.32_CATALYST_MINIMAL_NOP_HANDOFF_2026-06-01.md` | 2026-06-01 |
+| `HOTSPRING_v0.6.32_SOVEREIGNTY_REWIRE_HANDOFF_2026-06-01.md` | 2026-06-01 |
+| `HOTSPRING_v0.6.32_DEEP_DEBT_MODERNIZATION_HANDOFF_2026-08-01.md` | 2026-08-01 |
 
 Older handoffs (38 archived) live at `ecoPrimals/infra/wateringHole/handoffs/hotSpring/archive/`.
 

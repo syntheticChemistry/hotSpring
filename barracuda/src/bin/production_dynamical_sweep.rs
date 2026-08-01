@@ -121,7 +121,8 @@ fn main() {
                             i as u32,
                             &mut seed,
                             check_interval,
-                        );
+                        )
+                        .expect("dynamical HMC trajectory");
                     }
 
                     // Measurement
@@ -144,7 +145,8 @@ fn main() {
                             (n_therm + i) as u32,
                             &mut seed,
                             check_interval,
-                        );
+                        )
+                        .expect("dynamical HMC trajectory");
                         let traj_wall = traj_start.elapsed().as_secs_f64();
 
                         delta_hs.push(r.delta_h);

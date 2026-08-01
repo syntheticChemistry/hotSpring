@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use crate::error::HotSpringError;
 use crate::gpu::GpuF64;
 
 pub fn gpu_dirac_dispatch(
@@ -56,6 +57,10 @@ pub fn gpu_fermion_force_dispatch(
     gpu.dispatch(&pipelines.fermion_force_pipeline, &bg, wg);
 }
 
+/// Legacy per-iteration complex dot-product (Re part) with GPU→CPU readback.
+///
+/// Prefer [`super::resident_cg_buffers::read_complex_dot_re`] and the resident CG
+/// paths in `resident_cg.rs` / `resident_shifted_cg.rs`.
 #[deprecated(note = "use GPU-resident CG scalar buffers (resident_cg.rs / resident_shifted_cg.rs)")]
 pub fn gpu_dot_re(
     gpu: &GpuF64,
@@ -64,14 +69,12 @@ pub fn gpu_dot_re(
     a: &wgpu::Buffer,
     b: &wgpu::Buffer,
     n_pairs: usize,
-) -> f64 {
+) -> Result<f64, HotSpringError> {
     let wg = (n_pairs as u32).div_ceil(64);
     let params = super::make_u32x4_params(n_pairs as u32);
     let pbuf = gpu.create_uniform_buffer(&params, "dot_p");
     let bg = gpu.create_bind_group(dot_pl, &[&pbuf, a, b, dot_buf]);
     gpu.dispatch(dot_pl, &bg, wg);
-    match gpu.read_back_f64(dot_buf, n_pairs) {
-        Ok(v) => v.iter().sum(),
-        Err(_) => f64::NAN,
-    }
+    let partials = gpu.read_back_f64(dot_buf, n_pairs)?;
+    Ok(partials.iter().sum())
 }

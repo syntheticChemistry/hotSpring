@@ -279,7 +279,7 @@ toadStool **S261** adds `health.drain`, Kepler dispatch, VFIO IPC surface. coral
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **596 / 1,045 tests** (lib; **IPC-first default** / **barracuda-local**), **155 binaries**, **65 validation suites** (3 tiers: `smoke`/`nucleus`/`silicon` via `validate_all --tier`), **154 WGSL shaders** (all AGPL-3.0-or-later),
+- **627 / 1,045 tests** (lib; **IPC-first default** / **barracuda-local**), **155 binaries**, **65 validation suites** (3 tiers: `smoke`/`nucleus`/`silicon` via `validate_all --tier`), **154 WGSL shaders** (all AGPL-3.0-or-later),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -353,7 +353,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 596 / 1,045 tests (lib; IPC-first default / barracuda-local), 6 ignored (~120s; spectral tests upstream)
+cargo test               # 627 / 1,045 tests (lib; IPC-first default / barracuda-local), 6 ignored (~120s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 65 suites (--tier smoke|nucleus|silicon)
@@ -487,7 +487,7 @@ hotSpring/
 │   ├── BASELINE_PROVENANCE_CATALOG.md # Provenance baseline catalog
 │   └── exp229-lockup-analysis.md     # Exp 229 catalyst handoff lockup forensics
 │
-├── barracuda/                          # BarraCuda Rust crate (625 / 1,045 lib tests, 155 binaries, 154 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate (627 / 1,045 lib tests, 155 binaries, 154 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history
 │   ├── ABSORPTION_MANIFEST.md         # Write → Absorb → Lean tracking
@@ -577,7 +577,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*234 experiments, 720 (cylinder) / 625 (barracuda default) / 1,045 (barracuda-local) lib tests, 155 binaries, 154 WGSL shaders, ~$0.30 total science cost.
+*234 experiments, 720 (cylinder) / 627 (barracuda default) / 1,045 (barracuda-local) lib tests, 155 binaries, 154 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **Fleet: 2× Titan V (GV100) + RTX 5060 (Blackwell)** —

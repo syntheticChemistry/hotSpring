@@ -284,23 +284,6 @@ impl GpuF64 {
     }
 }
 
-/// Convert mapped GPU buffer bytes to f32 values.
-#[allow(dead_code)]
-pub fn mapped_bytes_to_f32(data: &[u8]) -> Vec<f32> {
-    bytemuck::try_cast_slice(data).map_or_else(
-        |_| {
-            data.chunks_exact(4)
-                .map(|chunk| {
-                    let mut b = [0u8; 4];
-                    b.copy_from_slice(chunk);
-                    f32::from_le_bytes(b)
-                })
-                .collect()
-        },
-        <[f32]>::to_vec,
-    )
-}
-
 /// Convert mapped GPU buffer bytes to f64 values.
 ///
 /// GPU mapped buffers are typically page-aligned, so `bytemuck::try_cast_slice`

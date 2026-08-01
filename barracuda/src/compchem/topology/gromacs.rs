@@ -20,31 +20,17 @@ use super::types::{
     MoleculeCount, MoleculeType, SystemTopology, TopologyAngle, TopologyAtom, TopologyBond,
     TopologyDihedral,
 };
+use thiserror::Error;
 
 /// Errors from parsing GROMACS topology files.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TopologyParseError {
     /// Underlying file I/O failure.
-    Io(std::io::Error),
+    #[error("topology I/O error: {0}")]
+    Io(#[from] std::io::Error),
     /// Malformed or unsupported topology content.
+    #[error("topology parse error: {0}")]
     Format(String),
-}
-
-impl std::fmt::Display for TopologyParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Io(e) => write!(f, "topology I/O error: {e}"),
-            Self::Format(msg) => write!(f, "topology parse error: {msg}"),
-        }
-    }
-}
-
-impl std::error::Error for TopologyParseError {}
-
-impl From<std::io::Error> for TopologyParseError {
-    fn from(e: std::io::Error) -> Self {
-        Self::Io(e)
-    }
 }
 
 /// Parser for GROMACS topology files.

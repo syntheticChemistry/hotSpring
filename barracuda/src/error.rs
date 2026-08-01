@@ -6,95 +6,61 @@
 //! can pattern-match on failure modes (no adapter, missing feature, device
 //! creation) rather than parsing opaque strings.
 
-use std::fmt;
+use thiserror::Error;
 
 /// Errors arising from GPU initialization, simulation, or data loading.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 #[must_use]
 pub enum HotSpringError {
     /// No compatible GPU adapter was found by wgpu.
+    #[error("No GPU adapter found")]
     NoAdapter,
 
     /// GPU device creation failed (wraps the underlying wgpu error message).
+    #[error("Failed to create GPU device: {0}")]
     DeviceCreation(String),
 
     /// GPU lacks the `SHADER_F64` feature required for f64 compute.
+    #[error("GPU does not support SHADER_F64 — cannot run f64 computation")]
     NoShaderF64,
 
     /// Data file loading failed (path, underlying IO or parse error).
+    #[error("Data loading failed: {0}")]
     DataLoad(String),
 
     /// GPU compute operation failed (buffer map, dispatch, readback).
+    #[error("GPU compute failed: {0}")]
     GpuCompute(String),
 
     /// Invalid operation (e.g. predict before train).
+    #[error("Invalid operation: {0}")]
     InvalidOperation(String),
 
     /// Propagated from barracuda primitives (`ReduceScalarPipeline`, etc.)
     #[cfg(feature = "barracuda-local")]
-    Barracuda(barracuda::error::BarracudaError),
+    #[error("BarraCuda error: {0}")]
+    Barracuda(#[from] barracuda::error::BarracudaError),
 
     /// I/O error (file open, read, etc.).
-    IoError(std::io::Error),
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
 
     /// JSON parse/serialize error.
-    JsonError(serde_json::Error),
+    #[error("JSON error: {0}")]
+    JsonError(#[from] serde_json::Error),
 
     /// A scoped or worker thread terminated by panic (`join` could not return a value).
+    #[error("Thread panicked: {0}")]
     ThreadPanicked(&'static str),
 
     /// IPC call failed (JSON-RPC to a peer primal via UDS).
+    #[error("IPC error: {0}")]
     Ipc(String),
 }
-
-impl fmt::Display for HotSpringError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NoAdapter => write!(f, "No GPU adapter found"),
-            Self::DeviceCreation(e) => write!(f, "Failed to create GPU device: {e}"),
-            Self::NoShaderF64 => {
-                write!(
-                    f,
-                    "GPU does not support SHADER_F64 — cannot run f64 computation"
-                )
-            }
-            Self::DataLoad(msg) => write!(f, "Data loading failed: {msg}"),
-            Self::GpuCompute(msg) => write!(f, "GPU compute failed: {msg}"),
-            Self::InvalidOperation(msg) => write!(f, "Invalid operation: {msg}"),
-            #[cfg(feature = "barracuda-local")]
-            Self::Barracuda(e) => write!(f, "BarraCuda error: {e}"),
-            Self::IoError(e) => write!(f, "I/O error: {e}"),
-            Self::JsonError(e) => write!(f, "JSON error: {e}"),
-            Self::ThreadPanicked(ctx) => write!(f, "Thread panicked: {ctx}"),
-            Self::Ipc(msg) => write!(f, "IPC error: {msg}"),
-        }
-    }
-}
-
-impl From<std::io::Error> for HotSpringError {
-    fn from(e: std::io::Error) -> Self {
-        Self::IoError(e)
-    }
-}
-
-impl From<serde_json::Error> for HotSpringError {
-    fn from(e: serde_json::Error) -> Self {
-        Self::JsonError(e)
-    }
-}
-
-impl std::error::Error for HotSpringError {}
 
 impl From<HotSpringError> for String {
     fn from(e: HotSpringError) -> Self {
         e.to_string()
-    }
-}
-
-#[cfg(feature = "barracuda-local")]
-impl From<barracuda::error::BarracudaError> for HotSpringError {
-    fn from(e: barracuda::error::BarracudaError) -> Self {
-        Self::Barracuda(e)
     }
 }
 

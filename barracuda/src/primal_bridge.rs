@@ -596,6 +596,7 @@ const DEFAULT_ALIASES: &[(&str, &[&str])] = &[
 ];
 
 /// Lazily-loaded alias table from `config/capability_registry.toml`.
+/// Override path via `CAPABILITY_REGISTRY_PATH` env var (dev/workspace layouts).
 fn loaded_aliases() -> &'static HashMap<String, Vec<String>> {
     use std::sync::OnceLock;
     static ALIASES: OnceLock<HashMap<String, Vec<String>>> = OnceLock::new();
@@ -603,10 +604,14 @@ fn loaded_aliases() -> &'static HashMap<String, Vec<String>> {
 }
 
 fn load_aliases_from_toml() -> HashMap<String, Vec<String>> {
-    let candidates = [
+    let mut candidates = Vec::new();
+    if let Ok(explicit) = std::env::var("CAPABILITY_REGISTRY_PATH") {
+        candidates.push(PathBuf::from(explicit));
+    }
+    candidates.extend([
         PathBuf::from("barracuda/config/capability_registry.toml"),
         PathBuf::from("config/capability_registry.toml"),
-    ];
+    ]);
     for path in &candidates {
         if let Ok(contents) = std::fs::read_to_string(path) {
             if let Ok(table) = contents.parse::<toml::Table>() {

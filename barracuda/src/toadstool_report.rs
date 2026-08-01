@@ -21,6 +21,9 @@ const TOADSTOOL_JSONRPC_READ_TIMEOUT: std::time::Duration = std::time::Duration:
 #[cfg(unix)]
 const TOADSTOOL_JSONRPC_REQUEST_ID: i64 = 1;
 
+/// Socket filename prefix for the compute capability provider (NUCLEUS-less fallback only).
+const COMPUTE_PRIMAL_SOCKET_PREFIX: &str = "toadstool";
+
 /// A performance measurement matching toadStool's `PerformanceMeasurement` schema.
 ///
 /// Fields are wire-compatible with `toadstool_core::silicon::PerformanceMeasurement`.
@@ -57,7 +60,7 @@ pub fn epoch_now() -> u64 {
 /// Discovery order:
 /// 1. `TOADSTOOL_SOCKET` env override (CI/lab)
 /// 2. NUCLEUS `by_domain("compute")` capability discovery
-/// 3. `niche::socket_dirs()` filesystem scan (legacy fallback)
+/// 3. NUCLEUS-less fallback: name-based socket scan via compute-domain provider prefix
 fn toadstool_socket() -> String {
     if let Ok(p) = std::env::var("TOADSTOOL_SOCKET") {
         return p;
@@ -66,9 +69,12 @@ fn toadstool_socket() -> String {
     if let Some(ep) = nucleus.by_domain("compute").filter(|ep| ep.alive) {
         return ep.socket.clone();
     }
+    // NUCLEUS-less fallback — resolve compute provider socket by conventional name.
     log::warn!("falling back to name-based socket resolution — NUCLEUS discovery preferred");
     let family = crate::niche::family_id();
-    let sock_name = format!("toadstool-{family}.sock");
+    let prefix = crate::niche::primal_name_for_domain("compute")
+        .unwrap_or(COMPUTE_PRIMAL_SOCKET_PREFIX);
+    let sock_name = format!("{prefix}-{family}.sock");
     for dir in crate::niche::socket_dirs() {
         let candidate = dir.join(&sock_name);
         if candidate.exists() {

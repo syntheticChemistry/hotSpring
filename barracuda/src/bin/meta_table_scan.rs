@@ -432,7 +432,8 @@ fn run_dynamical_point(
             traj_idx as u32,
             &mut s,
             check_interval,
-        );
+        )
+        .expect("dynamical HMC trajectory");
     }
 
     let mut plaq_vals = Vec::with_capacity(n_meas);
@@ -453,7 +454,8 @@ fn run_dynamical_point(
             traj_idx as u32,
             &mut s,
             check_interval,
-        );
+        )
+        .expect("dynamical HMC trajectory");
         plaq_vals.push(r.plaquette);
         if r.accepted {
             n_accepted += 1;

@@ -330,33 +330,7 @@ fn upload_eigen_bcs_data(
 }
 
 fn dispatch_bcs_density_mix(encoder: &mut wgpu::CommandEncoder, g: &GroupResources, bn: u32) {
-    {
-        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: Some("bcs_v2"),
-            timestamp_writes: None,
-        });
-        let ns_wg_bcs = (g.ns as u32).div_ceil(WORKGROUP_SIZE);
-        pass.set_pipeline(&g.bcs_v2_pipe);
-        pass.set_bind_group(0, &g.density_params_bg, &[]);
-        pass.set_bind_group(1, &g.bcs_p_bg, &[]);
-        pass.dispatch_workgroups(ns_wg_bcs, bn, 1);
-        pass.set_bind_group(1, &g.bcs_n_bg, &[]);
-        pass.dispatch_workgroups(ns_wg_bcs, bn, 1);
-    }
-    {
-        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: Some("density"),
-            timestamp_writes: None,
-        });
-        pass.set_pipeline(&g.density_pipe);
-        pass.set_bind_group(0, &g.density_params_bg, &[]);
-        pass.set_bind_group(1, &g.bcs_p_read_bg, &[]);
-        pass.set_bind_group(2, &g.density_p_bg, &[]);
-        pass.dispatch_workgroups(g.nr_wg, bn, 1);
-        pass.set_bind_group(1, &g.bcs_n_read_bg, &[]);
-        pass.set_bind_group(2, &g.density_n_bg, &[]);
-        pass.dispatch_workgroups(g.nr_wg, bn, 1);
-    }
+    g.run_bcs_density_pass(encoder, bn);
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("density_mix"),

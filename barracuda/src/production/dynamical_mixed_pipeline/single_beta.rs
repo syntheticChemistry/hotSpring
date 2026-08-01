@@ -350,7 +350,8 @@ pub(super) fn run_single_beta(
             adaptive_check_interval,
             ctx.brain_residual_tx,
             ctx.brain_interrupt_rx,
-        );
+        )
+        .expect("dynamical HMC trajectory");
         let therm_wall_us = traj_start.elapsed().as_micros() as u64;
         plaq_history.push(r.plaquette);
         therm_used = i + 1;

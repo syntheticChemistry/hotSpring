@@ -38,6 +38,10 @@ pub(super) struct MeasurementResult {
 /// Run the measurement phase for a single β point.
 ///
 /// Returns accumulated observables for post-processing.
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub(super) fn run_measurement(
     config: &DynamicalMixedConfig,
     ctx: &DynamicalMixedScanContext<'_>,
@@ -81,7 +85,8 @@ pub(super) fn run_measurement(
             adaptive_check_interval,
             ctx.brain_residual_tx,
             ctx.brain_interrupt_rx,
-        );
+        )
+        .expect("dynamical HMC trajectory");
         let wall_us = traj_start.elapsed().as_micros() as u64;
 
         plaq_vals.push(r.plaquette);

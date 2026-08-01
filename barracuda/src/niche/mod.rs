@@ -31,6 +31,12 @@ use log::{info, warn};
 /// Conventional directory name for ecosystem IPC sockets.
 pub const ECOSYSTEM_SOCKET_DIR: &str = "biomeos";
 
+/// Fallback runtime root when XDG / env overrides are unavailable (NUCLEUS-less).
+pub const FALLBACK_RUN_DIR: &str = "/run";
+
+/// Fallback hostname file when env vars are unset.
+pub const FALLBACK_HOSTNAME_PATH: &str = "/etc/hostname";
+
 /// Default registration target — discovered at runtime, not hardcoded.
 /// Override via `BIOMEOS_PRIMAL` env var for non-standard deployments.
 const REGISTRATION_TARGET: &str = "biomeos";
@@ -102,7 +108,7 @@ pub fn socket_dirs() -> Vec<std::path::PathBuf> {
     }
 
     // Fallback for NUCLEUS-less environments: any primal runtime dir under `/run/`.
-    if let Ok(entries) = std::fs::read_dir("/run") {
+    if let Ok(entries) = std::fs::read_dir(FALLBACK_RUN_DIR) {
         for entry in entries.flatten() {
             let candidate = entry.path().join(ECOSYSTEM_SOCKET_DIR);
             if candidate.is_dir() && !dirs.contains(&candidate) {
@@ -110,7 +116,7 @@ pub fn socket_dirs() -> Vec<std::path::PathBuf> {
             }
         }
     }
-    let run_biomeos = PathBuf::from("/run").join(ECOSYSTEM_SOCKET_DIR);
+    let run_biomeos = PathBuf::from(FALLBACK_RUN_DIR).join(ECOSYSTEM_SOCKET_DIR);
     if run_biomeos.is_dir() && !dirs.contains(&run_biomeos) {
         dirs.push(run_biomeos);
     }
@@ -175,7 +181,9 @@ pub fn hostname() -> String {
     std::env::var("HOSTNAME")
         .or_else(|_| std::env::var("HOST"))
         .or_else(|_| std::env::var("COMPUTERNAME"))
-        .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_string()))
+        .or_else(|_| {
+            std::fs::read_to_string(FALLBACK_HOSTNAME_PATH).map(|s| s.trim().to_string())
+        })
         .unwrap_or_else(|_| "unknown".into())
 }
 
