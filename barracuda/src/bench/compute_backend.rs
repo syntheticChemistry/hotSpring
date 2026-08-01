@@ -24,7 +24,7 @@ pub enum BenchError {
     Config(String),
     /// Runtime failure during benchmark execution.
     #[error("runtime error: {0}")]
-    Runtime(#[from] String),
+    Runtime(String),
 }
 
 impl From<std::io::Error> for BenchError {

@@ -16,6 +16,15 @@ use crate::gpu::GpuF64;
 /// computation. This activates the hand-written df64 force/plaquette/KE shaders,
 /// unlocking 4-6x more effective f64 TFLOPS from the FP32 silicon.
 pub fn substrate_fp64_strategy(gpu: &GpuF64) -> Fp64Strategy {
+    if let Ok(override_val) = std::env::var("HOTSPRING_FP64_STRATEGY") {
+        match override_val.to_lowercase().as_str() {
+            "native" => return Fp64Strategy::Native,
+            "hybrid" => return Fp64Strategy::Hybrid,
+            "concurrent" => {}
+            _ => {}
+        }
+    }
+
     if gpu.full_df64_mode {
         return Fp64Strategy::Hybrid;
     }
