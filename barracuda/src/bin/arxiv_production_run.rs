@@ -176,7 +176,7 @@ fn main() {
 
     let beta = 2.3;
     let n_therm = 200;
-    let n_prod = 500;
+    let n_prod = 200;
 
     let configs: Vec<(&str, [usize; 4])> = vec![("8⁴", [8, 8, 8, 8])];
 
