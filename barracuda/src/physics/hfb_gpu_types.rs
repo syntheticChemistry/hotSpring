@@ -184,7 +184,6 @@ pub fn make_pipeline(
 // ═══════════════════════════════════════════════════════════════════
 
 // Energy pipeline (potential integrands + pairing) when gpu_energy feature is enabled.
-#[allow(dead_code)]
 pub struct GroupResources {
     pub ns: usize,
     pub nr: usize,
@@ -267,24 +266,46 @@ pub struct GroupResources {
     pub ns_wg: u32,
 }
 
-#[allow(dead_code)]
+/// Must match `@workgroup_size(256)` in HFB BCS v² WGSL shaders.
+const BCS_WORKGROUP_SIZE: u32 = 256;
+
 impl GroupResources {
     /// Apply BCS v² → density transformation on GPU.
     ///
     /// Runs `bcs_v2_pipe` then `density_pipe` in sequence.
-    /// Currently a no-op — wire into the SCF loop when BCS is validated.
-    pub fn run_bcs_density_pass(&self, _encoder: &mut wgpu::CommandEncoder) {
-        // Pipeline: bcs_v2_pipe → density_pipe
-        // Inputs: v2_p_buf, v2_n_buf (from BCS solver)
-        // Outputs: rho_p_new_buf, rho_n_new_buf (feed back to SCF)
-        let _ = (
-            &self.v2_p_buf,
-            &self.v2_n_buf,
-            &self.rho_p_new_buf,
-            &self.rho_n_new_buf,
-            &self.bcs_v2_pipe,
-            &self.density_pipe,
-        );
+    /// Inputs: eigenvectors/eigenvalues in BCS bind groups (from solver upload).
+    /// Outputs: `rho_p_new_buf`, `rho_n_new_buf` (consumed by density mixing pass).
+    ///
+    /// `batch_size` is the number of nuclei in this group's active batch (`bn`
+    /// in `hfb_gpu_resident::dispatch`).
+    pub fn run_bcs_density_pass(&self, encoder: &mut wgpu::CommandEncoder, batch_size: u32) {
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("bcs_v2"),
+                timestamp_writes: None,
+            });
+            let ns_wg_bcs = (self.ns as u32).div_ceil(BCS_WORKGROUP_SIZE);
+            pass.set_pipeline(&self.bcs_v2_pipe);
+            pass.set_bind_group(0, &self.density_params_bg, &[]);
+            pass.set_bind_group(1, &self.bcs_p_bg, &[]);
+            pass.dispatch_workgroups(ns_wg_bcs, batch_size, 1);
+            pass.set_bind_group(1, &self.bcs_n_bg, &[]);
+            pass.dispatch_workgroups(ns_wg_bcs, batch_size, 1);
+        }
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("density"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&self.density_pipe);
+            pass.set_bind_group(0, &self.density_params_bg, &[]);
+            pass.set_bind_group(1, &self.bcs_p_read_bg, &[]);
+            pass.set_bind_group(2, &self.density_p_bg, &[]);
+            pass.dispatch_workgroups(self.nr_wg, batch_size, 1);
+            pass.set_bind_group(1, &self.bcs_n_read_bg, &[]);
+            pass.set_bind_group(2, &self.density_n_bg, &[]);
+            pass.dispatch_workgroups(self.nr_wg, batch_size, 1);
+        }
     }
 }
 

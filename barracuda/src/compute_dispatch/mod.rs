@@ -588,7 +588,7 @@ pub fn validate_barrier_shaders(nucleus: &NucleusContext) -> Vec<BarrierShaderVa
 /// Supported workload names:
 /// - `"semf_batch"` — SEMF binding energy for Z/N pairs in `input_data`
 /// - `"vector_add"` — element-wise addition (input split in half)
-/// - `"spmv"` — sparse matrix-vector product (placeholder)
+/// - `"spmv"` — dense matrix-vector product (CPU fallback; sparse GPU via toadStool)
 ///
 /// Returns `None` for unsupported workload names.
 pub fn dispatch_cpu_fallback(workload_name: &str, input_data: &[f64]) -> Option<serde_json::Value> {
@@ -626,12 +626,36 @@ pub fn dispatch_cpu_fallback(workload_name: &str, input_data: &[f64]) -> Option<
             }))
         }
         "spmv" => {
-            // GAP-HS-027: CPU SpMV fallback needs barraCuda sparse module integration.
-            // The sparse module exists upstream but the dispatch interface isn't wired yet.
-            log::warn!(
-                "spmv dispatch deferred (GAP-HS-027) — barraCuda sparse module integration pending"
-            );
-            None
+            // Dense CPU fallback: CSR SpMV data format is not standardized in the
+            // dispatch interface yet. The sparse GPU path goes through toadStool IPC
+            // (barraCuda `WGSL_SPMV_CSR_F64`; see validate_gpu_spmv).
+            //
+            // Layout: [n_rows, n_cols, row-major matrix (n_rows×n_cols), vector (n_cols)]
+            if input_data.len() < 2 {
+                log::warn!("spmv cpu_fallback: input too short (need n_rows, n_cols)");
+                return None;
+            }
+            let n_rows = input_data[0] as usize;
+            let n_cols = input_data[1] as usize;
+            let expected = 2 + n_rows * n_cols + n_cols;
+            if input_data.len() != expected {
+                log::warn!(
+                    "spmv cpu_fallback: expected {expected} elements, got {}",
+                    input_data.len()
+                );
+                return None;
+            }
+            let matrix = &input_data[2..2 + n_rows * n_cols];
+            let vector = &input_data[2 + n_rows * n_cols..];
+            let result: Vec<f64> = matrix
+                .chunks(n_cols)
+                .map(|row| row.iter().zip(vector).map(|(a, b)| a * b).sum())
+                .collect();
+            Some(serde_json::json!({
+                "output": result,
+                "format": "f64_array",
+                "substrate": "cpu_fallback",
+            }))
         }
         _ => None,
     }

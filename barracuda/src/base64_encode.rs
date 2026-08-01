@@ -4,6 +4,8 @@
 //!
 //! Replaces the external `base64` crate with ~50 lines of inline encode/decode.
 
+use thiserror::Error;
+
 const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /// Encode bytes to standard base64 with `=` padding.
@@ -82,16 +84,9 @@ pub fn decode(input: &[u8]) -> Result<Vec<u8>, Base64Error> {
 }
 
 /// Error returned when base64 input contains invalid characters.
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[error("invalid base64 byte: 0x{0:02X}")]
 pub struct Base64Error(pub u8);
-
-impl std::fmt::Display for Base64Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "invalid base64 byte: 0x{:02X}", self.0)
-    }
-}
-
-impl std::error::Error for Base64Error {}
 
 #[cfg(test)]
 mod tests {

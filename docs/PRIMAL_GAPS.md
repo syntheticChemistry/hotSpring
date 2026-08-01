@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026 (created), May 18, 2026 (last audited)
-**Last audited:** Jun 14, 2026 (Wave 113: riboCipher REJECT shipped — unsignalled connections refused with -32002. Legacy fallback code removed (PrefixedStream eliminated). 627 lib tests pass, 0 clippy. strandGate riboCipher: REJECT mode active.)
+**Last audited:** Aug 1, 2026 (Wave 155n post-threshold deep-debt sprint. serve.rs→module split, cazyme-fel refactored, thiserror migration (8 types), 6 .expect() violations→Result propagation, legacy RHMC removed, 3 production stubs completed, hardcoded paths centralized, dead features pruned, naga made optional. 627 lib tests, 0 clippy on lib.)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -109,21 +109,27 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   now include science parity probes comparing local Rust results against
   IPC-routed results within documented tolerances.
 
-### GAP-HS-027: TensorSession Adoption
+### GAP-HS-027: TensorSession Adoption — PARTIALLY RESOLVED
 
 - **Primal:** barraCuda
 - **Severity:** Low
-- **Status:** Active — upstream unblocked (barraCuda Sprint 66 shipped `sub`/`negate`)
+- **Status:** IPC-side wiring complete; local GPU bridge deferred
 - **Description:** barraCuda's `TensorSession` fused multi-op pipeline
-  API is not yet adopted in hotSpring. GPU HMC trajectory (leapfrog +
-  force + gauge update) is the natural first candidate. Sprint 66
-  shipped `TensorSession::sub()` and `TensorSession::negate()`, completing
-  the momentum-update primitives (`p_new = p - dt * force`). IPC batch
-  path (`tensor.batch.submit`) also handles `sub` and `negate` ops.
-  Sprint 64 added GEMM routing with `MatmulPrecision` and tensor-core
-  hints. OOM detection (`is_oom()`, `is_retriable()`) also available.
-- **Action:** Wire `TensorSession` into `gpu_hmc/mod.rs` for a single
-  HMC trajectory as proof-of-concept, using `sub`/`negate` for leapfrog.
+  API has been partially adopted. The IPC dispatch path is wired via
+  `compute_dispatch::fused::FusedPipeline` which supports batched
+  multi-op submission through NUCLEUS IPC (`compute.dispatch.submit_fused`
+  with sequential fallback). The CPU SpMV fallback (previously a
+  placeholder) is now implemented as a dense matvec.
+- **Remaining:** Direct `TensorSession` adoption in `gpu_hmc/mod.rs`
+  for local GPU leapfrog is deferred — the GPU HMC trajectory already
+  uses batched command encoders with GPU-resident CG (zero per-iteration
+  readback). The upstream `TensorSession` API targets generic tensor ops
+  (matmul, relu, softmax), while HMC uses specialized SU(3) WGSL shaders.
+  The performance benefit of re-routing through TensorSession is marginal
+  vs the current batched-encoder approach.
+- **Resolution (Wave 155n):** `dispatch_cpu_fallback("spmv")` completed
+  (dense matvec), `FusedPipeline` IPC bridge verified, `gpu_dot_re`
+  evolved from `f64::NAN` fallback to proper `Result` propagation.
 
 ### GAP-HS-028: LIME/ILDG Zero-Copy I/O — RESOLVED
 
@@ -168,7 +174,15 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 | GAP-HS-023 | No standalone mode | `HOTSPRING_NO_NUCLEUS=1` skips registration and IPC; physics runs locally without biomeOS | Apr 11, 2026 |
 | GAP-HS-024 | Clippy errors in test/bin targets | All `#[cfg(test)]` modules carry `#[allow(clippy::unwrap_used, clippy::expect_used)]`; `cargo clippy --all-targets` clean | Apr 11, 2026 |
 | GAP-HS-025 | 13+ rustdoc warnings | Fixed unresolved links, HTML tags, bare URLs; `cargo doc --lib --no-deps` clean | Apr 11, 2026 |
-| GAP-HS-007 | TensorSession not adopted | Superseded by GAP-HS-027 (now active — barraCuda Sprint 56d) | Apr 11, 2026 |
+| GAP-HS-007 | TensorSession not adopted | Superseded by GAP-HS-027 (now partially resolved — IPC fused pipeline + CPU fallbacks complete) | Apr 11, 2026 |
+| — | serve.rs over 800 LOC | Split into `serve/` module: mod.rs (310L), dispatch.rs (434L), transport.rs (181L), params.rs (56L) | Aug 1, 2026 |
+| — | cazyme-fel/lib.rs over 800 LOC | Split into 12 domain modules. Edition 2021→2024, rust-version 1.87 added. | Aug 1, 2026 |
+| — | Manual error types (8 types) | Migrated to thiserror derive: HotSpringError, SquirrelError, TtmError, Base64Error, TopologyParseError, BenchError, Bar0Error | Aug 1, 2026 |
+| — | .expect() lint violations (6 sites) | resident_cg/brain trajectory functions evolved to `Result<_, HotSpringError>` propagation | Aug 1, 2026 |
+| — | Legacy RHMC dead code | rhmc_shifted_cg.rs removed (226L, zero callers). Legacy re-exports tightened. | Aug 1, 2026 |
+| — | Production stubs (3 sites) | spmv→dense matvec, BCS density→GPU dispatch, gpu_dot_re→Result propagation | Aug 1, 2026 |
+| — | Hardcoded paths | Centralized to niche constants. CAPABILITY_REGISTRY_PATH env override added. | Aug 1, 2026 |
+| — | Dead features/deps | primal-proof removed. naga made optional. mapped_bytes_to_f32 removed. | Aug 1, 2026 |
 | — | Socket naming mismatch | `hotspring_primal` uses `niche::resolve_server_socket()` for family-scoped names | Apr 11, 2026 |
 | — | biomeOS registration not wired | `register_with_target()` called on server startup after socket bind | Apr 11, 2026 |
 | — | barraCuda pin drift | `Cargo.toml` reconciled to `b95e9c59` matching CHANGELOG v0.6.32 | Apr 11, 2026 |

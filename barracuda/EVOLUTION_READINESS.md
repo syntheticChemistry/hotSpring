@@ -3,7 +3,7 @@
 > **Note (June 1, 2026):** This document was last substantively updated during
 > the March 2026 evolution sprint. K80 references are historical (hardware retired
 > Exp 199). Test counts, barraCuda pin versions, and shader counts are stale.
-> **Current status:** v0.6.32, barraCuda v0.4.0, 720/596/1045 lib tests, 154 WGSL
+> **Current status:** v0.6.32, barraCuda v0.4.0, 720/627/1045 lib tests, 154 WGSL
 > shaders, 155 binaries. Post-primordial QCD evolution complete (June 1): 46 lattice
 > shaders rewired to barraCuda, 40 physics+MD shaders absorbed upstream, GPU runtime
 > delegated to barraCuda device API, compute trio validated on hardware (16/19).

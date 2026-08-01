@@ -299,14 +299,20 @@ fn gpu_cg_solve_internal(
         gpu.submit_encoder(enc);
     }
 
-    let b_norm_sq = gpu_dot_re(
+    let b_norm_sq = match gpu_dot_re(
         gpu,
         &pipelines.dot_pipeline,
         &state.dot_buf,
         &state.r_buf,
         &state.r_buf,
         n_pairs,
-    );
+    ) {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("gpu_cg_solve_internal: b_norm_sq readback failed: {e}");
+            return 0;
+        }
+    };
     if b_norm_sq < 1e-30 {
         return 0;
     }
@@ -321,14 +327,20 @@ fn gpu_cg_solve_internal(
         gpu_dirac_dispatch(gpu, pipelines, state, &state.p_buf, &state.temp_buf, 1.0);
         gpu_dirac_dispatch(gpu, pipelines, state, &state.temp_buf, &state.ap_buf, -1.0);
 
-        let p_ap = gpu_dot_re(
+        let p_ap = match gpu_dot_re(
             gpu,
             &pipelines.dot_pipeline,
             &state.dot_buf,
             &state.p_buf,
             &state.ap_buf,
             n_pairs,
-        );
+        ) {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("gpu_cg_solve_internal: p_ap readback failed: {e}");
+                break;
+            }
+        };
         if p_ap.abs() < 1e-30 {
             break;
         }
@@ -351,14 +363,20 @@ fn gpu_cg_solve_internal(
             n_flat,
         );
 
-        let r_norm_sq_new = gpu_dot_re(
+        let r_norm_sq_new = match gpu_dot_re(
             gpu,
             &pipelines.dot_pipeline,
             &state.dot_buf,
             &state.r_buf,
             &state.r_buf,
             n_pairs,
-        );
+        ) {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("gpu_cg_solve_internal: r_norm_sq readback failed: {e}");
+                break;
+            }
+        };
         if r_norm_sq_new < tol_sq {
             break;
         }

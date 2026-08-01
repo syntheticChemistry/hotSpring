@@ -12,6 +12,8 @@
 
 use std::f64::consts::PI;
 
+use thiserror::Error;
+
 // ═══════════════════════════════════════════════════════════════════
 // Physical constants (SI units)
 // ═══════════════════════════════════════════════════════════════════
@@ -243,24 +245,15 @@ pub fn equilibrium_temperature_theory(species: &TtmSpecies) -> f64 {
 }
 
 /// Error type for TTM operations.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum TtmError {
     /// Invalid argument (e.g. Te ≤ 0, ne ≤ 0)
+    #[error("TTM: invalid argument")]
     InvalidArgument,
     /// Integration produced invalid state
+    #[error("TTM: integration failed")]
     IntegrationFailed,
 }
-
-impl std::fmt::Display for TtmError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidArgument => write!(f, "TTM: invalid argument"),
-            Self::IntegrationFailed => write!(f, "TTM: integration failed"),
-        }
-    }
-}
-
-impl std::error::Error for TtmError {}
 
 #[cfg(test)]
 #[expect(clippy::unwrap_used, reason = "tests unwrap known Ok/Err results")]

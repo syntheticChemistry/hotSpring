@@ -406,6 +406,10 @@ fn gpu_total_force_dispatch_brain(
 /// residuals to the NPU cerebellum and checks for interrupt signals at
 /// every batch boundary. Enables real-time monitoring and adaptive
 /// intervention during long CG solves.
+///
+/// # Errors
+///
+/// Returns `GpuCompute` if gauge/KE or plaquette readback fails.
 pub fn gpu_dynamical_hmc_trajectory_brain(
     gpu: &GpuF64,
     streaming_pipelines: &GpuDynHmcStreamingPipelines,
@@ -419,7 +423,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
     check_interval: usize,
     residual_tx: &std::sync::mpsc::Sender<CgResidualUpdate>,
     interrupt_rx: &std::sync::mpsc::Receiver<BrainInterrupt>,
-) -> GpuDynHmcResult {
+) -> Result<GpuDynHmcResult, crate::error::HotSpringError> {
     let vol = state.gauge.volume;
     let n_links = state.gauge.n_links;
     let gs = &state.gauge;
@@ -490,8 +494,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gs,
         &streaming_pipelines.reduce_pipeline,
         &obs,
-    )
-    .expect("gauge_ke_resident readback failed");
+    )?;
     let s_gauge_old = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_sum_old);
     let cg_beta = gs.beta;
     let cg_mass = state.mass;
@@ -569,8 +572,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gs,
         &streaming_pipelines.reduce_pipeline,
         &obs,
-    )
-    .expect("gauge_ke_resident readback failed");
+    )?;
     let s_gauge_new = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_sum_new);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_brain_all(
         gpu,
@@ -611,13 +613,12 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gs,
         &streaming_pipelines.reduce_pipeline,
         &obs,
-    )
-    .expect("plaquette_resident readback failed");
+    )?;
 
-    GpuDynHmcResult {
+    Ok(GpuDynHmcResult {
         accepted,
         delta_h,
         plaquette,
         cg_iterations: total_cg,
-    }
+    })
 }

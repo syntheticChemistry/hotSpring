@@ -300,7 +300,8 @@ fn main() {
                 traj_idx as u32,
                 &mut seed,
                 args.check_interval,
-            );
+            )
+            .expect("dynamical HMC trajectory");
             let wall_us = traj_start.elapsed().as_micros() as u64;
 
             plaq_history.push(r.plaquette);
@@ -355,7 +356,8 @@ fn main() {
                 traj_idx as u32,
                 &mut seed,
                 args.check_interval,
-            );
+            )
+            .expect("dynamical HMC trajectory");
             let wall_us = traj_start.elapsed().as_micros() as u64;
 
             plaq_vals.push(r.plaquette);

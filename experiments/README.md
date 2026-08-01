@@ -101,7 +101,7 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 229 | CATALYST_RM_CHANNEL | validation | ✅ Full end-to-end catalyst handoff. 5 lockup vectors cataloged+fixed. Diesel engine forensics proven. RM channel creation attempted — device_alloc 0x22 |
 | 230 | DIESEL_ABSTRACTION_REVALIDATION | validation | ✅ Diesel engine defense revalidation. Crash protection patterns verified across module cleanup, watchdog, catalyst boot |
 | 231 | K80_CROSSGEN_QUENCH_PROBE | analysis | 🔄 READY — awaiting K80 hardware. Cross-generation quench probe methodology designed |
-| 232 | CRASH_VECTOR_REPROFILE | validation | ✅ Crash vector reprofile. Module cleanup watchdog, catalyst boot watchdog activation. 9175 tests |
+| 232 | CRASH_VECTOR_REPROFILE | validation | ✅ Crash vector reprofile. Module cleanup watchdog, catalyst boot watchdog activation |
 | 233 | HYBRID_RM_DISPATCH | analysis | RM dispatch hybrid approach. device_alloc 0x22 root cause: NOP'd cap system prevents GPU registration in RM device table. Option 5 (os_is_administrator + device registry) analysis |
 | 234 | CATALYST_MINIMAL_NOP | validation | ACTIVE — nvidia_catalyst_minimal_nop patch set. GPU inits (23 engines, firmware captured). Run #6 hard-locked at `rm_trigger → rm_init_adapter` (RM kernel deadlock on cold GPU + double RPC race). Safe caller with file-lock + NMI watchdog deployed. **Pipeline revalidation (S284):** VFIO sovereign dispatch PROVEN on both Titan Vs via local_cylinder. coralReef WGSL→SPIR-V compilation validated. Readback gap identified (GAP-HS-118). See `HOTSPRING_PIPELINE_INTELLIGENCE_JUN01_2026.md` |
 
@@ -220,7 +220,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **720** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **234 experiments**
+- **720** (cylinder) / **627** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **234 experiments**
 
 ## Eukaryotic Evolution (May 2026)
 

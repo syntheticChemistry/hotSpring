@@ -8,6 +8,7 @@ use super::{
     GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuF64, GpuResidentCgBuffers,
     GpuResidentCgPipelines, gpu_polyakov_loop,
 };
+use crate::error::HotSpringError;
 
 /// Observable scalars for the readback stream.
 ///
@@ -127,7 +128,7 @@ impl BidirectionalStream {
         traj_id: u32,
         seed: &mut u64,
         check_interval: usize,
-    ) -> GpuDynHmcResult {
+    ) -> Result<GpuDynHmcResult, HotSpringError> {
         let result = gpu_dynamical_hmc_trajectory_resident(
             gpu,
             streaming_pipelines,
@@ -139,7 +140,7 @@ impl BidirectionalStream {
             traj_id,
             seed,
             check_interval,
-        );
+        )?;
 
         self.trajectories += 1;
         if result.accepted {
@@ -187,7 +188,7 @@ impl BidirectionalStream {
             // NPU screening can influence future trajectory scheduling
         }
 
-        result
+        Ok(result)
     }
 
     /// Acceptance rate so far.

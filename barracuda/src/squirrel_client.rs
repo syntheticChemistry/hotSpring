@@ -15,6 +15,7 @@
 //! barraCuda-side models when appropriate.
 
 use crate::primal_bridge::NucleusContext;
+use thiserror::Error;
 
 const INFERENCE_DOMAIN: &str = "ai";
 
@@ -26,30 +27,18 @@ mod wire {
 }
 
 /// Errors from Squirrel / inference IPC calls.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum SquirrelError {
     /// No alive primal advertising an `inference*` capability was discovered.
+    #[error("inference provider unavailable (no inference capability in NUCLEUS)")]
     Unavailable,
     /// JSON-RPC transport or protocol failure (connect, timeout, parse).
+    #[error("inference IPC: {0}")]
     Ipc(String),
     /// Response parsed but missing `result` or failed schema decode.
+    #[error("inference invalid response: {0}")]
     InvalidResponse(String),
 }
-
-impl std::fmt::Display for SquirrelError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Unavailable => write!(
-                f,
-                "inference provider unavailable (no inference capability in NUCLEUS)"
-            ),
-            Self::Ipc(s) => write!(f, "inference IPC: {s}"),
-            Self::InvalidResponse(s) => write!(f, "inference invalid response: {s}"),
-        }
-    }
-}
-
-impl std::error::Error for SquirrelError {}
 
 fn inference_call(
     ctx: &NucleusContext,
