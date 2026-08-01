@@ -520,6 +520,12 @@ name = "bench_gpu_hmc"
 path = "src/bin/bench_gpu_hmc.rs"
 required-features = ["barracuda-local"]
 
+# ── arXiv production run: plaquette + autocorrelation at β=2.3 ──
+[[bin]]
+name = "arxiv_production_run"
+path = "src/bin/arxiv_production_run.rs"
+required-features = ["barracuda-local"]
+
 # ── GPU β-scan: full temperature sweep entirely on GPU ──
 [[bin]]
 name = "validate_gpu_beta_scan"
