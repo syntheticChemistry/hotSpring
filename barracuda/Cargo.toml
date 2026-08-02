@@ -526,6 +526,12 @@ name = "arxiv_production_run"
 path = "src/bin/arxiv_production_run.rs"
 required-features = ["barracuda-local"]
 
+# ── PRNG polyfill validation: Box-Muller distribution characterization ──
+[[bin]]
+name = "prng_polyfill_validation"
+path = "src/bin/prng_polyfill_validation.rs"
+required-features = ["barracuda-local"]
+
 # ── GPU β-scan: full temperature sweep entirely on GPU ──
 [[bin]]
 name = "validate_gpu_beta_scan"
