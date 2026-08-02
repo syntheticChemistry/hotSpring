@@ -105,7 +105,26 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 233 | HYBRID_RM_DISPATCH | analysis | RM dispatch hybrid approach. device_alloc 0x22 root cause: NOP'd cap system prevents GPU registration in RM device table. Option 5 (os_is_administrator + device registry) analysis |
 | 234 | CATALYST_MINIMAL_NOP | validation | ACTIVE — nvidia_catalyst_minimal_nop patch set. GPU inits (23 engines, firmware captured). Run #6 hard-locked at `rm_trigger → rm_init_adapter` (RM kernel deadlock on cold GPU + double RPC race). Safe caller with file-lock + NMI watchdog deployed. **Pipeline revalidation (S284):** VFIO sovereign dispatch PROVEN on both Titan Vs via local_cylinder. coralReef WGSL→SPIR-V compilation validated. Readback gap identified (GAP-HS-118). See `HOTSPRING_PIPELINE_INTELLIGENCE_JUN01_2026.md` |
 
-> **Note:** 234 experiments total (001–190 archived + 191–234 active).
+> **Note — strandGate era:** Experiments 191–234 ran on strandGate hardware
+> (dual Titan V at 02:00.0/49:00.0). Those results are fossilized as of
+> 2026-08-02 (see `fossilRecord/STRANDGATE_SOVEREIGN_ERA_191_234.md`).
+> biomeGate experiments begin at 235 with no assumptions — different BDFs,
+> different topology, different kernel. We retest everything.
+
+### biomeGate Revalidation Era (235+)
+
+| # | Name | Type | Status |
+|---|------|------|--------|
+| 235 | BIOMEGATE_FLEET_BOOTSTRAP | bootstrap | ✅ toadStool server, BAR0 first contact on 3 VFIO GPUs, PLX bridge pinning, fleet file. K80 fn0 FLR incident documented |
+| 236 | BIOMEGATE_CROSSGEN_QUENCH_PROBE | validation | ✅ **InterruptProfile HARDWARE-PROVEN** on SM37↔SM70. PRE_VOLTA@0x140 R/W + VOLTA_PLUS@0x180 SET/CLEAR. 6/7 PASS (fn0 FLR damage, not abstraction failure) |
+| 237 | BIOMEGATE_RTX5060_SILICON_PROFILE | profiling | ✅ SM100 Blackwell: 15.74 TFLOPS FP32, 338.8 GT/s TMU, 8/8 science, 11/12 capabilities. 43 measurements to toadStool telemetry. First subgroup reduce validation |
+| 238 | BIOMEGATE_K80_WARM_CYCLE | validation | 🔄 PENDING — nouveau blacklisted, requires insmod bypass |
+| 239 | BIOMEGATE_TITANV_CATALYST | validation | 🔄 PENDING — requires nvidia-470 nvsov module + rm_trigger |
+| 240 | BIOMEGATE_TIER2_REVALIDATION | validation | 🔄 PENDING — requires Exp 239 (tpc_alive reproduction) |
+| 241 | BIOMEGATE_CROSSGEN_DISPATCH | validation | 🔄 PENDING — same shader, three GPUs, same physics |
+| 242 | BIOMEGATE_PRODUCTION_HMC_PARITY | validation | 🔄 PENDING — plaquette parity across SM37/SM70/SM100 |
+
+> **Note:** 242 experiments total (001–190 archived + 191–234 strandGate fossilized + 235–242 biomeGate active).
 >
 > **Milestone (June 1, 2026):** First sovereign VFIO shader dispatch in ecoPrimals. coralReef
 > compiles WGSL → SPIR-V (sm_70), toadStool's local_cylinder executes on bare-metal Titan V
