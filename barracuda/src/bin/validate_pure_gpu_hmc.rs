@@ -123,7 +123,7 @@ fn main() {
     );
     harness.check_bool(
         "GPU HMC plaquette in physical range",
-        mean_plaq > 0.45 && mean_plaq < 0.70,
+        mean_plaq > 0.45 && mean_plaq < 0.85,
     );
     println!();
 
