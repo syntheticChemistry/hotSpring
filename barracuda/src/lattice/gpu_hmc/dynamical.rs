@@ -34,10 +34,13 @@ pub const WGSL_XPAY: &str = super::super::cg::WGSL_XPAY_F64;
 
 /// WGSL shared PRNG core (PCG hash → uniform f64).
 const WGSL_PRNG_CORE: &str = WGSL_PRNG_PCG_F64;
-/// WGSL shader: GPU-resident PRNG for SU(3) algebra momenta (ALU path).
-pub static WGSL_RANDOM_MOMENTA: std::sync::LazyLock<String> =
-    std::sync::LazyLock::new(|| format!("{WGSL_PRNG_CORE}\n{WGSL_SU3_RANDOM_MOMENTA_F64}"));
+/// WGSL shader: GPU-resident PRNG for SU(3) algebra momenta.
+/// Uses the standalone shader directly — composing PRNG_CORE + MOMENTA causes
+/// duplicate function definitions (pcg_hash, hash_u32, uniform_f64) that
+/// silently fail on some drivers (all-zero output).
+pub const WGSL_RANDOM_MOMENTA: &str = WGSL_SU3_RANDOM_MOMENTA_F64;
 /// WGSL shader: TMU-accelerated PRNG for SU(3) momenta (Tier 0 silicon routing).
+/// TMU variant still needs PRNG_CORE because it does NOT define its own PRNG functions.
 pub static WGSL_RANDOM_MOMENTA_TMU: std::sync::LazyLock<String> =
     std::sync::LazyLock::new(|| format!("{WGSL_PRNG_CORE}\n{WGSL_SU3_RANDOM_MOMENTA_TMU_F64}"));
 
