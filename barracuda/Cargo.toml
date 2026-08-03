@@ -532,6 +532,12 @@ name = "arxiv_beta_scan"
 path = "src/bin/arxiv_beta_scan.rs"
 required-features = ["barracuda-local"]
 
+# ── arXiv preprint validation: force test + reversibility + multi-seed ──
+[[bin]]
+name = "arxiv_preprint_validation"
+path = "src/bin/arxiv_preprint_validation.rs"
+required-features = ["barracuda-local"]
+
 # ── PRNG polyfill validation: Box-Muller distribution characterization ──
 [[bin]]
 name = "prng_polyfill_validation"
