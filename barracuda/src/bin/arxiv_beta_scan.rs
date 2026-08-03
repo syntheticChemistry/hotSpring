@@ -6,13 +6,20 @@
 //! mean plaquette against published SU(3) Monte Carlo data
 //! (Gattringer & Lang 2010, Creutz 1983, Bali et al. 2000).
 //!
-//! This validates that our Wilson action and HMC implementation
-//! reproduce the known SU(3) phase structure.
+//! Produces a Novel Fermentation Transcript (NFT) via the provenance
+//! trio: rhizoCrypt DAG events per β point, sweetGrass braid for the
+//! full scan, loamSpine ledger entry for permanent record.
+//! Falls back to local JSON receipt when NUCLEUS is unavailable.
 
+use hotspring_barracuda::dag_provenance::{self, DagEvent, DagSession};
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
+use hotspring_barracuda::lattice::measurement::RunManifest;
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::primal_bridge::NucleusContext;
+use serde::Serialize;
 use std::time::Instant;
 
+#[derive(Serialize)]
 struct BetaScanPoint {
     beta: f64,
     mean_plaq: f64,
@@ -207,4 +214,119 @@ fn main() {
     println!();
     println!("  SU(3) pure gauge HMC, 8⁴ lattice, Omelyan 2MN, dt=0.02, N_md=20");
     println!("  {n_therm} thermalization + {n_prod} production trajectories per β");
+
+    // ═══ Novel Fermentation Transcript (NFT) ═══
+    // Braid = input parameters, Fermentation Transcript = computation results
+    println!();
+    println!("═══ Novel Fermentation Transcript (NFT) ═══");
+
+    let manifest = RunManifest::capture("arxiv_beta_scan");
+
+    #[derive(Serialize)]
+    struct BetaScanReceipt {
+        run: RunManifest,
+        experiment_id: String,
+        gauge_group: String,
+        lattice_dims: [usize; 4],
+        n_therm: usize,
+        n_prod: usize,
+        integrator: String,
+        dt: f64,
+        n_md_steps: usize,
+        results: Vec<BetaScanResult>,
+        wall_seconds: f64,
+    }
+
+    #[derive(Serialize)]
+    struct BetaScanResult {
+        beta: f64,
+        plaquette_mean: f64,
+        plaquette_stderr: f64,
+        acceptance_rate: f64,
+        published_reference: Option<f64>,
+        reference_source: String,
+    }
+
+    let receipt_results: Vec<BetaScanResult> = results
+        .iter()
+        .map(|r| BetaScanResult {
+            beta: r.beta,
+            plaquette_mean: r.mean_plaq,
+            plaquette_stderr: r.std_err,
+            acceptance_rate: r.acceptance_rate,
+            published_reference: r.published_plaq,
+            reference_source: r.published_source.to_string(),
+        })
+        .collect();
+
+    let receipt = BetaScanReceipt {
+        run: manifest,
+        experiment_id: "arxiv-su3-beta-scan-8x4".to_string(),
+        gauge_group: "SU(3)".to_string(),
+        lattice_dims: dims,
+        n_therm,
+        n_prod,
+        integrator: "Omelyan 2MN".to_string(),
+        dt: 0.02,
+        n_md_steps: 20,
+        results: receipt_results,
+        wall_seconds: total_s,
+    };
+
+    let receipt_json = serde_json::to_string_pretty(&receipt).unwrap_or_default();
+    let receipt_hash = dag_provenance::blake3_hex(receipt_json.as_bytes());
+
+    // Write local receipt
+    let receipt_path = "arxiv_beta_scan_receipt.json";
+    if let Err(e) = std::fs::write(receipt_path, &receipt_json) {
+        println!("  [WARN] Could not write receipt: {e}");
+    } else {
+        println!("  Receipt written to {receipt_path}");
+        println!("  BLAKE3: {receipt_hash}");
+    }
+
+    // Attempt trio provenance commit if NUCLEUS is available
+    let nucleus = NucleusContext::detect();
+    if nucleus.any_alive() {
+        println!("  NUCLEUS detected ({} primals alive)", nucleus.alive_names().len());
+
+        if let Some(mut dag) = DagSession::begin(&nucleus, "arxiv-su3-beta-scan") {
+            for r in &results {
+                dag.append(
+                    &nucleus,
+                    DagEvent {
+                        phase: format!("beta_{:.1}", r.beta),
+                        input_hash: None,
+                        output_hash: Some(dag_provenance::blake3_hex(
+                            format!("{:.12}", r.mean_plaq).as_bytes(),
+                        )),
+                        wall_seconds: total_s / results.len() as f64,
+                        summary: serde_json::json!({
+                            "beta": r.beta,
+                            "plaquette": r.mean_plaq,
+                            "stderr": r.std_err,
+                            "acceptance": r.acceptance_rate,
+                        }),
+                    },
+                );
+            }
+
+            let provenance = dag.dehydrate(&nucleus);
+
+            if let Some(commit_result) = dag_provenance::commit_provenance(
+                &nucleus,
+                &provenance,
+                "arxiv-su3-beta-scan-8x4",
+                Some("arXiv:hep-lat/ecoPrimals-SU3-pure-gauge"),
+            ) {
+                println!(
+                    "  Trio commit: {}",
+                    serde_json::to_string_pretty(&commit_result).unwrap_or_default()
+                );
+            }
+        }
+    } else {
+        println!("  NUCLEUS not available — local receipt only");
+        println!("  (Run inside NUCLEUS composition for full trio provenance)");
+    }
 }
