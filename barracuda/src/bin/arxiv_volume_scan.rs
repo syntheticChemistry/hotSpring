@@ -83,19 +83,36 @@ fn run_gpu_volume_point(
     source: &'static str,
 ) -> VolumeScanResult {
     let l = dims[0];
-    print!("  {}⁴ β={beta:.1}: ", l);
+    let seed = 42u64;
 
-    // Thermalize on CPU
-    let mut lat = Lattice::hot_start(dims, beta, 42);
-    let cfg = &mut HmcConfig {
-        n_md_steps,
-        dt,
-        seed: 42,
-        integrator: IntegratorType::Omelyan,
+    let cache_dir = Lattice::config_cache_dir();
+    let cache_key = Lattice::cache_key(dims, beta, seed, n_therm, "omelyan");
+    let cache_path = cache_dir.join(format!("{}.lat", &cache_key[..16]));
+
+    let lat = if let Ok(cached) = Lattice::load(&cache_path) {
+        println!("  {}⁴ β={beta:.1}: [CACHE HIT] loaded from {}", l, cache_path.display());
+        cached
+    } else {
+        print!("  {}⁴ β={beta:.1}: [CACHE MISS] thermalizing on CPU ({n_therm} steps)... ", l);
+        let therm_start = Instant::now();
+        let mut lat = Lattice::hot_start(dims, beta, seed);
+        let cfg = &mut HmcConfig {
+            n_md_steps,
+            dt,
+            seed,
+            integrator: IntegratorType::Omelyan,
+        };
+        for _ in 0..n_therm {
+            hmc::hmc_trajectory(&mut lat, cfg);
+        }
+        let therm_secs = therm_start.elapsed().as_secs_f64();
+        println!("{therm_secs:.1}s");
+
+        if let Ok(hash) = lat.save(&cache_path) {
+            println!("    [CACHED] {} → hash={}", cache_path.display(), &hash.to_hex()[..16]);
+        }
+        lat
     };
-    for _ in 0..n_therm {
-        hmc::hmc_trajectory(&mut lat, cfg);
-    }
 
     // Upload to GPU
     let state = GpuHmcState::from_lattice(gpu, &lat, beta);
@@ -166,31 +183,37 @@ fn main() {
     let total_start = Instant::now();
     let mut results: Vec<VolumeScanResult> = Vec::new();
 
-    // ═══ 12⁴ lattice ═══
-    // Published data: Guagnelli-Luscher-Sommer 1998, Necco-Sommer 2002, Bali 2000
-    println!("═══ 12⁴ Lattice (20,736 sites) ═══");
-    println!("  Params: 200 therm + 1000 prod, dt=0.015, N_md=30");
-    println!();
+    let skip_12 = std::env::var("SKIP_12").is_ok();
+    let skip_24 = std::env::var("SKIP_24").is_ok();
 
-    let scan_12 = [
-        (5.7, Some(0.5464), "NS02"),
-        (5.8, Some(0.5544), "NS02"),
-        (5.9, Some(0.5637), "GLS98"),
-        (6.0, Some(0.5934), "GL98"),
-        (6.2, Some(0.6136), "B00"),
-    ];
+    if !skip_12 {
+        // ═══ 12⁴ lattice ═══
+        println!("═══ 12⁴ Lattice (20,736 sites) ═══");
+        println!("  Params: 200 therm + 1000 prod, dt=0.015, N_md=30");
+        println!();
 
-    for &(beta, published, source) in &scan_12 {
-        let r = run_gpu_volume_point(&gpu, &pipelines, [12, 12, 12, 12], beta,
-            200, 1000, 0.015, 30, published, source);
-        results.push(r);
+        let scan_12 = [
+            (5.7, Some(0.5464), "NS02"),
+            (5.8, Some(0.5544), "NS02"),
+            (5.9, Some(0.5637), "GLS98"),
+            (6.0, Some(0.5934), "GL98"),
+            (6.2, Some(0.6136), "B00"),
+        ];
+
+        for &(beta, published, source) in &scan_12 {
+            let r = run_gpu_volume_point(&gpu, &pipelines, [12, 12, 12, 12], beta,
+                200, 1000, 0.015, 30, published, source);
+            results.push(r);
+        }
+        println!();
+    } else {
+        println!("  [SKIP] 12⁴ — already completed, set SKIP_12 to skip");
+        println!();
     }
-
-    println!();
 
     // ═══ 16⁴ lattice ═══
     println!("═══ 16⁴ Lattice (65,536 sites) ═══");
-    println!("  Params: 500 therm + 2000 prod, dt=0.01, N_md=40");
+    println!("  Params: 200 therm + 1000 prod, dt=0.01, N_md=40");
     println!();
 
     let scan_16 = [
@@ -200,26 +223,36 @@ fn main() {
     ];
 
     for &(beta, published, source) in &scan_16 {
+        println!("  Starting {}⁴ β={:.1} (CPU thermalization: 200 steps)...", 16, beta);
+        let therm_start = Instant::now();
         let r = run_gpu_volume_point(&gpu, &pipelines, [16, 16, 16, 16], beta,
-            500, 2000, 0.01, 40, published, source);
+            200, 1000, 0.01, 40, published, source);
+        println!("  Completed in {:.1}s", therm_start.elapsed().as_secs_f64());
         results.push(r);
     }
 
     println!();
 
-    // ═══ 24⁴ lattice (stretch) ═══
-    println!("═══ 24⁴ Lattice (331,776 sites) ═══");
-    println!("  Params: 500 therm + 1000 prod, dt=0.008, N_md=50");
-    println!();
+    if !skip_24 {
+        // ═══ 24⁴ lattice (stretch) ═══
+        println!("═══ 24⁴ Lattice (331,776 sites) ═══");
+        println!("  Params: 200 therm + 500 prod, dt=0.008, N_md=50");
+        println!();
 
-    let scan_24 = [
-        (6.0, Some(0.5934), "GL98"),
-    ];
+        let scan_24 = [
+            (6.0, Some(0.5934), "GL98"),
+        ];
 
-    for &(beta, published, source) in &scan_24 {
-        let r = run_gpu_volume_point(&gpu, &pipelines, [24, 24, 24, 24], beta,
-            500, 1000, 0.008, 50, published, source);
-        results.push(r);
+        for &(beta, published, source) in &scan_24 {
+            println!("  Starting {}⁴ β={:.1} (CPU thermalization: 200 steps)...", 24, beta);
+            let therm_start = Instant::now();
+            let r = run_gpu_volume_point(&gpu, &pipelines, [24, 24, 24, 24], beta,
+                200, 500, 0.008, 50, published, source);
+            println!("  Completed in {:.1}s", therm_start.elapsed().as_secs_f64());
+            results.push(r);
+        }
+    } else {
+        println!("  [SKIP] 24⁴ — set SKIP_24 to skip");
     }
 
     // ═══ Summary ═══
