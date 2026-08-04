@@ -538,6 +538,12 @@ name = "arxiv_preprint_validation"
 path = "src/bin/arxiv_preprint_validation.rs"
 required-features = ["barracuda-local"]
 
+# ── arXiv volume scan: 12⁴/16⁴/24⁴ GPU production runs ──
+[[bin]]
+name = "arxiv_volume_scan"
+path = "src/bin/arxiv_volume_scan.rs"
+required-features = ["barracuda-local"]
+
 # ── PRNG polyfill validation: Box-Muller distribution characterization ──
 [[bin]]
 name = "prng_polyfill_validation"
