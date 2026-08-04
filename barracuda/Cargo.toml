@@ -551,6 +551,12 @@ name = "arxiv_thermalize_grid"
 path = "src/bin/arxiv_thermalize_grid.rs"
 required-features = ["barracuda-local"]
 
+# ── Dual-GPU volume scan: cross-vendor parity from config cache ──
+[[bin]]
+name = "arxiv_dual_gpu_scan"
+path = "src/bin/arxiv_dual_gpu_scan.rs"
+required-features = ["barracuda-local"]
+
 # ── PRNG polyfill validation: Box-Muller distribution characterization ──
 [[bin]]
 name = "prng_polyfill_validation"
