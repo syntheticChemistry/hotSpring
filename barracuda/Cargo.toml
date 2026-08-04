@@ -166,6 +166,7 @@ primalspring = { path = "../../primalSpring/ecoPrimal" }
 # Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries; optional)
 rustix = { version = "1.1", optional = true, features = ["mm", "net"] }
 cudarc = { version = "0.19.4", features = ["driver", "cuda-12060", "nvrtc"], optional = true }
+dirs = "6.0.0"
 
 # ── L1 validation (NMP-constrained, Pareto sweep, multi-seed) ──────
 [[bin]]
@@ -542,6 +543,12 @@ required-features = ["barracuda-local"]
 [[bin]]
 name = "arxiv_volume_scan"
 path = "src/bin/arxiv_volume_scan.rs"
+required-features = ["barracuda-local"]
+
+# ── Parallel CPU thermalizer: config cache producer ──
+[[bin]]
+name = "arxiv_thermalize_grid"
+path = "src/bin/arxiv_thermalize_grid.rs"
 required-features = ["barracuda-local"]
 
 # ── PRNG polyfill validation: Box-Muller distribution characterization ──

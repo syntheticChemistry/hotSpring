@@ -18,6 +18,9 @@
 //! - Wilson, PRD 10, 2445 (1974) — original formulation
 //! - Gattringer & Lang, "QCD on the Lattice" (2010), Ch. 3
 
+use std::io;
+use std::path::Path;
+
 use super::complex_f64::Complex64;
 use super::su3::Su3Matrix;
 
@@ -354,6 +357,105 @@ impl Lattice {
     #[must_use]
     pub fn average_wilson_loop(&self, r: usize, t: usize) -> f64 {
         self.spatial_temporal_wilson_loop(r, t)
+    }
+
+    /// Content-addressed cache key for this lattice's thermalization parameters.
+    ///
+    /// The key depends on (dims, beta, seed, n_therm, integrator) — everything
+    /// that determines the thermalized state. Two runs with the same key produce
+    /// identical configurations (deterministic CPU HMC).
+    #[must_use]
+    pub fn cache_key(dims: [usize; 4], beta: f64, seed: u64, n_therm: usize, integrator: &str) -> String {
+        let input = format!(
+            "{}x{}x{}x{}_b{:.6}_s{}_t{}_{}",
+            dims[0], dims[1], dims[2], dims[3], beta, seed, n_therm, integrator
+        );
+        let hash = blake3::hash(input.as_bytes());
+        format!("{}", hash.to_hex())
+    }
+
+    /// Save lattice configuration to disk with BLAKE3 content hash.
+    ///
+    /// File format: 32-byte header (dims as 4×u64 LE + beta as f64 LE)
+    /// followed by raw f64 link data in flatten_links layout.
+    /// Returns the BLAKE3 hash of the link data.
+    pub fn save(&self, path: &Path) -> io::Result<blake3::Hash> {
+        let vol = self.volume();
+        let n_f64 = vol * 4 * 18;
+        let mut buf = Vec::with_capacity(40 + n_f64 * 8);
+
+        for &d in &self.dims {
+            buf.extend_from_slice(&(d as u64).to_le_bytes());
+        }
+        buf.extend_from_slice(&self.beta.to_le_bytes());
+
+        for link in &self.links {
+            for row in 0..3 {
+                for col in 0..3 {
+                    buf.extend_from_slice(&link.m[row][col].re.to_le_bytes());
+                    buf.extend_from_slice(&link.m[row][col].im.to_le_bytes());
+                }
+            }
+        }
+
+        let hash = blake3::hash(&buf[40..]);
+        std::fs::write(path, &buf)?;
+        Ok(hash)
+    }
+
+    /// Load lattice configuration from disk and verify integrity.
+    pub fn load(path: &Path) -> io::Result<Self> {
+        let buf = std::fs::read(path)?;
+        if buf.len() < 40 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "file too short"));
+        }
+
+        let dims = [
+            u64::from_le_bytes(buf[0..8].try_into().unwrap()) as usize,
+            u64::from_le_bytes(buf[8..16].try_into().unwrap()) as usize,
+            u64::from_le_bytes(buf[16..24].try_into().unwrap()) as usize,
+            u64::from_le_bytes(buf[24..32].try_into().unwrap()) as usize,
+        ];
+        let beta = f64::from_le_bytes(buf[32..40].try_into().unwrap());
+
+        let vol = dims[0] * dims[1] * dims[2] * dims[3];
+        let n_links = vol * 4;
+        let expected_bytes = 40 + n_links * 18 * 8;
+        if buf.len() != expected_bytes {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("expected {} bytes, got {}", expected_bytes, buf.len()),
+            ));
+        }
+
+        let mut links = Vec::with_capacity(n_links);
+        let data = &buf[40..];
+        for i in 0..n_links {
+            let base = i * 18 * 8;
+            let mut m = [[Complex64::new(0.0, 0.0); 3]; 3];
+            for row in 0..3 {
+                for col in 0..3 {
+                    let off = base + (row * 6 + col * 2) * 8;
+                    let re = f64::from_le_bytes(data[off..off + 8].try_into().unwrap());
+                    let im = f64::from_le_bytes(data[off + 8..off + 16].try_into().unwrap());
+                    m[row][col] = Complex64::new(re, im);
+                }
+            }
+            links.push(Su3Matrix { m });
+        }
+
+        Ok(Self { dims, links, beta })
+    }
+
+    /// Default directory for cached thermalized configurations.
+    #[must_use]
+    pub fn config_cache_dir() -> std::path::PathBuf {
+        let dir = dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("hotspring")
+            .join("configs");
+        let _ = std::fs::create_dir_all(&dir);
+        dir
     }
 }
 
