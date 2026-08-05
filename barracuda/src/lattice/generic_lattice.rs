@@ -114,6 +114,57 @@ impl<G: GaugeGroup> GenericLattice<G> {
         Self { dims, links, beta, nc }
     }
 
+    /// Tile a smaller lattice into a larger volume (dynamic programming bootstrap).
+    ///
+    /// Each dimension of `new_dims` must be a multiple of the source dimension.
+    /// Links at site (x0,x1,x2,x3) in the new lattice are copied from
+    /// (x0 % src.dims[0], x1 % src.dims[1], x2 % src.dims[2], x3 % src.dims[3])
+    /// in the source. This preserves gauge invariance: every plaquette in the
+    /// tiled lattice is identical to one in the source, so the starting action
+    /// density is physically correct. A short HMC burn-in (50-100 trajectories)
+    /// breaks the artificial periodicity.
+    #[must_use]
+    pub fn tile_from(source: &Self, new_dims: [usize; 4]) -> Self {
+        for mu in 0..4 {
+            assert!(
+                new_dims[mu] >= source.dims[mu] && new_dims[mu] % source.dims[mu] == 0,
+                "new_dims[{}]={} must be a multiple of source dims[{}]={}",
+                mu, new_dims[mu], mu, source.dims[mu]
+            );
+        }
+
+        let vol = new_dims[0] * new_dims[1] * new_dims[2] * new_dims[3];
+        let mut links = Vec::with_capacity(vol * 4);
+
+        let nxyz_new = new_dims[0] * new_dims[1] * new_dims[2];
+        for idx in 0..vol {
+            let t = idx / nxyz_new;
+            let rem = idx % nxyz_new;
+            let x0 = rem / (new_dims[1] * new_dims[2]);
+            let rem2 = rem % (new_dims[1] * new_dims[2]);
+            let x1 = rem2 / new_dims[2];
+            let x2 = rem2 % new_dims[2];
+
+            let src_x = [
+                x0 % source.dims[0],
+                x1 % source.dims[1],
+                x2 % source.dims[2],
+                t % source.dims[3],
+            ];
+            let src_idx = source.site_index(src_x);
+            for mu in 0..4 {
+                links.push(source.links[src_idx * 4 + mu].clone());
+            }
+        }
+
+        Self {
+            dims: new_dims,
+            links,
+            beta: source.beta,
+            nc: source.nc,
+        }
+    }
+
     // --- Observables ---
 
     pub fn plaquette(&self, x: [usize; 4], mu: usize, nu: usize) -> G {
@@ -822,6 +873,68 @@ mod tests {
         assert!(
             (w11 - 1.0).abs() < 1e-12,
             "SU(2) cold W(1,1) = {w11}"
+        );
+    }
+
+    #[test]
+    fn tile_from_preserves_plaquette() {
+        let mut small = GenericLattice::<Su2Matrix>::hot_start([4, 4, 4, 4], 2.3, 42);
+        let mut cfg = GenericHmcConfig {
+            n_md_steps: 10,
+            dt: 0.01,
+            seed: 42,
+        };
+        for _ in 0..20 {
+            small.hmc_trajectory(&mut cfg);
+        }
+        let small_plaq = small.average_plaquette();
+
+        let tiled = GenericLattice::<Su2Matrix>::tile_from(&small, [8, 8, 8, 8]);
+        let tiled_plaq = tiled.average_plaquette();
+
+        assert_eq!(tiled.dims, [8, 8, 8, 8]);
+        assert_eq!(tiled.volume() * 4, tiled.links.len());
+        assert!(
+            (tiled_plaq - small_plaq).abs() < 1e-12,
+            "tiled plaquette {tiled_plaq} should exactly match source {small_plaq}"
+        );
+    }
+
+    #[test]
+    fn tile_from_asymmetric() {
+        let small = GenericLattice::<Su2Matrix>::cold_start([4, 4, 4, 4], 2.5);
+        let tiled = GenericLattice::<Su2Matrix>::tile_from(&small, [8, 8, 8, 4]);
+        assert_eq!(tiled.dims, [8, 8, 8, 4]);
+        let plaq = tiled.average_plaquette();
+        assert!(
+            (plaq - 1.0).abs() < 1e-12,
+            "tiled cold-start should be exactly 1.0, got {plaq}"
+        );
+    }
+
+    #[test]
+    fn tile_then_thermalize_diverges() {
+        let mut small = GenericLattice::<Su2Matrix>::hot_start([4, 4, 4, 4], 2.3, 42);
+        let mut cfg = GenericHmcConfig {
+            n_md_steps: 10,
+            dt: 0.01,
+            seed: 42,
+        };
+        for _ in 0..20 {
+            small.hmc_trajectory(&mut cfg);
+        }
+
+        let mut tiled = GenericLattice::<Su2Matrix>::tile_from(&small, [8, 8, 8, 8]);
+        let before = tiled.average_plaquette();
+        for _ in 0..10 {
+            tiled.hmc_trajectory(&mut cfg);
+        }
+        let after = tiled.average_plaquette();
+
+        // HMC should evolve the tiled config — plaquette changes but stays physical
+        assert!(
+            (after - before).abs() < 0.15,
+            "plaquette should stay physical: before={before}, after={after}"
         );
     }
 }

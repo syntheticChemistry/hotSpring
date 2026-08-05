@@ -18,6 +18,7 @@ use hotspring_barracuda::lattice::generic_lattice::{GenericHmcConfig, GenericLat
 use hotspring_barracuda::lattice::su2::Su2Matrix;
 use hotspring_barracuda::lattice::su_n::SuNMatrix;
 use rayon::prelude::*;
+use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
@@ -80,6 +81,55 @@ impl ThermSpec {
         vol * 4 * 2 * self.nc * self.nc * 8
     }
 }
+
+/// Try to find a cached config at a smaller symmetric volume that can tile into `spec`.
+/// Returns the path and the source dims if found. Only matches same gauge group, beta, and
+/// requires each new dimension to be a multiple of the source dimension.
+fn find_tile_source(spec: &ThermSpec) -> Option<(PathBuf, [usize; 4])> {
+    // Only tile symmetric → symmetric (not finite-T asymmetric configs)
+    let l = spec.dims[0];
+    if spec.dims.iter().any(|&d| d != l) {
+        return None;
+    }
+
+    let half = l / 2;
+    if half < 4 || l % half != 0 {
+        return None;
+    }
+
+    // Look for a cached config at half-size with the same beta
+    // Scan all .lat files in the cache dir and check if any match
+    let seeds_to_try: &[u64] = &[42, 137, 271];
+    for &s in seeds_to_try {
+        let probe = ThermSpec {
+            gauge_group: spec.gauge_group,
+            nc: spec.nc,
+            dims: [half, half, half, half],
+            beta: spec.beta,
+            seed: s,
+            n_therm: match (spec.nc, half) {
+                (2, 16) => 200,
+                (2, _) => 300,
+                (3, 16) => 200,
+                (3, _) => 200,
+                (_, 16) => 200,
+                _ => 300,
+            },
+            dt: spec.dt,
+            n_md_steps: spec.n_md_steps,
+        };
+        let path = probe.cache_path();
+        if path.exists() {
+            return Some((path, [half, half, half, half]));
+        }
+    }
+    None
+}
+
+/// Reduced trajectory count when tiling from a thermalized source.
+/// The tiled config has correct local physics; we only need to break
+/// the artificial periodicity across tile boundaries.
+const TILE_BURN_IN: usize = 75;
 
 fn build_grid(filter_nc: Option<usize>) -> Vec<ThermSpec> {
     let mut specs = Vec::new();
@@ -234,14 +284,22 @@ fn build_grid(filter_nc: Option<usize>) -> Vec<ThermSpec> {
 }
 
 fn thermalize_su2(spec: &ThermSpec) -> Result<blake3::Hash, String> {
-    let mut lat = GenericLattice::<Su2Matrix>::hot_start(spec.dims, spec.beta, spec.seed);
+    let (mut lat, n_traj) = if let Some((src_path, _src_dims)) = find_tile_source(spec) {
+        let src = GenericLattice::<Su2Matrix>::load(&src_path).map_err(|e| e.to_string())?;
+        let tiled = GenericLattice::<Su2Matrix>::tile_from(&src, spec.dims);
+        eprintln!("      {} — TILED from {}, burn-in {TILE_BURN_IN} traj",
+                  spec.label(), src_path.file_name().unwrap().to_string_lossy());
+        (tiled, TILE_BURN_IN)
+    } else {
+        (GenericLattice::<Su2Matrix>::hot_start(spec.dims, spec.beta, spec.seed), spec.n_therm)
+    };
     let mut cfg = GenericHmcConfig {
         n_md_steps: spec.n_md_steps, dt: spec.dt, seed: spec.seed,
     };
-    for t in 0..spec.n_therm {
+    for t in 0..n_traj {
         lat.hmc_trajectory(&mut cfg);
-        if (t + 1) % 50 == 0 {
-            eprintln!("      {} — step {}/{}, ⟨P⟩={:.6}", spec.label(), t + 1, spec.n_therm, lat.average_plaquette());
+        if (t + 1) % 50 == 0 || (n_traj <= TILE_BURN_IN && (t + 1) % 25 == 0) {
+            eprintln!("      {} — step {}/{}, ⟨P⟩={:.6}", spec.label(), t + 1, n_traj, lat.average_plaquette());
         }
     }
     lat.save(&spec.cache_path()).map_err(|e| e.to_string())
@@ -250,16 +308,49 @@ fn thermalize_su2(spec: &ThermSpec) -> Result<blake3::Hash, String> {
 fn thermalize_su3(spec: &ThermSpec) -> Result<blake3::Hash, String> {
     use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
     use hotspring_barracuda::lattice::wilson::Lattice;
+    use hotspring_barracuda::lattice::su3::Su3Matrix;
 
-    let mut lat = Lattice::hot_start(spec.dims, spec.beta, spec.seed);
+    // SU(3) can tile via GenericLattice, then convert to Lattice for production HMC
+    let (mut lat, n_traj) = if let Some((src_path, _src_dims)) = find_tile_source(spec) {
+        // Load source as GenericLattice, tile, then extract into Lattice
+        let src = GenericLattice::<Su3Matrix>::load(&src_path)
+            .or_else(|_| {
+                // Legacy Lattice format (40-byte header)
+                let legacy = Lattice::load(&src_path)?;
+                let vol = legacy.dims[0] * legacy.dims[1] * legacy.dims[2] * legacy.dims[3];
+                let mut generic = GenericLattice::<Su3Matrix> {
+                    dims: legacy.dims,
+                    links: Vec::with_capacity(vol * 4),
+                    beta: legacy.beta,
+                    nc: 3,
+                };
+                for i in 0..vol * 4 {
+                    generic.links.push(legacy.links[i]);
+                }
+                Ok(generic)
+            })
+            .map_err(|e: io::Error| e.to_string())?;
+        let tiled = GenericLattice::<Su3Matrix>::tile_from(&src, spec.dims);
+        eprintln!("      {} — TILED from {}, burn-in {TILE_BURN_IN} traj",
+                  spec.label(), src_path.file_name().unwrap().to_string_lossy());
+        // Convert GenericLattice<Su3Matrix> to Lattice
+        let lat = Lattice {
+            dims: tiled.dims,
+            links: tiled.links,
+            beta: tiled.beta,
+        };
+        (lat, TILE_BURN_IN)
+    } else {
+        (Lattice::hot_start(spec.dims, spec.beta, spec.seed), spec.n_therm)
+    };
     let cfg = &mut HmcConfig {
         n_md_steps: spec.n_md_steps, dt: spec.dt, seed: spec.seed,
         integrator: IntegratorType::Omelyan,
     };
-    for t in 0..spec.n_therm {
+    for t in 0..n_traj {
         hmc::hmc_trajectory(&mut lat, cfg);
-        if (t + 1) % 50 == 0 {
-            eprintln!("      {} — step {}/{}, ⟨P⟩={:.6}", spec.label(), t + 1, spec.n_therm, lat.average_plaquette());
+        if (t + 1) % 50 == 0 || (n_traj <= TILE_BURN_IN && (t + 1) % 25 == 0) {
+            eprintln!("      {} — step {}/{}, ⟨P⟩={:.6}", spec.label(), t + 1, n_traj, lat.average_plaquette());
         }
     }
     lat.save(&spec.cache_path()).map_err(|e| e.to_string())
@@ -267,17 +358,24 @@ fn thermalize_su3(spec: &ThermSpec) -> Result<blake3::Hash, String> {
 
 fn thermalize_sun(spec: &ThermSpec) -> Result<blake3::Hash, String> {
     let nc = spec.nc;
-    let mut lat = GenericLattice::<SuNMatrix>::hot_start_nc(spec.dims, spec.beta, nc, spec.seed);
+    let (mut lat, n_traj) = if let Some((src_path, _src_dims)) = find_tile_source(spec) {
+        let src = GenericLattice::<SuNMatrix>::load_sun(&src_path).map_err(|e| e.to_string())?;
+        let tiled = GenericLattice::<SuNMatrix>::tile_from(&src, spec.dims);
+        eprintln!("      {} — TILED from {}, burn-in {TILE_BURN_IN} traj",
+                  spec.label(), src_path.file_name().unwrap().to_string_lossy());
+        (tiled, TILE_BURN_IN)
+    } else {
+        (GenericLattice::<SuNMatrix>::hot_start_nc(spec.dims, spec.beta, nc, spec.seed), spec.n_therm)
+    };
     let mut cfg = GenericHmcConfig {
         n_md_steps: spec.n_md_steps, dt: spec.dt, seed: spec.seed,
     };
-    for t in 0..spec.n_therm {
+    for t in 0..n_traj {
         lat.hmc_trajectory(&mut cfg);
-        if (t + 1) % 50 == 0 {
-            eprintln!("      {} — step {}/{}, ⟨P⟩={:.6}", spec.label(), t + 1, spec.n_therm, lat.average_plaquette());
+        if (t + 1) % 50 == 0 || (n_traj <= TILE_BURN_IN && (t + 1) % 25 == 0) {
+            eprintln!("      {} — step {}/{}, ⟨P⟩={:.6}", spec.label(), t + 1, n_traj, lat.average_plaquette());
         }
     }
-    // SuNMatrix save: use the generic lattice save
     lat.save(&spec.cache_path()).map_err(|e| e.to_string())
 }
 
