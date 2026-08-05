@@ -76,8 +76,16 @@ pub mod pseudofermion;
 pub mod qcdml;
 /// Rational HMC for fractional determinant powers (Nf=2, 2+1).
 pub mod rhmc;
+/// Gauge group trait: abstract SU(N) operations for generic lattice code.
+pub mod gauge_group;
+/// Generic SU(N) lattice: Wilson action, HMC, and observables for any GaugeGroup.
+pub mod generic_lattice;
+/// SU(2) 2x2 complex matrix operations.
+pub mod su2;
 /// SU(3) 3x3 complex matrix operations (group, algebra, Cayley).
 pub mod su3;
+/// Generic SU(N) for N=4,5,6,8 via heap-allocated NxN matrices.
+pub mod su_n;
 /// Task matrix: systematic parameter sweeps with priority scheduling.
 pub mod task_matrix;
 /// Sovereign trio GPU backend for lattice HMC (coralReef + toadStool IPC).

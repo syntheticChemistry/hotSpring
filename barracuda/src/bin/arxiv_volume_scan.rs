@@ -88,9 +88,11 @@ fn run_gpu_volume_point(
     let cache_dir = Lattice::config_cache_dir();
     let cache_key = Lattice::cache_key(dims, beta, seed, n_therm, "omelyan");
     let cache_path = cache_dir.join(format!("{}.lat", &cache_key[..16]));
+    let legacy_key = Lattice::legacy_cache_key(dims, beta, seed, n_therm, "omelyan");
+    let legacy_path = Lattice::config_cache_root().join(format!("{}.lat", &legacy_key[..16]));
 
-    let lat = if let Ok(cached) = Lattice::load(&cache_path) {
-        println!("  {}⁴ β={beta:.1}: [CACHE HIT] loaded from {}", l, cache_path.display());
+    let lat = if let Ok(cached) = Lattice::load(&cache_path).or_else(|_| Lattice::load(&legacy_path)) {
+        println!("  {}⁴ β={beta:.1}: [CACHE HIT] loaded", l);
         cached
     } else {
         print!("  {}⁴ β={beta:.1}: [CACHE MISS] thermalizing on CPU ({n_therm} steps)... ", l);

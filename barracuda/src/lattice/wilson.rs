@@ -359,19 +359,79 @@ impl Lattice {
         self.spatial_temporal_wilson_loop(r, t)
     }
 
+    /// Creutz ratio χ(R,T) = -ln(W(R,T) * W(R-1,T-1) / (W(R,T-1) * W(R-1,T))).
+    ///
+    /// Converges to the string tension σa² for large R,T. Requires R ≥ 2, T ≥ 2.
+    #[must_use]
+    pub fn creutz_ratio(&self, r: usize, t: usize) -> Option<f64> {
+        if r < 2 || t < 2 {
+            return None;
+        }
+        let w_rt = self.spatial_temporal_wilson_loop(r, t);
+        let w_r1t1 = self.spatial_temporal_wilson_loop(r - 1, t - 1);
+        let w_rt1 = self.spatial_temporal_wilson_loop(r, t - 1);
+        let w_r1t = self.spatial_temporal_wilson_loop(r - 1, t);
+
+        let numer = w_rt * w_r1t1;
+        let denom = w_rt1 * w_r1t;
+
+        if denom <= 0.0 || numer <= 0.0 {
+            return None;
+        }
+        Some(-(numer / denom).ln())
+    }
+
     /// Content-addressed cache key for this lattice's thermalization parameters.
     ///
-    /// The key depends on (dims, beta, seed, n_therm, integrator) — everything
-    /// that determines the thermalized state. Two runs with the same key produce
-    /// identical configurations (deterministic CPU HMC).
+    /// The key depends on (gauge_group, dims, beta, seed, n_therm, integrator) —
+    /// everything that determines the thermalized state. Two runs with the same
+    /// key produce identical configurations (deterministic CPU HMC).
+    ///
+    /// Gauge group is included so SU(2), SU(3), and future groups coexist
+    /// in the same cache without collision.
     #[must_use]
     pub fn cache_key(dims: [usize; 4], beta: f64, seed: u64, n_therm: usize, integrator: &str) -> String {
+        Self::cache_key_with_group("su3", dims, beta, seed, n_therm, integrator)
+    }
+
+    /// Cache key with explicit gauge group tag.
+    #[must_use]
+    pub fn cache_key_with_group(
+        gauge_group: &str,
+        dims: [usize; 4],
+        beta: f64,
+        seed: u64,
+        n_therm: usize,
+        integrator: &str,
+    ) -> String {
         let input = format!(
-            "{}x{}x{}x{}_b{:.6}_s{}_t{}_{}",
-            dims[0], dims[1], dims[2], dims[3], beta, seed, n_therm, integrator
+            "{gauge_group}_{}x{}x{}x{}_b{beta:.6}_s{seed}_t{n_therm}_{integrator}",
+            dims[0], dims[1], dims[2], dims[3],
         );
         let hash = blake3::hash(input.as_bytes());
         format!("{}", hash.to_hex())
+    }
+
+    /// Legacy cache key (pre-gauge-group era). Used for migration lookups.
+    #[must_use]
+    pub fn legacy_cache_key(dims: [usize; 4], beta: f64, seed: u64, n_therm: usize, integrator: &str) -> String {
+        let input = format!(
+            "{}x{}x{}x{}_b{beta:.6}_s{seed}_t{n_therm}_{integrator}",
+            dims[0], dims[1], dims[2], dims[3],
+        );
+        let hash = blake3::hash(input.as_bytes());
+        format!("{}", hash.to_hex())
+    }
+
+    /// Root cache directory (parent of gauge group subdirs).
+    #[must_use]
+    pub fn config_cache_root() -> std::path::PathBuf {
+        let dir = dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("hotspring")
+            .join("configs");
+        let _ = std::fs::create_dir_all(&dir);
+        dir
     }
 
     /// Save lattice configuration to disk with BLAKE3 content hash.
@@ -450,10 +510,17 @@ impl Lattice {
     /// Default directory for cached thermalized configurations.
     #[must_use]
     pub fn config_cache_dir() -> std::path::PathBuf {
+        Self::config_cache_dir_for("su3")
+    }
+
+    /// Cache directory for a specific gauge group.
+    #[must_use]
+    pub fn config_cache_dir_for(gauge_group: &str) -> std::path::PathBuf {
         let dir = dirs::data_local_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("."))
             .join("hotspring")
-            .join("configs");
+            .join("configs")
+            .join(gauge_group);
         let _ = std::fs::create_dir_all(&dir);
         dir
     }
