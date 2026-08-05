@@ -705,6 +705,12 @@ name = "sun_npu_monitor"
 path = "src/bin/sun_npu_monitor.rs"
 required-features = ["barracuda-local"]
 
+# ── SU(N) NPU MetalForge: comprehensive phase classification experiment ──
+[[bin]]
+name = "sun_npu_metalforge"
+path = "src/bin/sun_npu_metalforge.rs"
+required-features = ["barracuda-local"]
+
 # ── Exp 032: CPU vs GPU backend comparison with summary tables ──
 [[bin]]
 name = "bench_backends"
