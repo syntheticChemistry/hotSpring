@@ -267,6 +267,126 @@ impl Su3Matrix {
     }
 }
 
+impl super::gauge_group::GaugeGroup for Su3Matrix {
+    const NC: usize = 3;
+    const LINK_REALS: usize = 18;
+    const N_GENERATORS: usize = 8;
+
+    fn gauge_group_tag() -> &'static str {
+        "su3"
+    }
+
+    fn identity() -> Self {
+        Self::IDENTITY
+    }
+
+    fn zero() -> Self {
+        Self::ZERO
+    }
+
+    fn mul(&self, rhs: &Self) -> Self {
+        *self * *rhs
+    }
+
+    fn adjoint(&self) -> Self {
+        Su3Matrix::adjoint(*self)
+    }
+
+    fn re_trace(&self) -> f64 {
+        Su3Matrix::re_trace(*self)
+    }
+
+    fn trace(&self) -> Complex64 {
+        Su3Matrix::trace(*self)
+    }
+
+    fn det(&self) -> Complex64 {
+        Su3Matrix::det(*self)
+    }
+
+    fn scale(&self, s: f64) -> Self {
+        Su3Matrix::scale(*self, s)
+    }
+
+    fn scale_complex(&self, s: Complex64) -> Self {
+        Su3Matrix::scale_complex(*self, s)
+    }
+
+    fn norm_sq(&self) -> f64 {
+        Su3Matrix::norm_sq(*self)
+    }
+
+    fn reunitarize(&self) -> Self {
+        Su3Matrix::reunitarize(*self)
+    }
+
+    fn add(&self, rhs: &Self) -> Self {
+        *self + *rhs
+    }
+
+    fn sub(&self, rhs: &Self) -> Self {
+        *self - *rhs
+    }
+
+    fn random_near_identity(seed: &mut u64, epsilon: f64) -> Self {
+        Su3Matrix::random_near_identity(seed, epsilon)
+    }
+
+    fn random_algebra(seed: &mut u64) -> Self {
+        Su3Matrix::random_algebra(seed)
+    }
+
+    fn inverse(&self) -> Self {
+        let m = &self.m;
+        let c00 = m[1][1] * m[2][2] - m[1][2] * m[2][1];
+        let c01 = m[1][2] * m[2][0] - m[1][0] * m[2][2];
+        let c02 = m[1][0] * m[2][1] - m[1][1] * m[2][0];
+        let det = m[0][0] * c00 + m[0][1] * c01 + m[0][2] * c02;
+        let inv_det = det.inv();
+        let c10 = m[0][2] * m[2][1] - m[0][1] * m[2][2];
+        let c11 = m[0][0] * m[2][2] - m[0][2] * m[2][0];
+        let c12 = m[0][1] * m[2][0] - m[0][0] * m[2][1];
+        let c20 = m[0][1] * m[1][2] - m[0][2] * m[1][1];
+        let c21 = m[0][2] * m[1][0] - m[0][0] * m[1][2];
+        let c22 = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+        Su3Matrix {
+            m: [
+                [c00 * inv_det, c10 * inv_det, c20 * inv_det],
+                [c01 * inv_det, c11 * inv_det, c21 * inv_det],
+                [c02 * inv_det, c12 * inv_det, c22 * inv_det],
+            ],
+        }
+    }
+
+    fn sub_diagonal(&mut self, val: Complex64) {
+        for i in 0..3 {
+            self.m[i][i] -= val;
+        }
+    }
+
+    fn write_to_buf(&self, buf: &mut Vec<u8>) {
+        for row in 0..3 {
+            for col in 0..3 {
+                buf.extend_from_slice(&self.m[row][col].re.to_le_bytes());
+                buf.extend_from_slice(&self.m[row][col].im.to_le_bytes());
+            }
+        }
+    }
+
+    fn read_from_buf(data: &[u8], offset: usize) -> Self {
+        let mut m = [[Complex64::ZERO; 3]; 3];
+        for row in 0..3 {
+            for col in 0..3 {
+                let off = offset + (row * 6 + col * 2) * 8;
+                let re = f64::from_le_bytes(data[off..off + 8].try_into().unwrap());
+                let im = f64::from_le_bytes(data[off + 8..off + 16].try_into().unwrap());
+                m[row][col] = Complex64::new(re, im);
+            }
+        }
+        Su3Matrix { m }
+    }
+}
+
 fn row_norm(u: &Su3Matrix, row: usize) -> f64 {
     let mut s = 0.0;
     for j in 0..3 {

@@ -50,11 +50,23 @@ impl ThermJob {
     fn cache_path(&self, cache_dir: &PathBuf) -> PathBuf {
         cache_dir.join(format!("{}.lat", &self.cache_key()[..16]))
     }
+
+    fn legacy_cache_path(&self) -> PathBuf {
+        let key = Lattice::legacy_cache_key(
+            self.dims,
+            self.beta,
+            self.seed,
+            self.n_therm,
+            "omelyan",
+        );
+        Lattice::config_cache_root().join(format!("{}.lat", &key[..16]))
+    }
 }
 
 fn build_grid() -> Vec<ThermJob> {
     let mut jobs = Vec::new();
 
+    // (beta, n_therm, dt, n_md_steps)
     let scan_16: &[(f64, usize, f64, usize)] = &[
         (5.9, 200, 0.01, 40),
         (6.0, 200, 0.01, 40),
@@ -63,6 +75,13 @@ fn build_grid() -> Vec<ThermJob> {
 
     let scan_24: &[(f64, usize, f64, usize)] = &[
         (6.0, 200, 0.008, 50),
+    ];
+
+    // 32⁴: minimal publishable volume. Smaller dt for stability at larger volume.
+    let scan_32: &[(f64, usize, f64, usize)] = &[
+        (5.9, 300, 0.005, 60),
+        (6.0, 300, 0.005, 60),
+        (6.2, 300, 0.005, 60),
     ];
 
     let seeds: &[u64] = &[42, 137, 271];
@@ -93,18 +112,57 @@ fn build_grid() -> Vec<ThermJob> {
         }
     }
 
+    for &(beta, n_therm, dt, n_md) in scan_32 {
+        for &seed in &seeds[..1] {
+            jobs.push(ThermJob {
+                dims: [32, 32, 32, 32],
+                beta,
+                seed,
+                n_therm,
+                dt,
+                n_md_steps: n_md,
+            });
+        }
+    }
+
     jobs
+}
+
+fn migrate_legacy_configs(new_dir: &PathBuf) {
+    let root = Lattice::config_cache_root();
+    let Ok(entries) = std::fs::read_dir(&root) else { return };
+    let mut migrated = 0;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) == Some("lat") && path.is_file() {
+            let fname = path.file_name().unwrap().to_string_lossy().to_string();
+            let dest = new_dir.join(&fname);
+            if !dest.exists() {
+                if let Err(e) = std::fs::rename(&path, &dest) {
+                    eprintln!("  [MIGRATE] failed to move {fname}: {e}");
+                } else {
+                    migrated += 1;
+                }
+            }
+        }
+    }
+    if migrated > 0 {
+        println!("  Migrated {migrated} legacy configs → {}", new_dir.display());
+    }
 }
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Parallel CPU Thermalizer — Config Cache Producer           ║");
     println!("║  SU(3) pure gauge, Omelyan 2MN, BLAKE3-addressed           ║");
+    println!("║  Target: 32⁴ minimal publish / 48⁴ stretch                 ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 
     let cache_dir = Lattice::config_cache_dir();
     println!("  Cache directory: {}", cache_dir.display());
+
+    migrate_legacy_configs(&cache_dir);
 
     let n_threads: usize = std::env::var("THERM_THREADS")
         .ok()
@@ -128,7 +186,7 @@ fn main() {
 
     let cached: Vec<bool> = grid
         .iter()
-        .map(|j| j.cache_path(&cache_dir).exists())
+        .map(|j| j.cache_path(&cache_dir).exists() || j.legacy_cache_path().exists())
         .collect();
     let n_cached = cached.iter().filter(|&&c| c).count();
     let n_total = grid.len();
