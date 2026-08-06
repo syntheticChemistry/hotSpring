@@ -1,0 +1,96 @@
+{
+  "experiment": "arxiv-su3-dual-gpu-volume-scan",
+  "gpus": [
+    "NVIDIA GeForce RTX 3090",
+    "AMD Radeon RX 6950 XT (RADV NAVI21)"
+  ],
+  "integrator": "Omelyan 2MN",
+  "momentum_source": "cpu_mom",
+  "results": [
+    {
+      "acceptance_rate": 0.997,
+      "beta": 5.9,
+      "gpu": "NVIDIA GeForce RTX 3090",
+      "lattice": "16^4",
+      "mean_abs_delta_h": 0.011985059530008585,
+      "ms_per_traj": 2567.52975367,
+      "plaquette_mean": 0.5814245729680515,
+      "plaquette_stderr": 0.0001338612525076948,
+      "published_source": "GLS98",
+      "published_value": 0.5637,
+      "seed": 42,
+      "tau_int": 22.431566172665057
+    },
+    {
+      "acceptance_rate": 0.994,
+      "beta": 5.9,
+      "gpu": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "lattice": "16^4",
+      "mean_abs_delta_h": 0.011926138907903805,
+      "ms_per_traj": 272.970699185,
+      "plaquette_mean": 0.5815798551278529,
+      "plaquette_stderr": 0.00019286677022444166,
+      "published_source": "GLS98",
+      "published_value": 0.5637,
+      "seed": 42,
+      "tau_int": 44.89877950171167
+    },
+    {
+      "acceptance_rate": 0.994,
+      "beta": 6.0,
+      "gpu": "NVIDIA GeForce RTX 3090",
+      "lattice": "16^4",
+      "mean_abs_delta_h": 0.012430447006598115,
+      "ms_per_traj": 2569.458519784,
+      "plaquette_mean": 0.593511596683086,
+      "plaquette_stderr": 0.00018835454946730483,
+      "published_source": "GL98",
+      "published_value": 0.5934,
+      "seed": 42,
+      "tau_int": 44.99227384722101
+    },
+    {
+      "acceptance_rate": 0.998,
+      "beta": 6.0,
+      "gpu": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "lattice": "16^4",
+      "mean_abs_delta_h": 0.011893773197196424,
+      "ms_per_traj": 276.330791761,
+      "plaquette_mean": 0.5934161560639212,
+      "plaquette_stderr": 0.00009277227749240694,
+      "published_source": "GL98",
+      "published_value": 0.5934,
+      "seed": 42,
+      "tau_int": 12.252348819676603
+    },
+    {
+      "acceptance_rate": 0.992,
+      "beta": 6.2,
+      "gpu": "NVIDIA GeForce RTX 3090",
+      "lattice": "16^4",
+      "mean_abs_delta_h": 0.012602385671343655,
+      "ms_per_traj": 2565.74346477,
+      "plaquette_mean": 0.6133811359162221,
+      "plaquette_stderr": 0.0001116122357982794,
+      "published_source": "B00",
+      "published_value": 0.6136,
+      "seed": 42,
+      "tau_int": 21.583011400036096
+    },
+    {
+      "acceptance_rate": 0.99,
+      "beta": 6.2,
+      "gpu": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "lattice": "16^4",
+      "mean_abs_delta_h": 0.01234254128136672,
+      "ms_per_traj": 274.449129212,
+      "plaquette_mean": 0.6133848879051793,
+      "plaquette_stderr": 0.00013414039606434377,
+      "published_source": "B00",
+      "published_value": 0.6136,
+      "seed": 42,
+      "tau_int": 30.81592689108084
+    }
+  ],
+  "wall_seconds": 8528.749280751
+}

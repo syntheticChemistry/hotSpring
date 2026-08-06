@@ -711,6 +711,30 @@ name = "sun_npu_metalforge"
 path = "src/bin/sun_npu_metalforge.rs"
 required-features = ["barracuda-local"]
 
+# ── Chuna Engine: ILDG/LIME convert & inspect (MILC interop) ──
+[[bin]]
+name = "chuna_convert"
+path = "src/bin/chuna_convert.rs"
+required-features = ["barracuda-local"]
+
+# ── ILDG Round-Trip Validation + B11 Reference Comparison ──
+[[bin]]
+name = "ildg_roundtrip_b11"
+path = "src/bin/ildg_roundtrip_b11.rs"
+required-features = ["barracuda-local"]
+
+# ── arXiv Jackknife Statistics (B6 thermalization + B7 error analysis) ──
+[[bin]]
+name = "arxiv_jackknife_stats"
+path = "src/bin/arxiv_jackknife_stats.rs"
+required-features = ["barracuda-local"]
+
+# ── arXiv Reversibility Test (C9) ──
+[[bin]]
+name = "arxiv_reversibility_test"
+path = "src/bin/arxiv_reversibility_test.rs"
+required-features = ["barracuda-local"]
+
 # ── Exp 032: CPU vs GPU backend comparison with summary tables ──
 [[bin]]
 name = "bench_backends"
