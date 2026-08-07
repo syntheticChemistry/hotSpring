@@ -36,7 +36,8 @@ hotSpring (this repo)
        ├── src/tolerances/    ← ~170 centralized validation thresholds
        ├── src/provenance.rs  ← baseline + analytical provenance (DOIs, Python origins)
        ├── src/discovery.rs   ← capability-based data path + NPU discovery
-       └── src/bin/           ← 111+ validation/benchmark binaries
+       ├── src/bin/           ← 157 active validation/benchmark binaries
+       └── archive/           ← fossilized code (not compiled by cargo)
 ```
 
 ---

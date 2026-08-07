@@ -101,8 +101,9 @@ toadstool-dispatch = ["barracuda-local"]
 # Exercises try_local_dispatch() without IPC forwarding.
 local-dispatch = ["toadstool-dispatch"]
 cuda-validation = ["dep:cudarc"]
-# BAR0 mmap / sysfs hardware probes (Exp 070). Optional: pulls rustix for syscalls.
-low-level = ["dep:rustix"]
+# BAR0 mmap / sysfs hardware probes (DEPRECATED — fossilized since 0.6.32).
+# Retained as feature name only to avoid breaking downstream references.
+# low-level = ["dep:rustix"]
 # petalTongue Grammar of Graphics: compile measurement data → SVG/WebGL figures
 petaltongue-viz = ["dep:petal-tongue-scene", "dep:petal-tongue-types"]
 
@@ -940,9 +941,10 @@ required-features = ["barracuda-local"]
 
 # ── Exp 070: BAR0 register dump (JSON output for backend matrix) ──
 # All MMIO via ember `mmio.read32` RPC — no `low-level` feature required.
-[[bin]]
-name = "exp070_register_dump"
-path = "src/bin/exp070_register_dump.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp070_register_dump"
+# path = "src/bin/exp070_register_dump.rs"
 
 # ── Exp 070: Register diff analysis (cold vs warm backend comparison) ──
 # JSON-only diff tool; no direct BAR0 access.
@@ -1025,10 +1027,11 @@ name = "validate_compute_dispatch"
 path = "src/bin/validate_compute_dispatch.rs"
 
 # ── Exp 153: ember flood/resurrection resilience proof ──
-[[bin]]
-name = "validate_ember_resilience"
-path = "src/bin/validate_ember_resilience.rs"
-required-features = ["barracuda-local"]
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "validate_ember_resilience"
+# path = "src/bin/validate_ember_resilience.rs"
+# required-features = ["barracuda-local"]
 
 # ── Exp 229/232: lockup defense matrix (diesel engine crash vector catalog) ──
 [[bin]]
@@ -1036,16 +1039,18 @@ name = "validate_lockup_defense_matrix"
 path = "src/bin/validate_lockup_defense_matrix.rs"
 
 # ── Exp 154: Titan V SEC2/ACR pipeline via ember IPC (PMU-first hypothesis) ──
-[[bin]]
-name = "exp154_sec2_acr_pipeline"
-path = "src/bin/exp154_sec2_acr_pipeline.rs"
-required-features = ["barracuda-local"]
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp154_sec2_acr_pipeline"
+# path = "src/bin/exp154_sec2_acr_pipeline.rs"
+# required-features = ["barracuda-local"]
 
 # ── Exp 155: K80 warm-cycle FECS dispatch via ember IPC ──
-[[bin]]
-name = "exp155_k80_warm_fecs"
-path = "src/bin/exp155_k80_warm_fecs.rs"
-required-features = ["barracuda-local"]
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp155_k80_warm_fecs"
+# path = "src/bin/exp155_k80_warm_fecs.rs"
+# required-features = ["barracuda-local"]
 
 # ── Exp 156: Reagent trace comparison (sovereign vs driver capture) ──
 [[bin]]
@@ -1054,22 +1059,25 @@ path = "src/bin/exp156_reagent_compare.rs"
 required-features = ["barracuda-local"]
 
 # ── Exp 157: K80 DEVINIT replay experiment ──
-[[bin]]
-name = "exp157_k80_devinit_replay"
-path = "src/bin/exp157_k80_devinit_replay.rs"
-required-features = ["barracuda-local"]
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp157_k80_devinit_replay"
+# path = "src/bin/exp157_k80_devinit_replay.rs"
+# required-features = ["barracuda-local"]
 
 # ── Exp 158: SEC2 real firmware experiment ──
-[[bin]]
-name = "exp158_sec2_real_firmware"
-path = "src/bin/exp158_sec2_real_firmware.rs"
-required-features = ["barracuda-local"]
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp158_sec2_real_firmware"
+# path = "src/bin/exp158_sec2_real_firmware.rs"
+# required-features = ["barracuda-local"]
 
 # ── Exp 167: Warm handoff — nouveau HBM2 training → vfio sovereign compute ──
-[[bin]]
-name = "exp167_warm_handoff"
-path = "src/bin/exp167_warm_handoff.rs"
-required-features = ["barracuda-local"]
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp167_warm_handoff"
+# path = "src/bin/exp167_warm_handoff.rs"
+# required-features = ["barracuda-local"]
 
 # ── Exp 168: PMU firmware probe — P0 gate for Titan V sovereign compute ──────
 # Scans nv-kernel.o_binary / .run installers for GV100 PMU firmware blobs.
@@ -1110,9 +1118,10 @@ path = "src/bin/validate_node_atomic.rs"
 required-features = ["sovereign-dispatch"]
 
 # Exp 234: Safe sovereign warm handoff with lockup defenses (Run #6 forensics)
-[[bin]]
-name = "exp234_sovereign_warm_handoff"
-path = "src/bin/exp234_sovereign_warm_handoff.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp234_sovereign_warm_handoff"
+# path = "src/bin/exp234_sovereign_warm_handoff.rs"
 
 # Compute trio E2E: barraCuda → coralReef → toadStool → hardware → physics parity
 [[bin]]
@@ -1143,45 +1152,52 @@ path = "src/bin/hotspring/main.rs"
 name = "hotspring_guidestone"
 path = "src/bin/hotspring_guidestone.rs"
 
-[[bin]]
-name = "exp169_pmu_boot"
-path = "src/bin/exp169_pmu_boot.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp169_pmu_boot"
+# path = "src/bin/exp169_pmu_boot.rs"
 
 # ── Exp 170: Sovereign GV100 cold-boot from mmiotrace recipe ──
-[[bin]]
-name = "exp170_sovereign_cold_boot"
-path = "src/bin/exp170_sovereign_cold_boot.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp170_sovereign_cold_boot"
+# path = "src/bin/exp170_sovereign_cold_boot.rs"
 
 # ── Exp 171: Sovereign GV100 SEC2 boot — ACR/WPR configuration ──
-[[bin]]
-name = "exp171_sovereign_sec2_boot"
-path = "src/bin/exp171_sovereign_sec2_boot.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp171_sovereign_sec2_boot"
+# path = "src/bin/exp171_sovereign_sec2_boot.rs"
 
 # ── Exp 182: K80 FECS PIO boot — ember-wired (no raw BAR0) ──
-[[bin]]
-name = "exp182_k80_fecs_pio_boot"
-path = "src/bin/exp182_k80_fecs_pio_boot.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp182_k80_fecs_pio_boot"
+# path = "src/bin/exp182_k80_fecs_pio_boot.rs"
 
 # ── Exp 183: K80 FECS interrupt-driven boot — ember-wired (no raw BAR0) ──
-[[bin]]
-name = "exp183_k80_fecs_int_boot"
-path = "src/bin/exp183_k80_fecs_int_boot.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp183_k80_fecs_int_boot"
+# path = "src/bin/exp183_k80_fecs_int_boot.rs"
 
 # ── Exp 184: K80 Sovereign GR engine boot via coral-ember RPCs ──────────────
 # Rewired from raw Bar0Map mmap to EmberClient JSON-RPC.
 # All GPU access routes through coral-ember (crash-protected, VFIO fd safe).
 # Diagnostic tool; the proven sequence is promoted to coral-driver sovereign_stages.rs.
-[[bin]]
-name = "exp184_k80_gr_sovereign"
-path = "src/bin/exp184_k80_gr_sovereign.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp184_k80_gr_sovereign"
+# path = "src/bin/exp184_k80_gr_sovereign.rs"
 
 # ── Exp 227: PMU ACR Revalidation — ember-wired (no raw BAR0) ───────────
 # Supersedes fossilized exp224 (low-level BAR0 mmap edition).
 # Rewire of exp224 to ember RPCs. All GPU access via toadstool-ember.
 # Crash-protected, fork-isolated MMIO. No `low-level` feature required.
-[[bin]]
-name = "exp227_pmu_acr_revalidation"
-path = "src/bin/exp227_pmu_acr_revalidation.rs"
+# FOSSILIZED (v0.6.32): moved to archive/_fossilized/
+# [[bin]]
+# name = "exp227_pmu_acr_revalidation"
+# path = "src/bin/exp227_pmu_acr_revalidation.rs"
 
 # ── Integration tests requiring barracuda-local feature ──────────────────────
 [[test]]

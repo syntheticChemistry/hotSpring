@@ -78,13 +78,18 @@ pub mod dual_dispatch;
 /// Dual-card cooperative pipeline profiler (Split BCS, Split HMC, Redundant).
 #[cfg(feature = "barracuda-local")]
 pub mod dual_pipeline_eval;
-/// Typed response structs for toadstool-ember IPC (MMIO, falcon, SEC2, PRAMIN, DMA).
+/// Typed response structs for toadstool-ember IPC.
+/// Retained as types-only module (consumed by glowplug_client and validation).
 pub mod ember_types;
 /// Typed errors for GPU, simulation, and data-loading failure modes.
 pub mod error;
 /// toadstool-ember multi-instance fleet discovery and per-socket JSON-RPC routing.
+/// DEPRECATED(0.6.32): Retained for bin_helpers/sovereignty usage; migrate to toadStool RPCs.
+#[deprecated(since = "0.6.32", note = "Use toadStool fleet RPCs")]
 pub mod fleet_client;
 /// Per-ember JSON-RPC client: MMIO, falcon, SEC2, PRAMIN, DMA, flood testing.
+/// DEPRECATED(0.6.32): Retained for bin_helpers/sovereignty usage; migrate to toadStool RPCs.
+#[deprecated(since = "0.6.32", note = "Use toadStool fleet RPCs")]
 pub mod fleet_ember;
 /// toadStool dispatch client: IPC path for compute.dispatch.capabilities/submit.
 /// Parallel to fleet_ember — preparation for toadStool Phase C migration.
@@ -108,21 +113,6 @@ pub mod lattice;
 ///
 /// **Deprecated**: canonical MMIO lives in toadStool cylinder (`sysfs_bar0`,
 /// `nv::registers::falcon`). Experiment binaries should use ember/glowplug RPCs
-/// via [`bin_helpers::sovereignty::connect`] instead of direct mmap.
-///
-/// Contains `unsafe` blocks for mmap/`read_volatile`/`write_volatile`.
-/// Gated behind `low-level` feature (not in default build).
-#[cfg(feature = "low-level")]
-#[expect(
-    unsafe_code,
-    reason = "MMIO mmap requires unsafe; audited surface confined to bar0.rs"
-)]
-#[deprecated(
-    since = "0.6.32",
-    note = "Use toadStool ember/glowplug RPCs. See bin_helpers/sovereignty/connect.rs."
-)]
-pub mod low_level;
-
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.
 pub mod mcp_tools;
 /// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).
