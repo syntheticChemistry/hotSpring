@@ -1220,6 +1220,15 @@ required-features = ["barracuda-local"]
 name = "integration_proxy"
 required-features = ["barracuda-local"]
 
+[[bin]]
+name = "milc_validation_loop"
+path = "src/bin/milc_validation_loop.rs"
+
+[[bin]]
+name = "bench_lanczos_scaling"
+path = "src/bin/bench_lanczos_scaling.rs"
+required-features = ["barracuda-local"]
+
 [[test]]
 name = "integration_spectral"
 required-features = ["barracuda-local"]
