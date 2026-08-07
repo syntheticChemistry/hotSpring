@@ -1,0 +1,87 @@
+{
+  "run": {
+    "schema_version": "1.0",
+    "binary": "arxiv_beta_scan",
+    "engine_version": "0.6.32",
+    "timestamp": "2026-08-07T13:09:48Z",
+    "hostname": "strandGate",
+    "arch": "x86_64",
+    "os": "linux",
+    "argv": [
+      "./target/release/arxiv_beta_scan",
+      "--help"
+    ]
+  },
+  "experiment_id": "arxiv-su3-beta-scan-8x4",
+  "gauge_group": "SU(3)",
+  "lattice_dims": [
+    8,
+    8,
+    8,
+    8
+  ],
+  "n_therm": 50,
+  "n_prod": 100,
+  "integrator": "Omelyan 2MN",
+  "dt": 0.02,
+  "n_md_steps": 20,
+  "results": [
+    {
+      "beta": 2.0,
+      "plaquette_mean": 0.12886193452307182,
+      "plaquette_stderr": 0.00018718591107624402,
+      "acceptance_rate": 0.99,
+      "published_reference": 0.111,
+      "reference_source": "SC: β/18"
+    },
+    {
+      "beta": 2.3,
+      "plaquette_mean": 0.15120628206436723,
+      "plaquette_stderr": 0.0001668972632689778,
+      "acceptance_rate": 1.0,
+      "published_reference": 0.15,
+      "reference_source": "SC+corrections"
+    },
+    {
+      "beta": 3.0,
+      "plaquette_mean": 0.20484379040910883,
+      "plaquette_stderr": 0.00016139312584502653,
+      "acceptance_rate": 0.99,
+      "published_reference": 0.22,
+      "reference_source": "SC+corrections"
+    },
+    {
+      "beta": 5.5,
+      "plaquette_mean": 0.49575184099530395,
+      "plaquette_stderr": 0.0005292853633438712,
+      "acceptance_rate": 0.98,
+      "published_reference": 0.505,
+      "reference_source": "GL10/C83"
+    },
+    {
+      "beta": 5.7,
+      "plaquette_mean": 0.5380918705091374,
+      "plaquette_stderr": 0.0006145205962495491,
+      "acceptance_rate": 0.98,
+      "published_reference": 0.546,
+      "reference_source": "GL10/B00"
+    },
+    {
+      "beta": 6.0,
+      "plaquette_mean": 0.5862303359170095,
+      "plaquette_stderr": 0.0005033429194858841,
+      "acceptance_rate": 1.0,
+      "published_reference": 0.593,
+      "reference_source": "GL10/B00"
+    },
+    {
+      "beta": 6.5,
+      "plaquette_mean": 0.6337202605711764,
+      "plaquette_stderr": 0.0002988215824613126,
+      "acceptance_rate": 1.0,
+      "published_reference": null,
+      "reference_source": "extrapolation"
+    }
+  ],
+  "wall_seconds": 2819.625182783
+}
