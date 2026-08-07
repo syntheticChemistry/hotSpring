@@ -92,7 +92,7 @@ default = []
 barracuda-local = ["dep:barracuda"]
 naga = ["dep:naga"]
 gpu_energy = []
-npu-hw = []  # was ["dep:akida-driver", "dep:akida-models"] — disabled pending toadStool workspace fix
+npu-hw = ["dep:akida-driver", "dep:akida-models"]
 # sovereign-dispatch: compilation gates toadStool IPC pipeline (shader.compile.wgsl).
 # VFIO dispatch routes through toadStool's compute.dispatch.submit.
 sovereign-dispatch = ["toadstool-dispatch", "barracuda/sovereign-dispatch"]
@@ -146,10 +146,9 @@ tokio = { version = "1.50", features = ["rt-multi-thread", "macros"] }
 
 # NPU hardware: toadStool exposes device capabilities (PCIe driver, model parsing)
 # Math/compilation lives in barraCuda (esn_v2, npu, npu_executor, snn)
-# NOTE: Temporarily commented — toadStool workspace missing akida-chip dep on this gate.
-# Restore when biomeGate rustChip sync lands.
-# akida-driver = { path = "../../../primals/toadStool/crates/neuromorphic/akida-driver", optional = true }
-# akida-models = { path = "../../../primals/toadStool/crates/neuromorphic/akida-models", optional = true }
+# akida-chip absorbed into toadStool workspace (Aug 7, 2026) — path dep now resolves.
+akida-driver = { path = "../../../primals/toadStool/crates/neuromorphic/akida-driver", optional = true }
+akida-models = { path = "../../../primals/toadStool/crates/neuromorphic/akida-models", optional = true }
 
 # GPU compute (wgpu for SHADER_F64 FP64 science compute)
 # Must match barracuda's wgpu version (28) to avoid type conflicts.
