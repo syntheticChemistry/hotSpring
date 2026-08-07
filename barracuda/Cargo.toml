@@ -92,7 +92,7 @@ default = []
 barracuda-local = ["dep:barracuda"]
 naga = ["dep:naga"]
 gpu_energy = []
-npu-hw = ["dep:akida-driver", "dep:akida-models"]
+npu-hw = []  # was ["dep:akida-driver", "dep:akida-models"] — disabled pending toadStool workspace fix
 # sovereign-dispatch: compilation gates toadStool IPC pipeline (shader.compile.wgsl).
 # VFIO dispatch routes through toadStool's compute.dispatch.submit.
 sovereign-dispatch = ["toadstool-dispatch", "barracuda/sovereign-dispatch"]
@@ -103,6 +103,8 @@ local-dispatch = ["toadstool-dispatch"]
 cuda-validation = ["dep:cudarc"]
 # BAR0 mmap / sysfs hardware probes (Exp 070). Optional: pulls rustix for syscalls.
 low-level = ["dep:rustix"]
+# petalTongue Grammar of Graphics: compile measurement data → SVG/WebGL figures
+petaltongue-viz = ["dep:petal-tongue-scene", "dep:petal-tongue-types"]
 
 [dependencies]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
@@ -113,6 +115,10 @@ barracuda = { path = "../../../primals/barraCuda/crates/barracuda", optional = t
 # BLAKE3 hashing for provenance witnesses (compute output hashing)
 # default-features = false drops the `cc` C build dependency (pure Rust impl)
 blake3 = { version = "1", default-features = false }
+
+# petalTongue scene engine: Grammar of Graphics compiler + SVG export for arXiv figures
+petal-tongue-scene = { path = "../../../primals/petalTongue/crates/petal-tongue-scene", optional = true }
+petal-tongue-types = { path = "../../../primals/petalTongue/crates/petal-tongue-types", optional = true }
 
 # CLI argument parsing for UniBin binary
 clap = { version = "4", features = ["derive"] }
@@ -139,8 +145,10 @@ tokio = { version = "1.50", features = ["rt-multi-thread", "macros"] }
 
 # NPU hardware: toadStool exposes device capabilities (PCIe driver, model parsing)
 # Math/compilation lives in barraCuda (esn_v2, npu, npu_executor, snn)
-akida-driver = { path = "../../../primals/toadStool/crates/neuromorphic/akida-driver", optional = true }
-akida-models = { path = "../../../primals/toadStool/crates/neuromorphic/akida-models", optional = true }
+# NOTE: Temporarily commented — toadStool workspace missing akida-chip dep on this gate.
+# Restore when biomeGate rustChip sync lands.
+# akida-driver = { path = "../../../primals/toadStool/crates/neuromorphic/akida-driver", optional = true }
+# akida-models = { path = "../../../primals/toadStool/crates/neuromorphic/akida-models", optional = true }
 
 # GPU compute (wgpu for SHADER_F64 FP64 science compute)
 # Must match barracuda's wgpu version (28) to avoid type conflicts.
