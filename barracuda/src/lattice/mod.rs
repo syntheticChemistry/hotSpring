@@ -64,6 +64,8 @@ pub mod hmc;
 pub mod ildg;
 /// LIME record-level I/O for ILDG and QCDml data exchange.
 pub mod lime;
+/// Native MILC v5 gauge configuration format (direct interop with MILC collaboration).
+pub mod milc;
 /// Measurement provenance: implementation info, scale setting, diagnostics.
 pub mod measurement;
 /// Multi-GPU lattice dispatcher (CPU-threaded, evolution target).
