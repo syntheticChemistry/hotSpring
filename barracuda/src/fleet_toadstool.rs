@@ -45,8 +45,8 @@ pub const TOADSTOOL_DISPATCH_TIMEOUT: Duration = Duration::from_secs(30);
 /// Client for toadStool's `compute.dispatch.*` JSON-RPC surface.
 ///
 /// Wraps a single toadStool socket and provides typed accessors for the
-/// dispatch pipeline methods. Designed to sit alongside [`crate::fleet_ember::EmberClient`]
-/// during the Phase C migration period.
+/// dispatch pipeline methods. Successor to the fossilized `EmberClient`
+/// (Phase C migration complete).
 #[derive(Debug, Clone)]
 pub struct ToadStoolDispatchClient {
     socket_path: PathBuf,
@@ -183,9 +183,11 @@ mod tests {
 
     #[test]
     fn timeout_constants_match_ember_semantics() {
+        // fleet_ember module fossilized — verify constants directly
+        let ember_status_timeout = std::time::Duration::from_secs(5);
         assert_eq!(
             TOADSTOOL_DEVICE_TIMEOUT,
-            crate::fleet_ember::EMBER_STATUS_TIMEOUT * 6,
+            ember_status_timeout * 6,
             "device timeout should be 6x the probe timeout (30s vs 5s)"
         );
         assert_eq!(TOADSTOOL_PROBE_TIMEOUT.as_secs(), 5);

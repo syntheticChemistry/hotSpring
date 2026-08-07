@@ -36,6 +36,7 @@
 //!
 //! The remapping handles this difference transparently on read/write.
 
+use super::complex_f64::Complex64;
 use super::su3::Su3Matrix;
 use super::wilson::Lattice;
 
@@ -112,13 +113,12 @@ pub fn read_milc<R: Read>(reader: &mut R) -> Result<(Lattice, MilcHeader), MilcE
 
     let [nx, ny, nz, nt] = header.dims;
     let vol = nx * ny * nz * nt;
-    let mut lattice = Lattice::cold(nx, ny, nz, nt, 6.0);
+    let mut lattice = Lattice::cold_start([nx, ny, nz, nt], 6.0);
 
     let mut sum29: u32 = 0;
     let mut sum31: u32 = 0;
 
     for milc_idx in 0..vol {
-        // Convert MILC natural order index to (x, y, z, t)
         let (x, y, z, t) = milc_natural_to_coords(milc_idx, nx, ny, nz);
 
         for mu in 0..4 {
@@ -127,7 +127,7 @@ pub fn read_milc<R: Read>(reader: &mut R) -> Result<(Lattice, MilcHeader), MilcE
             update_checksum(&bytes, milc_idx as u32, &mut sum29, &mut sum31);
 
             let our_idx = t * nx * ny * nz + x * ny * nz + y * nz + z;
-            lattice.links[our_idx][mu] = matrix;
+            lattice.links[our_idx * 4 + mu] = matrix;
         }
     }
 
@@ -163,7 +163,7 @@ pub fn write_milc<W: Write>(writer: &mut W, lattice: &Lattice) -> Result<MilcHea
         let (x, y, z, t) = milc_natural_to_coords(milc_idx, nx, ny, nz);
         let our_idx = t * nx * ny * nz + x * ny * nz + y * nz + z;
         for mu in 0..4 {
-            let bytes = matrix_to_bytes(&lattice.links[our_idx][mu]);
+            let bytes = matrix_to_bytes(&lattice.links[our_idx * 4 + mu]);
             update_checksum(&bytes, milc_idx as u32, &mut sum29, &mut sum31);
         }
     }
@@ -185,7 +185,7 @@ pub fn write_milc<W: Write>(writer: &mut W, lattice: &Lattice) -> Result<MilcHea
         let (x, y, z, t) = milc_natural_to_coords(milc_idx, nx, ny, nz);
         let our_idx = t * nx * ny * nz + x * ny * nz + y * nz + z;
         for mu in 0..4 {
-            write_su3_f32_be(writer, &lattice.links[our_idx][mu])?;
+            write_su3_f32_be(writer, &lattice.links[our_idx * 4 + mu])?;
         }
     }
 
@@ -304,12 +304,12 @@ fn write_header<W: Write>(writer: &mut W, h: &MilcHeader) -> Result<(), MilcErro
 }
 
 fn read_su3_f32_be<R: Read>(reader: &mut R) -> Result<Su3Matrix, MilcError> {
-    let mut m = Su3Matrix::identity();
+    let mut m = Su3Matrix::IDENTITY;
     for row in 0..3 {
         for col in 0..3 {
             let re = read_f32_be(reader)? as f64;
             let im = read_f32_be(reader)? as f64;
-            m.m[row][col] = (re, im);
+            m.m[row][col] = Complex64 { re, im };
         }
     }
     Ok(m)
@@ -318,9 +318,9 @@ fn read_su3_f32_be<R: Read>(reader: &mut R) -> Result<Su3Matrix, MilcError> {
 fn write_su3_f32_be<W: Write>(writer: &mut W, m: &Su3Matrix) -> Result<(), MilcError> {
     for row in 0..3 {
         for col in 0..3 {
-            let (re, im) = m.m[row][col];
-            write_f32_be(writer, re as f32)?;
-            write_f32_be(writer, im as f32)?;
+            let c = m.m[row][col];
+            write_f32_be(writer, c.re as f32)?;
+            write_f32_be(writer, c.im as f32)?;
         }
     }
     Ok(())
@@ -331,10 +331,10 @@ fn matrix_to_bytes(m: &Su3Matrix) -> [u8; 72] {
     let mut offset = 0;
     for row in 0..3 {
         for col in 0..3 {
-            let (re, im) = m.m[row][col];
-            buf[offset..offset + 4].copy_from_slice(&(re as f32).to_be_bytes());
+            let c = m.m[row][col];
+            buf[offset..offset + 4].copy_from_slice(&(c.re as f32).to_be_bytes());
             offset += 4;
-            buf[offset..offset + 4].copy_from_slice(&(im as f32).to_be_bytes());
+            buf[offset..offset + 4].copy_from_slice(&(c.im as f32).to_be_bytes());
             offset += 4;
         }
     }
@@ -360,9 +360,9 @@ fn compute_link_trace(lattice: &Lattice) -> f64 {
     let mut trace_sum = 0.0;
     for site in 0..vol {
         for mu in 0..4 {
-            let m = &lattice.links[site][mu];
+            let m = &lattice.links[site * 4 + mu];
             for i in 0..3 {
-                trace_sum += m.m[i][i].0; // real part of diagonal
+                trace_sum += m.m[i][i].re;
             }
         }
     }
@@ -417,8 +417,7 @@ mod tests {
 
     #[test]
     fn test_cold_start_roundtrip() {
-        // Create a cold-start lattice, write to MILC format, read back
-        let lattice = Lattice::cold(4, 4, 4, 4, 6.0);
+        let lattice = Lattice::cold_start([4, 4, 4, 4], 6.0);
         let plaq_before = lattice.average_plaquette();
 
         let mut buffer: Vec<u8> = Vec::new();

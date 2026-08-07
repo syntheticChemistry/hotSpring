@@ -1,7 +1,7 @@
 # hotSpring Deprecation & Migration Tracker
 
 **Status**: Active — tracking barracuda absorption and hotSpring minimization.
-**Last updated**: May 14, 2026 (v0.6.32, toadStool S261, coralReef Sprint 9, barraCuda v0.4.0)
+**Last updated**: Aug 7, 2026 (v0.6.32, Wave 156 cleanup, toadStool S261, barraCuda v0.4.0)
 
 ## Principle
 
@@ -14,6 +14,18 @@ Systems that toadstool/barracuda have absorbed are deprecated here and
 retained only as fossil record.
 
 ## Deprecated Systems (absorbed by barracuda)
+
+### IPC/Fleet Modules (fossilized Aug 7, 2026)
+
+| Module | Absorbed by | Status |
+|--------|-------------|--------|
+| `low_level/bar0.rs` | `toadStool ember.mmio.read32/write32` | Fossilized → `archive/_fossilized/low_level_legacy/` |
+| `low_level/falcon.rs` | `toadStool ember.falcon.upload/start` | Fossilized → `archive/_fossilized/low_level_legacy/` |
+| `fleet_client.rs` | `toadStool toadstool.fleet.discover` | **`#[deprecated]`** — retained for `bin_helpers/sovereignty` |
+| `fleet_ember.rs` | `toadStool toadstool.ember.*` surface | **`#[deprecated]`** — retained for `ipc/mod.rs` re-exports |
+| `ember_types.rs` | Types-only — migrate to `glowplug_client/types.rs` | Retained |
+
+15 dependent experiment binaries (exp070–exp234, validate_ember_resilience) also fossilized.
 
 ### Archive Modules (fully deprecated)
 

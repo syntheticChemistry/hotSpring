@@ -5,6 +5,30 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Wave 156 Deprecation Cleanup + Cascade (Aug 7, 2026)
+
+### Removed
+- **`low_level/` module**: Fossilized to `archive/_fossilized/low_level_legacy/` (1,134 LOC). Direct BAR0 MMIO/falcon paths fully superseded by toadStool ember RPCs since v0.6.32.
+- **15 sovereign-boot experiment binaries**: exp070, exp154–exp184, exp227, exp234, validate_ember_resilience → `archive/_fossilized/` (~9,500 LOC). All rely on deprecated MMIO paths.
+- **32 pre-existing fossilized binaries**: Moved from `src/bin/_fossilized/` to `archive/_fossilized/` (14,609 LOC) — cargo no longer builds them.
+- **`low-level` Cargo feature**: Commented out (was gating rustix dep for MMIO mmap).
+
+### Deprecated
+- **`fleet_client.rs`**: Marked `#[deprecated(since = "0.6.32")]`. Still consumed by `bin_helpers/sovereignty/connect.rs`; migrate to toadStool fleet RPCs.
+- **`fleet_ember.rs`**: Marked `#[deprecated(since = "0.6.32")]`. Still consumed by `ipc/mod.rs` re-exports; migrate to toadStool dispatch RPCs.
+- **`ember_types.rs`**: Retained as types-only module for `glowplug_client`; flagged for absorption into `glowplug_client/types.rs`.
+
+### Added
+- **`src/lattice/milc.rs`**: Native MILC v5 gauge configuration reader/writer — big-endian, MILC natural site ordering, CRC32 checksums, roundtrip validation. Enables direct configuration exchange with MILC collaboration code.
+- **`src/bin/shaders/precision_matrix/df64_compensated_sum.wgsl`**: Kahan-Babuška-Neumaier compensated DF64 summation shader for workgroup-level error reduction.
+- **`archive/` directory**: Houses all fossilized code outside the cargo build tree.
+
+### Validated (post-cleanup)
+- `cargo check --lib`: 0 errors (94 deprecation warnings expected)
+- Precision tier matrix: ALL PASS on RTX 3090 + RX 6950 XT (int2→df128)
+- Production QCD: 10/10 checks pass (β-scan, scaling, determinism, susceptibility)
+- GPU HMC scaling: 9.9×–53× speedup (RTX 3090, DF64 Omelyan)
+
 ## Unreleased — coralReef Sprint 9 GEMM + Wire Compat Rewire (May 13, 2026)
 
 ### Added

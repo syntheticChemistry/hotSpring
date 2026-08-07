@@ -81,17 +81,17 @@ pub mod glowplug {
     };
 }
 
-/// toadstool-ember per-instance JSON-RPC client (MMIO, falcon, SEC2, PRAMIN, DMA).
-///
-/// Re-exports from [`crate::fleet_ember`].
+/// DEPRECATED(0.6.32): Use toadStool RPCs via crate::fleet_toadstool instead.
+#[deprecated(since = "0.6.32", note = "Use crate::fleet_toadstool")]
 pub mod ember {
+    #[allow(deprecated)]
     pub use crate::fleet_ember::{EmberClient, FleetEmberHub};
 }
 
-/// Multi-ember fleet discovery and per-socket routing.
-///
-/// Re-exports from [`crate::fleet_client`].
+/// DEPRECATED(0.6.32): Use toadStool RPCs via crate::fleet_toadstool instead.
+#[deprecated(since = "0.6.32", note = "Use crate::fleet_toadstool")]
 pub mod fleet {
+    #[allow(deprecated)]
     pub use crate::fleet_client::*;
 }
 
