@@ -140,10 +140,22 @@ fn main() {
                 .count();
             println!("  Completed sections: {completed} / {}", sections.len());
 
+            // Push live data to petalTongue via JSON-RPC if socket exists
+            let pt_socket = "/run/user/1000/petaltongue.sock";
+            let pt_status = if std::path::Path::new(pt_socket).exists() {
+                if let Some(latest) = reader.events.last() {
+                    let plaq_series = reader.time_series(&latest.section, "plaquette");
+                    push_to_petaltongue(pt_socket, &latest.section, &plaq_series);
+                }
+                "✓ LIVE (UDS connected)"
+            } else {
+                "○ offline (start: petaltongue server)"
+            };
+
             println!("\n  ┌─ petalTongue ─────────────────────────────────────────────┐");
-            println!("  │ JSONL stream: ✓ ({n_events} events)                        │");
+            println!("  │ JSONL stream: ✓ ({n_events} events){:>25}│", "");
             println!("  │ TelemetryReader: ✓ wired                                 │");
-            println!("  │ Web bridge: next step (axum → petal-tongue-discovery)     │");
+            println!("  │ Dashboard: {pt_status:<47}│");
             println!("  └───────────────────────────────────────────────────────────┘");
 
             last_count = n_events;
@@ -163,6 +175,59 @@ struct SectionSummary {
     wall_seconds: Option<f64>,
     final_plaquette: Option<f64>,
     final_acceptance: Option<f64>,
+}
+
+/// Push live plaquette time-series to petalTongue via JSON-RPC over UDS.
+/// Uses `visualization.render.grammar` with DataBinding::TimeSeries.
+fn push_to_petaltongue(socket_path: &str, section: &str, plaq_series: &[(f64, f64)]) {
+    use std::io::{Read, Write};
+    use std::os::unix::net::UnixStream;
+
+    if plaq_series.len() < 2 {
+        return;
+    }
+
+    let x_values: Vec<f64> = plaq_series.iter().map(|(t, _)| *t).collect();
+    let y_values: Vec<f64> = plaq_series.iter().map(|(_, v)| *v).collect();
+
+    let request = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "visualization.render.grammar",
+        "params": {
+            "session_id": format!("hotspring-live-{}", section.replace(' ', "_")),
+            "grammar": {
+                "id": "plaquette_live",
+                "geometry": "Line",
+                "variables": [
+                    {"name": "x", "field": "x", "role": "X"},
+                    {"name": "y", "field": "y", "role": "Y"}
+                ],
+                "scales": [
+                    {"variable": "x", "scale_type": "Linear"},
+                    {"variable": "y", "scale_type": "Linear"}
+                ],
+                "title": format!("Live ⟨P⟩ — {section}"),
+                "coordinate": "Cartesian"
+            },
+            "data": x_values.iter().zip(y_values.iter())
+                .map(|(x, y)| serde_json::json!({"x": x, "y": y}))
+                .collect::<Vec<_>>(),
+            "modality": "svg",
+            "domain": "physics"
+        }
+    });
+
+    let payload = request.to_string();
+    let frame = format!("Content-Length: {}\r\n\r\n{}", payload.len(), payload);
+
+    if let Ok(mut stream) = UnixStream::connect(socket_path) {
+        stream.set_write_timeout(Some(std::time::Duration::from_millis(500))).ok();
+        stream.set_read_timeout(Some(std::time::Duration::from_millis(500))).ok();
+        let _ = stream.write_all(frame.as_bytes());
+        let mut buf = [0u8; 1024];
+        let _ = stream.read(&mut buf);
+    }
 }
 
 fn print_sparkline(label: &str, series: &[(f64, f64)]) {
