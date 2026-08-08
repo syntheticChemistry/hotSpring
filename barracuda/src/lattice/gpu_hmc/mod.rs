@@ -59,6 +59,7 @@
 mod brain_config;
 mod brain_cortex;
 mod brain_inference;
+pub mod adaptive_dispatch;
 pub mod brain_persistence;
 pub mod brain_rhmc;
 pub mod dynamical;
@@ -80,6 +81,7 @@ pub mod render_force_accum;
 pub mod rop_force_accum;
 pub mod spectral_probe;
 pub mod streaming;
+pub mod tmu_multigrid;
 pub mod tmu_tables;
 pub mod true_multishift_cg;
 pub mod uni_hamiltonian;
