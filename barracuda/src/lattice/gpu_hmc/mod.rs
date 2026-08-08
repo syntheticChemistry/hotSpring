@@ -76,6 +76,7 @@ mod resident_cg_pipelines;
 pub mod resident_observables;
 pub mod resident_shifted_cg;
 pub mod rhmc_calibrator;
+pub mod render_force_accum;
 pub mod rop_force_accum;
 pub mod spectral_probe;
 pub mod streaming;
