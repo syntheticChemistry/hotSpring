@@ -1,0 +1,31 @@
+# hotSpring — Lattice QCD plaquette validation
+# Validates SU(3) Wilson plaquette and gradient flow on CPU
+#
+# Compute ladder:
+#   Tier 0 (CPU):      This workload — pure Rust, no GPU required
+#   Tier 1 (GPU):      hotspring-gpu-sovereign-dispatch — wgpu/Vulkan dispatch
+#   Tier 2 (Sovereign): hotspring-sovereign-roundtrip — direct BAR0 dispatch
+#
+# CPU tier is always available (IPC-first default build).
+# GPU/sovereign tiers require --features barracuda-local and hardware.
+
+[metadata]
+name = "hotspring-lattice-qcd"
+description = "Lattice QCD plaquette + gradient flow — CPU tier (pure Rust)"
+version = "0.1.0"
+spring = "hotSpring"
+compute_tier = "cpu"
+ladder = ["cpu", "gpu", "sovereign"]
+
+[execution]
+type = "native"
+command = "$SPRINGS_ROOT/hotSpring/barracuda/target/release/hotspring_unibin"
+args = ["validate", "--scenario", "lattice-plaquette"]
+working_dir = "$SPRINGS_ROOT/hotSpring"
+
+[resources]
+max_memory_bytes = 4294967296
+max_cpu_percent = 80.0
+
+[security]
+isolation_level = "None"

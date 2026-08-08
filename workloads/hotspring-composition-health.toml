@@ -1,0 +1,29 @@
+# hotSpring — NUCLEUS composition health validation
+# Validates IPC-composed NUCLEUS patterns against direct Rust baselines
+# Tests composition context, capability discovery, and primal health probes
+#
+# Compute ladder:
+#   Tier 0 (CPU): This workload — pure IPC, no GPU required
+#
+# Runs in IPC-first default build. When NUCLEUS primals are deployed,
+# validates live IPC health. When standalone, skip-passes (exit 2).
+
+[metadata]
+name = "hotspring-composition-health"
+description = "NUCLEUS composition health — IPC capability validation"
+version = "0.1.0"
+spring = "hotSpring"
+compute_tier = "cpu"
+
+[execution]
+type = "native"
+command = "$SPRINGS_ROOT/hotSpring/barracuda/target/release/hotspring_unibin"
+args = ["validate", "--scenario", "composition-health"]
+working_dir = "$SPRINGS_ROOT/hotSpring"
+
+[resources]
+max_memory_bytes = 2147483648
+max_cpu_percent = 50.0
+
+[security]
+isolation_level = "None"

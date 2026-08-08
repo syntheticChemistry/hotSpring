@@ -1,0 +1,35 @@
+# hotSpring — GPU sovereign dispatch (wgpu/Vulkan)
+# Validates sovereign compute via wgpu: DF64 arithmetic, workgroup reduces,
+# Yukawa OCP molecular dynamics at 154+ steps/s on RTX 5060
+#
+# Compute ladder:
+#   Tier 0 (CPU):      hotspring-md-validation — CPU-only Sarkas MD
+#   Tier 1 (GPU):      This workload — wgpu/Vulkan dispatch (requires GPU)
+#   Tier 2 (Sovereign): hotspring-sovereign-roundtrip — direct BAR0
+#
+# Requires: GPU with Vulkan support + --features barracuda-local
+# RTX 5060: 12/12 PASS, 154.2 steps/s (Exp 190)
+# Titan V: warm-catch via binary-patched nouveau (GAP-HS-073)
+# K80: warm-catch via nouveau GK210 patch (GAP-HS-076)
+
+[metadata]
+name = "hotspring-gpu-sovereign-dispatch"
+description = "GPU sovereign dispatch — wgpu/Vulkan DF64 + Yukawa OCP MD"
+version = "0.1.0"
+spring = "hotSpring"
+compute_tier = "gpu"
+ladder = ["cpu", "gpu", "sovereign"]
+requires_features = ["barracuda-local"]
+
+[execution]
+type = "gpu"
+kernel = "yukawa_force_f64"
+shader_path = "$SPRINGS_ROOT/hotSpring/barracuda/src/shaders/yukawa_force_f64.wgsl"
+dispatch_size = [256, 1, 1]
+
+[resources]
+max_memory_bytes = 8589934592
+max_gpu_percent = 90.0
+
+[security]
+isolation_level = "None"

@@ -1,0 +1,36 @@
+# hotSpring — LTEE B2 Anderson fitness validation
+# Validates Wiser et al. 2013 power-law fitness model with Anderson
+# localization diagnostics (level spacing ratio, spectral analysis)
+#
+# Compute ladder:
+#   Tier 0 (CPU): This workload — self-contained tridiagonal eigensolver,
+#                 no barracuda-local dependency. 18 validation checks.
+#
+# This scenario runs in IPC-first default build. No GPU required.
+# Feeds lithoSpore module 7 (anderson) and foundation Thread 7.
+
+[metadata]
+name = "hotspring-ltee-anderson"
+description = "LTEE B2: Wiser et al. 2013 Anderson fitness analogy — spectral diagnostics"
+version = "0.1.0"
+spring = "hotSpring"
+compute_tier = "cpu"
+paper = "Wiser, Ribeck & Lenski 2013 Science 342:1364"
+lithoSpore_module = "ltee-anderson"
+
+[execution]
+type = "native"
+command = "$SPRINGS_ROOT/hotSpring/barracuda/target/release/hotspring_unibin"
+args = ["validate", "--scenario", "ltee-anderson", "--format", "json"]
+working_dir = "$SPRINGS_ROOT/hotSpring"
+
+[output]
+format = "json"
+schema = "toadstool-validate-v1"
+
+[resources]
+max_memory_bytes = 2147483648
+max_cpu_percent = 50.0
+
+[security]
+isolation_level = "None"

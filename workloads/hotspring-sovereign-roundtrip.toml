@@ -1,0 +1,34 @@
+# hotSpring — Sovereign roundtrip validation
+# Full sovereign roundtrip: WGSL → native ISA → dispatch → readback
+# Tests all precision levels (f32, f64, DF64) on all available GPUs
+#
+# Compute ladder:
+#   Tier 0 (CPU):      hotspring-md-validation — CPU-only
+#   Tier 1 (GPU):      hotspring-gpu-sovereign-dispatch — wgpu dispatch
+#   Tier 2 (Sovereign): This workload — full sovereign roundtrip
+#
+# Requires: GPU with Vulkan support + --features barracuda-local
+# RTX 5060: 12/12 sovereign roundtrip PASS (6 levels x 2 backends)
+# Hardware-dependent: graceful skip when no GPU present
+
+[metadata]
+name = "hotspring-sovereign-roundtrip"
+description = "Sovereign roundtrip — WGSL→ISA→dispatch→readback across GPU generations"
+version = "0.1.0"
+spring = "hotSpring"
+compute_tier = "sovereign"
+ladder = ["cpu", "gpu", "sovereign"]
+requires_features = ["barracuda-local"]
+
+[execution]
+type = "native"
+command = "$SPRINGS_ROOT/hotSpring/barracuda/target/release/validate_sovereign_roundtrip"
+args = ["--all-levels"]
+working_dir = "$SPRINGS_ROOT/hotSpring"
+
+[resources]
+max_memory_bytes = 8589934592
+max_gpu_percent = 95.0
+
+[security]
+isolation_level = "None"
