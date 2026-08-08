@@ -18,6 +18,48 @@ cards by saturating die area that HPC software ignores.
 |------|------|-----|------|-------|-----------|----------|
 | NVIDIA GeForce RTX 3090 | Ampere (GA102) | 628mm² | 24 GB GDDR6X | 1.70 GHz | 1:64 | 32 (warp) |
 | AMD Radeon RX 6950 XT | RDNA 2 (Navi 21) | 520mm² | 16 GB GDDR6 | 2.31 GHz | 1:16 | 64 (wavefront) |
+| BrainChip Akida AKD1000 | Neuromorphic (80 NPs) | — | 10 MB SRAM | — | int8/int4 | N/A (spiking) |
+
+## NPU (Neuromorphic Processing Unit)
+
+### AKD1000 (BrainChip Akida)
+
+| # | Silicon Unit | Count/Spec | Theoretical Peak | ecoPrimals Status | QCD Task | Access Path |
+|---|-------------|-----------|-----------------|-------------------|----------|-------------|
+| 1 | **Neural Processors** | 80 NPs | ~1M inferences/s | **LIVE** | Phase classification (ESN) | akida-driver (VFIO) |
+| 2 | **SRAM** | 10 MB on-chip | Bandwidth-limited | **LIVE** | Model weights + activations | Direct via BAR mapping |
+| 3 | **Spike Engine** | Per-NP | Event-driven | **LIVE** | Temporal pattern detection | Spiking API |
+| 4 | **PCIe Interface** | Gen 3 x4 | ~4 GB/s | **LIVE** | Feature vector upload | DMA via VFIO |
+
+**Power**: <2W TDP under full inference load. Always-on monitoring is essentially free.
+
+**Access Path**: Pure Rust via `akida-driver` crate (toadStool/crates/neuromorphic/).
+VFIO-pci bound at BDF `e2:00.0`, userspace access via `/dev/vfio/92`.
+
+**QCD Role**: Real-time phase classification of lattice configurations. Input is an
+11-feature vector (position-space + momentum-space observables). Output is binary
+classification (confined/deconfined) at 2 µs/sample latency.
+
+**ESN Configuration** (current, validated 100% accuracy on cached configs):
+- Reservoir: 50 neurons, spectral radius 0.95, connectivity 0.2
+- Input: 11 features (β_norm, ⟨P⟩, |L|, Re(L), Im(L), W(1,1), W(2,1), ln(V)/10, DFT[k=1..3])
+- Output: 1 (phase label)
+- Training: ridge regression (regularization 1e-2)
+
+## Future Acquisition Slots
+
+Based on measured workload profiles (see `GPU_ACQUISITION_SCIENCE_INFORMED.md`):
+
+| Slot | Target Card | Role | FP64 Impact | Priority |
+|------|-------------|------|-------------|----------|
+| GPU₃ | Tesla V100 32GB | Precision oracle (native f64) | +7.0 TFLOPS | P1 |
+| GPU₄ | RX 6900 XT | DF64 throughput (independent chain) | +~22 TFLOPS DF64 | P2 |
+| GPU₅ | Tesla P100 16GB | FP64 canary (cross-gen validation) | +4.7 TFLOPS | P3 |
+| NPU₂ | (future) | Extended spiking network | +1M inf/s | — |
+
+**Key Insight**: AMD RDNA 2 delivers 33% more DF64 TFLOPS than NVIDIA Ampere
+consumer at comparable price. Tesla V100 delivers 12.5× more native FP64 than
+RTX 3090 at 1/3 the price (used market). Science informs hardware.
 
 ## Complete Silicon Unit Inventory
 
@@ -62,25 +104,28 @@ cards by saturating die area that HPC software ignores.
 
 ## Utilization Score
 
-### Current (Exp 108)
+### Current (Wave 157a)
 
-| Unit | RTX 3090 | RX 6950 XT | Notes |
-|------|----------|-----------|-------|
-| FP32 ALU | **LIVE** | **LIVE** | DF64 Dekker pairs, all shaders |
-| FP64 ALU | **LIVE** | **LIVE** | Adaptive via Fp64Strategy |
-| Tensor | PLAN | N/A | Needs coralReef SASS MMA |
-| RT Cores | PLAN | PLAN | Needs coralReef BVH dispatch |
-| TMU | **LIVE** | **LIVE** | Box-Muller PRNG, Tier 0 |
-| ROP | **LIVE** | **LIVE** | Force accumulation atomicAdd |
-| Subgroup | **LIVE** | **LIVE** | CG reduce (naga 28 fix applied) |
-| Shared Mem | **LIVE** | **LIVE** | CG fallback, always available |
-| Memory BW | **LIVE** | **LIVE** | All buffer streaming |
-| Rasterizer | FUTURE | FUTURE | Needs wgpu render pass integration |
-| Depth Buf | FUTURE | FUTURE | Needs wgpu render pass integration |
-| Tessellator | FUTURE | FUTURE | Needs wgpu render pass integration |
-| Video Enc | FUTURE | FUTURE | Needs FFmpeg/system API |
+| Unit | RTX 3090 | RX 6950 XT | AKD1000 | Notes |
+|------|----------|-----------|---------|-------|
+| FP32 ALU | **LIVE** | **LIVE** | — | DF64 Dekker pairs, all shaders |
+| FP64 ALU | **LIVE** | **LIVE** | — | Adaptive via Fp64Strategy |
+| Tensor | PLAN | N/A | — | Needs coralReef SASS MMA |
+| RT Cores | PLAN | PLAN | — | Needs coralReef BVH dispatch |
+| TMU | **LIVE** | **LIVE** | — | Box-Muller PRNG, Tier 0 |
+| ROP | **LIVE** | **LIVE** | — | Force accumulation atomicAdd |
+| Subgroup | **LIVE** | **LIVE** | — | CG reduce (naga 28 fix applied) |
+| Shared Mem | **LIVE** | **LIVE** | — | CG fallback, always available |
+| Memory BW | **LIVE** | **LIVE** | — | All buffer streaming |
+| Neural Procs | — | — | **LIVE** | Phase classification (ESN via akida-driver) |
+| SRAM | — | — | **LIVE** | Model weights, activations |
+| Spike Engine | — | — | **LIVE** | Temporal pattern detection |
+| Rasterizer | FUTURE | FUTURE | — | Needs wgpu render pass integration |
+| Depth Buf | FUTURE | FUTURE | — | Needs wgpu render pass integration |
+| Tessellator | FUTURE | FUTURE | — | Needs wgpu render pass integration |
+| Video Enc | FUTURE | FUTURE | — | Needs FFmpeg/system API |
 
-**Score**: 7/14 NVIDIA, 6/13 AMD (counting available units only)
+**Score**: 7/14 NVIDIA, 6/13 AMD, 3/3 NPU (counting available units only)
 
 ### Tier Priority for Next Activation
 
@@ -195,5 +240,9 @@ Markov chain. $300 × 4 cards = $1200 for 4 independent chains.
 - `SILICON_TIER_ROUTING.md` — tier hierarchy and kernel routing table
 - `profiles/silicon/*.json` — measured hardware profiles
 - toadStool `silicon.rs` — silicon unit discovery and routing types
+- toadStool `crates/neuromorphic/akida-chip/` — AKD1000 silicon model (register maps, BAR layout, NP mesh)
+- toadStool `crates/neuromorphic/akida-driver/` — pure Rust VFIO driver for AKD1000
 - barraCuda `DeviceCapabilities` — wgpu feature/limits query
+- barraCuda `src/md/npu_hw.rs` — NPU hardware integration (feature-gated `npu-hw`)
 - coralReef — sovereign shader compiler for tensor/RT/SASS paths
+- `subGen/GPU_ACQUISITION_SCIENCE_INFORMED.md` — eBay profiling criteria + acquisition priority
