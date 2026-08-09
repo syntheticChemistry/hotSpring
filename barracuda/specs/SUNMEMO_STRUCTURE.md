@@ -172,10 +172,46 @@ plaquette in the header — they can verify it matches their measurement.
 
 ---
 
+## Cross-Silicon Profiling (Aug 8, 2026)
+
+Same seed + same β + same dims produces identical Markov chain on both GPUs.
+This validates hardware correctness and quantifies silicon routing benefit.
+
+### Volume Scaling (SU(3), β=6.0, DF64, n_md=10)
+
+| Volume | RTX 3090 | RX 6950 XT | AMD Speedup | Plaquette Δ |
+|--------|----------|-----------|-------------|-------------|
+| 4⁴ | 9.49 ms | 4.93 ms | 1.92× | 1.82e-7 |
+| 8⁴ | 25.69 ms | 5.31 ms | 4.84× | 7.40e-8 |
+| 12⁴ | 190.93 ms | 11.26 ms | 16.95× | 1.28e-8 |
+| 16⁴ | 601.27 ms | 31.32 ms | 19.19× | 6.11e-8 |
+
+### Silicon Routing (toadStool-consumable)
+
+| Task | Card | Rationale |
+|------|------|-----------|
+| HMC production (≥ 8⁴) | AMD | 5-19× faster |
+| Precision oracle | NVIDIA | Independent silicon = independent cross-check |
+| ESN classification | AKD1000 NPU | 2 µs/sample |
+| TMU multigrid | RTX 3090 | Texture cache hierarchy |
+| ROP force atomics | AMD | 6.35× faster |
+
+### Key Properties
+
+- **Bitwise reproducible**: same seed → Δ = 0.00 on repeat
+- **Cross-GPU parity**: Δ ≤ 10⁻⁶ (DF64 rounding, not physics)
+- **Linear MD scaling on AMD**: time ∝ n_md (compute-bound)
+
+---
+
 ## Files
 
 - `~/.local/share/hotspring/configs/` — Config archive
 - `src/bin/arxiv_thermalize_sun.rs` — Thermalization binary
 - `src/bin/arxiv_measure_battery.rs` — Observable measurement
 - `src/bin/milc_validation_loop.rs` — MILC export/import
+- `src/bin/bench_silicon_crosspath_qcd.rs` — Cross-GPU same-seed comparison
+- `src/bin/bench_silicon_volume_scaling.rs` — Volume scaling benchmark
+- `src/bin/bench_silicon_force_paths.rs` — Force accumulation profiling
+- `src/bin/bench_precision_ladder.rs` — Precision/reproducibility validation
 - `specs/SUNMEMO_STRUCTURE.md` — This document
