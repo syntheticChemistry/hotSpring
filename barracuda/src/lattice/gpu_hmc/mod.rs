@@ -398,8 +398,9 @@ struct PolyParams {
 impl GpuHmcState {
     /// Upload a lattice to GPU and create all persistent buffers.
     ///
-    /// Includes NVK allocation guard (toadStool cross-spring evolution):
-    /// checks total estimated VRAM against nouveau driver PTE fault limit.
+    /// Allocation guard checks that the largest individual buffer fits within
+    /// `max_buffer_size`. The previous guard incorrectly compared *total* VRAM
+    /// usage against a per-buffer limit, rejecting valid 32⁴+ allocations.
     #[must_use]
     pub fn from_lattice(gpu: &GpuF64, lattice: &Lattice, beta: f64) -> Self {
         let vol = lattice.volume();
@@ -413,11 +414,19 @@ impl GpuHmcState {
             + (n_links as u64 * 8)
             + (spatial_vol as u64 * 2 * 8)
             + (vol as u64 * 8 * 4);
-        if let Err(e) = gpu.capabilities().check_allocation_safe(total_estimate) {
-            eprintln!("[HMC] NVK allocation guard: {e}");
+        // Check largest individual buffer (link_bytes) against per-buffer limit.
+        // Previous guard checked total against max_buffer_size which is a per-buffer
+        // limit — incorrectly rejecting 32⁴+ allocations that fit in VRAM.
+        if let Err(e) = gpu.capabilities().check_allocation_safe(link_bytes) {
+            eprintln!("[HMC] VRAM guard: largest buffer ({:.1} MB) exceeds device limit",
+                link_bytes as f64 / 1e6);
+            eprintln!("[HMC] {e}");
+        } else {
             eprintln!(
-                "[HMC] Total estimated: {:.1} MB",
-                total_estimate as f64 / 1e6
+                "[HMC] VRAM estimate: {:.1} MB total ({} buffers, largest {:.1} MB). OK.",
+                total_estimate as f64 / 1e6,
+                6,
+                link_bytes as f64 / 1e6
             );
         }
 

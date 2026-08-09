@@ -170,17 +170,35 @@ plaquette in the header — they can verify it matches their measurement.
 
 **Total cached: 105 configs** (57 SU(3) + 36 SU(2) + 3 SU(4) + 9 root)
 
-### GPU Pipeline Status (Aug 8, 2026)
+### GPU Pipeline Status (Aug 9, 2026)
 
 | Stage | Status | Notes |
 |-------|--------|-------|
 | Thermalize (SU(3) ≤ 24⁴) | **GPU-NATIVE** | AMD 19× faster, 25s/config at 16⁴ |
-| Thermalize (SU(3) 32⁴) | CPU only | VRAM overflow on 16GB (needs 3.7GB alloc guard fix) |
+| Thermalize (SU(3) 32⁴) | **GPU-READY** | Guard bypass → NVIDIA 24GB handles 51⁴ max |
 | Thermalize (SU(N≥4)) | CPU only | Needs N×N shader generalization |
 | Measure (plaquette) | **GPU-NATIVE** | Cross-GPU parity: Δ = 10⁻¹⁰ |
 | Measure (Polyakov) | **GPU-NATIVE** | Built into HMC state |
 | Measure (Wilson loops) | CPU | Complex multi-hop path, planned for GPU |
 | Cross-validate | **GPU×2** | NVIDIA + AMD produce identical observables |
+
+### Lattice Capacity (Aug 9, 2026)
+
+Previous max was 22⁴ (software guard limited to 805 MB).
+
+| Strategy | Max L⁴ | Sites | VRAM | vs Previous |
+|----------|--------|-------|------|-------------|
+| Previous (guard-limited) | 22⁴ | 234K | 0.8 GB | 1× |
+| Guard bypass (NVIDIA) | 51⁴ | 6.8M | 23.9 GB | 29× |
+| ROP offload (3 bufs) | 61⁴ | 13.8M | 24.9 GB | 59× |
+| Precision folded + ROP | 64⁴ | 16.8M | 24.8 GB | 72× |
+| Multi-GPU + folded | **73⁴** | **28.4M** | 41.9 GB | **121×** |
+
+Per-site VRAM: 3,536 bytes (current) → 1,488 bytes (fully folded).
+
+Silicon offloading saves 23-27% of trajectory time by moving force
+accumulation to ROPs, reductions to subgroup shuffles, and
+interpolation to TMU hardware.
 
 ---
 
@@ -220,10 +238,15 @@ This validates hardware correctness and quantifies silicon routing benefit.
 
 - `~/.local/share/hotspring/configs/` — Config archive
 - `src/bin/arxiv_thermalize_sun.rs` — Thermalization binary
+- `src/bin/arxiv_thermalize_gpu.rs` — GPU-accelerated thermalizer
 - `src/bin/arxiv_measure_battery.rs` — Observable measurement
+- `src/bin/arxiv_measure_gpu.rs` — GPU-accelerated measurement
 - `src/bin/milc_validation_loop.rs` — MILC export/import
 - `src/bin/bench_silicon_crosspath_qcd.rs` — Cross-GPU same-seed comparison
 - `src/bin/bench_silicon_volume_scaling.rs` — Volume scaling benchmark
 - `src/bin/bench_silicon_force_paths.rs` — Force accumulation profiling
 - `src/bin/bench_precision_ladder.rs` — Precision/reproducibility validation
+- `src/bin/bench_gpu_pcie_stream.rs` — GPU-to-GPU PCIe streaming
+- `src/bin/validate_gpu_cpu_therm_parity.rs` — GPU vs CPU thermalization parity
+- `src/bin/profile_lattice_capacity.rs` — Max lattice size + silicon offloading profiler
 - `specs/SUNMEMO_STRUCTURE.md` — This document
