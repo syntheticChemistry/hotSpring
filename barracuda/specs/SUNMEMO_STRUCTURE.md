@@ -156,19 +156,31 @@ plaquette in the header — they can verify it matches their measurement.
 
 ## Production Campaigns (current targets)
 
-| Gauge Group | β | Volume | N_therm | N_prod | Status |
-|---|---|---|---|---|---|
-| SU(2) | 2.3 | 8⁴ | 100 | 1000 | ✅ Complete |
-| SU(2) | 2.3 | 16⁴ | 200 | 500 | ✅ Complete |
-| SU(2) | 2.3 | 24⁴ | 200 | 200 | ✅ Complete |
-| SU(3) | 6.0 | 8⁴ | 50 | 200 | ✅ Complete |
-| SU(3) | 6.0 | 16⁴ | 100 | 200 | ✅ Complete |
-| SU(3) | 6.2 | 16⁴ | 100 | 200 | ✅ Complete |
-| SU(3) | 6.0 | 32⁴ | 100 | 200 | **TODO** |
-| SU(4) | 10.0 | 12⁴ | 200 | 500 | **IN PROGRESS** |
-| SU(5) | 16.0 | 8⁴ | 300 | 500 | **TODO** |
-| SU(6) | 24.0 | 8⁴ | 400 | 500 | **TODO** |
-| SU(8) | 40.0 | 8⁴ | 500 | 200 | **TODO** |
+| Gauge Group | β | Volume | N_therm | N_prod | Status | Method |
+|---|---|---|---|---|---|---|
+| SU(2) | 2.2-2.5 | 16⁴-32⁴ | 200-400 | 200-1000 | ✅ Complete (36 configs) | CPU |
+| SU(3) | 5.9-6.2 | 16⁴ | 200 | 200 | ✅ Complete (9 configs) | **GPU** (25s each) |
+| SU(3) | 5.9-6.2 | 24⁴ | 200 | 200 | ✅ Complete (9 configs) | **GPU** (169s each) |
+| SU(3) | 5.9-6.2 | 32⁴ | 300 | 200 | ✅ Complete (3 configs) | CPU |
+| SU(4) | 10.5-11.0 | 16⁴ | 200 | 500 | ✅ Complete (3 configs) | CPU |
+| SU(4) | 10.5-11.0 | 24⁴ | 300 | 500 | **IN PROGRESS** (100/300) | CPU |
+| SU(5) | 16.5-17.5 | 16⁴ | 200 | 500 | **TODO** | CPU (GPU needs SU(N) shaders) |
+| SU(6) | 24.0-26.0 | 16⁴ | 200 | 500 | **TODO** | CPU (GPU needs SU(N) shaders) |
+| SU(8) | 44.0-46.0 | 16⁴ | 200 | 200 | **TODO** | CPU (GPU needs SU(N) shaders) |
+
+**Total cached: 105 configs** (57 SU(3) + 36 SU(2) + 3 SU(4) + 9 root)
+
+### GPU Pipeline Status (Aug 8, 2026)
+
+| Stage | Status | Notes |
+|-------|--------|-------|
+| Thermalize (SU(3) ≤ 24⁴) | **GPU-NATIVE** | AMD 19× faster, 25s/config at 16⁴ |
+| Thermalize (SU(3) 32⁴) | CPU only | VRAM overflow on 16GB (needs 3.7GB alloc guard fix) |
+| Thermalize (SU(N≥4)) | CPU only | Needs N×N shader generalization |
+| Measure (plaquette) | **GPU-NATIVE** | Cross-GPU parity: Δ = 10⁻¹⁰ |
+| Measure (Polyakov) | **GPU-NATIVE** | Built into HMC state |
+| Measure (Wilson loops) | CPU | Complex multi-hop path, planned for GPU |
+| Cross-validate | **GPU×2** | NVIDIA + AMD produce identical observables |
 
 ---
 
