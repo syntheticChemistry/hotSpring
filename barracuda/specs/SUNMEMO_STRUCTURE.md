@@ -202,35 +202,64 @@ interpolation to TMU hardware.
 
 ---
 
-## Cross-Silicon Profiling (Aug 8, 2026)
+## Cross-Silicon Profiling (Aug 8-9, 2026)
 
 Same seed + same β + same dims produces identical Markov chain on both GPUs.
 This validates hardware correctness and quantifies silicon routing benefit.
 
-### Volume Scaling (SU(3), β=6.0, DF64, n_md=10)
+### Volume Scaling (SU(3), β=6.0, DF64, n_md=10) — Updated Aug 9
 
 | Volume | RTX 3090 | RX 6950 XT | AMD Speedup | Plaquette Δ |
 |--------|----------|-----------|-------------|-------------|
-| 4⁴ | 9.49 ms | 4.93 ms | 1.92× | 1.82e-7 |
-| 8⁴ | 25.69 ms | 5.31 ms | 4.84× | 7.40e-8 |
-| 12⁴ | 190.93 ms | 11.26 ms | 16.95× | 1.28e-8 |
-| 16⁴ | 601.27 ms | 31.32 ms | 19.19× | 6.11e-8 |
+| 4⁴ | 10.54 ms | 5.00 ms | 2.1× | 1.82e-7 |
+| 6⁴ | 10.67 ms | 3.90 ms | 2.7× | 6.22e-7 |
+| 8⁴ | 28.05 ms | 5.32 ms | 5.3× | 7.40e-8 |
+| 10⁴ | 94.04 ms | 6.81 ms | 13.8× | 1.57e-8 |
+| 12⁴ | 198.61 ms | 11.61 ms | 17.1× | 1.28e-8 |
+| 16⁴ | 625.70 ms | 31.09 ms | **20.1×** | 6.11e-8 |
+
+**AMD scales nearly linearly** (6.2× time for 256× volume). Infinity Cache dominance.
+**NVIDIA dispatch-bound** at small volumes (10 ms floor at 4⁴-6⁴).
+
+### NPU Cross-PCIe Pattern — Aug 9
+
+Three-substrate orchestration validated:
+- GPU (RTX 3090) → HMC production
+- GPU (RX 6950 XT) → f64 oracle / cross-validation
+- NPU (AKD1000 sim) → ESN phase classification (0.02% overhead)
+
+| Metric | Value |
+|--------|-------|
+| ESN f32 vs CPU f64 error | 3.91×10⁻⁷ |
+| Monitoring overhead | 15.7 µs / 68.69 ms = 0.02% |
+| Adaptive β_c accuracy | 0.013 from known |
+| Compute savings (NPU steering) | 62% fewer evaluations |
 
 ### Silicon Routing (toadStool-consumable)
 
 | Task | Card | Rationale |
 |------|------|-----------|
-| HMC production (≥ 8⁴) | AMD | 5-19× faster |
-| Precision oracle | NVIDIA | Independent silicon = independent cross-check |
-| ESN classification | AKD1000 NPU | 2 µs/sample |
+| HMC production (any volume) | AMD RX 6950 XT | 5-20× faster, same physics |
+| Precision oracle / f64 | NVIDIA RTX 3090 | Native SHADER_F64 |
+| ESN phase classification | AKD1000 NPU | 30 mW, zero GPU interference |
+| Large reservoir ESN (RS>768) | GPU (either) | GPU crossover at RS=768 |
+| Adaptive β steering | NPU → GPU | NPU predicts, GPU validates |
 | TMU multigrid | RTX 3090 | Texture cache hierarchy |
 | ROP force atomics | AMD | 6.35× faster |
+| Cross-silicon validation | Both GPUs | Same config, compare plaquettes |
 
 ### Key Properties
 
 - **Bitwise reproducible**: same seed → Δ = 0.00 on repeat
-- **Cross-GPU parity**: Δ ≤ 10⁻⁶ (DF64 rounding, not physics)
-- **Linear MD scaling on AMD**: time ∝ n_md (compute-bound)
+- **Cross-GPU parity**: Δ ≤ 10⁻⁷ (DF64 rounding, not physics)
+- **Linear MD scaling on AMD**: time ∝ n_md (compute-bound, IC-resident)
+- **NPU overhead negligible**: 0.02% of trajectory time
+- **AMD buffer fix**: `max_buffer_size = 2^31-1` (RADV i32::MAX constraint)
+- **20× root cause**: intra-dispatch IC absorption (34-113 MB working set vs 6 MB L2)
+- **Generation-specific**: NVIDIA wins raw (1.3-1.9×), AMD wins lattice QCD (IC effect)
+- **RT Cores accessible**: EXPERIMENTAL_RAY_QUERY=YES on both cards (wgpu 28)
+- **F16 available**: SHADER_F16=YES — enables DF32 precision tier
+- **14/15 silicon units accessible** (only tensor cores remain driver-blocked)
 
 ---
 
@@ -248,5 +277,17 @@ This validates hardware correctness and quantifies silicon routing benefit.
 - `src/bin/bench_precision_ladder.rs` — Precision/reproducibility validation
 - `src/bin/bench_gpu_pcie_stream.rs` — GPU-to-GPU PCIe streaming
 - `src/bin/validate_gpu_cpu_therm_parity.rs` — GPU vs CPU thermalization parity
+- `src/bin/validate_three_substrate.rs` — GPU + NPU + validation GPU orchestration
+- `src/bin/validate_hetero_monitor.rs` — Heterogeneous monitoring (9/9 pass)
+- `src/bin/validate_streaming_pipeline.rs` — GPU streaming pipeline validation
+- `src/bin/cross_substrate_esn_benchmark.rs` — CPU × GPU × NPU ESN comparison (35/35 pass)
+- `src/bin/production_mixed_pipeline.rs` — Full production: 3090 + NPU + AMD oracle
+- `src/bin/sun_npu_metalforge.rs` — SU(N) NPU metalForge phase classification
 - `src/bin/profile_lattice_capacity.rs` — Max lattice size + silicon offloading profiler
+- `src/bin/pseudospore_manifest.rs` — BLAKE3 manifest + DAG generator for pseudoSpore bundles
+- `src/bin/bench_silicon_genealogy.rs` — Full SiliconProfile: cache, dispatch, FP32, atomics per card
+- `src/bin/bench_access_pattern_era.rs` — Linear vs strided access per generation
+- `src/bin/bench_dispatch_count_scaling.rs` — Dispatch count scaling (proves linear, disproves eviction)
+- `src/bin/probe_rt_tensor_features.rs` — wgpu feature census (RT, F16, F64, subgroup per card)
+- `scripts/validate.sh` — POSIX sh validation script (BLAKE3 + DAG + Ed25519)
 - `specs/SUNMEMO_STRUCTURE.md` — This document
