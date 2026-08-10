@@ -257,13 +257,14 @@ async fn run_single_config(
     println!("    Warmup done: accept = {:.1}%", warmup_accept_rate * 100.0);
 
     // Phase 2: Production (200 trajectories, measured)
+    let prod_dt = production_dt(spec.volume());
     let mut measurements = Vec::with_capacity(N_PRODUCTION);
     let mut prod_accepted = 0u32;
 
     for t in 0..N_PRODUCTION {
         let traj_id = (N_WARMUP + t) as u32;
         match gpu_hmc_trajectory_streaming(
-            gpu, &pipelines, &hmc_state, N_MD, DT, traj_id, &mut rng_seed,
+            gpu, &pipelines, &hmc_state, N_MD, prod_dt, traj_id, &mut rng_seed,
         ) {
             Ok(result) => {
                 if result.accepted {
@@ -344,9 +345,9 @@ async fn run_single_config(
         dims: spec.dims,
         beta: spec.beta,
         seed: spec.seed,
-        n_warmup: N_WARMUP,
+        n_warmup: warmup_dt_schedule(spec.volume()).iter().map(|&(_, n)| n).sum(),
         n_production: N_PRODUCTION,
-        dt: DT,
+        dt: production_dt(spec.volume()),
         n_md: N_MD,
         integrator: "Omelyan2MN".to_string(),
         start_type: "cold".to_string(),
@@ -377,13 +378,30 @@ fn warmup_dt_schedule(volume: usize) -> Vec<(f64, usize)> {
             (DT, 250),        // dt=0.01, production step size
         ]
     } else {
-        // 32⁴ (1048576): even gentler ramp
+        // 32⁴ (1048576): extended thermalization at production dt (0.005)
+        // Previous: 500 total with final stage at dt=0.01 → only 5-8% acceptance, incomplete thermalization
+        // Fix: 1500 total, ending at dt=0.005 (production dt) with 800 trajectories at that step size
         vec![
-            (DT / 10.0, 50),  // dt=0.001, very gentle start
-            (DT / 5.0, 100),  // dt=0.002
-            (DT / 2.0, 150),  // dt=0.005
-            (DT, 200),        // dt=0.01, production step size
+            (DT / 10.0, 50),   // dt=0.001, break cold start symmetry
+            (DT / 5.0, 100),   // dt=0.002, gentle ramp
+            (DT / 3.0, 200),   // dt=0.0033, bridge
+            (DT / 2.0, 1150),  // dt=0.005, full thermalization at production dt
         ]
+    }
+}
+
+/// Volume-adaptive production step size.
+/// 
+/// dt=0.01 gives 88% acceptance at 16⁴ but only 5-8% at 32⁴.
+/// Scale dt to maintain ~60-80% acceptance across volumes:
+///   16⁴: dt=0.01 (88% acceptance)
+///   24⁴: dt=0.01 (64% acceptance)  
+///   32⁴: dt=0.005 (target ~60% acceptance)
+fn production_dt(volume: usize) -> f64 {
+    if volume <= 400_000 {
+        DT
+    } else {
+        DT / 2.0
     }
 }
 

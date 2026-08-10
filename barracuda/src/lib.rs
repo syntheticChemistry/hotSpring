@@ -99,6 +99,8 @@ pub mod fleet_toadstool;
 ///
 /// Covers `device.dispatch`, `device.list`, health checks, and related helpers.
 pub mod glowplug_client;
+/// Gossip injection into swarmVine epidemic mesh (fire-and-forget, zero-cost when absent).
+pub mod gossip;
 /// GPU FP64 compute wrapper (`SHADER_F64` via wgpu/Vulkan).
 #[cfg(feature = "barracuda-local")]
 pub mod gpu;
