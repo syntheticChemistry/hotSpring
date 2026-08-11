@@ -50,6 +50,7 @@ impl TrajectoryRunner {
     ) -> Result<(CampaignSegmentResult, Vec<f64>), barracuda::error::BarracudaError> {
         let volume_str = format!("{}x{}", qcd.config.nx, qcd.config.nt);
         let total = self.warmup_count + self.production_count;
+        let t0 = std::time::Instant::now();
 
         crate::gossip::campaign_started(&volume_str, qcd.config.beta, total);
 
@@ -68,7 +69,9 @@ impl TrajectoryRunner {
             production.final_plaquette,
             acc_rate,
         );
-        crate::gossip::campaign_complete(total, 0.0);
+
+        let wall_hours = t0.elapsed().as_secs_f64() / 3600.0;
+        crate::gossip::campaign_complete(total, wall_hours);
 
         Ok((production, measurements))
     }
