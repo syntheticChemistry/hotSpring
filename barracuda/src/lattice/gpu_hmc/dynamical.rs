@@ -38,7 +38,7 @@ const WGSL_PRNG_CORE: &str = WGSL_PRNG_PCG_F64;
 /// Uses the standalone shader directly — composing PRNG_CORE + MOMENTA causes
 /// duplicate function definitions (pcg_hash, hash_u32, uniform_f64) that
 /// silently fail on some drivers (all-zero output).
-pub const WGSL_RANDOM_MOMENTA: &str = WGSL_SU3_RANDOM_MOMENTA_F64;
+pub const WGSL_RANDOM_MOMENTA: &str = include_str!("../shaders/su3_random_momenta_f64.wgsl");
 /// WGSL shader: TMU-accelerated PRNG for SU(3) momenta (Tier 0 silicon routing).
 /// TMU variant still needs PRNG_CORE because it does NOT define its own PRNG functions.
 pub static WGSL_RANDOM_MOMENTA_TMU: std::sync::LazyLock<String> =

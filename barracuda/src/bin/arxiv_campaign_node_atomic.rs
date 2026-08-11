@@ -70,6 +70,10 @@ fn main() {
         };
 
         qcd.upload_topology();
+        if let Err(e) = qcd.cold_start() {
+            eprintln!("  ERROR in cold_start: {e}");
+            continue;
+        }
         qcd.seed_rng(config.seed);
 
         println!("  GPU: {}", qcd.device.adapter_info().name);
@@ -81,26 +85,19 @@ fn main() {
             ..Default::default()
         };
 
-        let warmup_result = runner.run_warmup(&qcd, 100, |step, plaq, acc| {
+        let campaign_result = runner.run_campaign(&qcd, 100, |step, plaq, acc| {
             println!("    warmup {step}/{}: ⟨P⟩ = {plaq:.8}, accept = {:.0}%", config.n_warmup, acc * 100.0);
         });
 
-        match warmup_result {
-            Ok(result) => {
-                println!(
-                    "  Warmup done: P={:.6}, accept={:.0}%",
-                    result.final_plaquette,
-                    result.accepted as f64 / result.trajectories as f64 * 100.0
-                );
-            }
+        let (production, measurements) = match campaign_result {
+            Ok(r) => r,
             Err(e) => {
-                eprintln!("  ERROR in warmup: {e}");
+                eprintln!("  ERROR in campaign: {e}");
                 continue;
             }
-        }
+        };
 
-        let mut measurements = Vec::with_capacity(config.n_production);
-        let prod_result = runner.run_production(&qcd, &mut measurements);
+        let prod_result: Result<_, barracuda::error::BarracudaError> = Ok(production);
 
         match prod_result {
             Ok(result) => {
@@ -114,6 +111,12 @@ fn main() {
 
                 let v = validation::validate_plaquette(config.beta, mean_plaq);
                 println!("  {v}");
+
+                hotspring_barracuda::gossip::validation_result(
+                    v.passed,
+                    if v.passed { measurements.len() } else { 0 },
+                    measurements.len(),
+                );
 
                 let mut provenance = CampaignProvenance::new(config.dims, config.beta, config.seed);
                 provenance.n_warmup = config.n_warmup;

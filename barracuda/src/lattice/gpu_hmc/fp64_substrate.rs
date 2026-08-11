@@ -29,12 +29,17 @@ pub fn substrate_fp64_strategy(gpu: &GpuF64) -> Fp64Strategy {
         return Fp64Strategy::Hybrid;
     }
 
-    let rate = classify_fp64_rate_from_adapter(&gpu.adapter_name);
-    match rate {
-        Fp64RateLocal::Full | Fp64RateLocal::Half => Fp64Strategy::Native,
-        Fp64RateLocal::Narrow if gpu.has_f64 => Fp64Strategy::Concurrent,
-        Fp64RateLocal::Narrow => Fp64Strategy::Hybrid,
+    // Force native f64 on all hardware with working f64 support.
+    // The DF64 "Concurrent" mode uses @workgroup_size(64) shaders from barraCuda's
+    // absorbed corpus, but at 32⁴+ volumes the dispatch count (n_links/64 = 65536)
+    // exceeds the 65535 workgroup-per-dimension limit on AMD RDNA2. Since native
+    // f64 shaders use @workgroup_size(128) and stay under the limit, and native f64
+    // is available and verified on this hardware, we use Native unconditionally.
+    if gpu.has_f64 {
+        return Fp64Strategy::Native;
     }
+
+    Fp64Strategy::Hybrid
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

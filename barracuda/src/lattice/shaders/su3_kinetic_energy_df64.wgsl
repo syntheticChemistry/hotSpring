@@ -28,9 +28,9 @@ fn load_su3_df64(base: u32) -> array<Cdf64, 9> {
     return m;
 }
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let link_id = gid.x + gid.y * nwg.x * 64u;
+@compute @workgroup_size(128)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let link_id = gid.x;
     if (link_id >= params.n_links) { return; }
 
     let base = link_id * 18u;

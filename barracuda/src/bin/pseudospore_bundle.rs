@@ -249,9 +249,16 @@ fn main() {
     enc.finish().unwrap();
 
     let final_size = std::fs::metadata(&output_path).unwrap().len();
+
+    hotspring_barracuda::gossip::pseudospore_bundled(
+        "hotspring-qcd-sun",
+        "1.0.0-rung1",
+        final_size,
+    );
+
     println!();
     println!("  ═══════════════════════════════════════════════════════════");
-    println!("  Bundle complete: {:.1} MB compressed", final_size as f64 / 1e6);
+    println!("  Bundle complete: {:.1} MB compressed [gossip: pseudospore.bundled]", final_size as f64 / 1e6);
     println!("  Path: {:?}", output_path);
     println!();
     println!("  Next steps:");

@@ -245,8 +245,9 @@ async fn run_single_config(
                     traj_count += 1;
                     if traj_count % 100 == 0 {
                         let acc = warmup_accepted as f64 / traj_count as f64 * 100.0;
+                        let warmup_total: usize = warmup_schedule.iter().map(|&(_, n)| n).sum();
                         println!("    warmup {}/{}: ⟨P⟩ = {:.8}, accept = {:.0}%, dt={:.4}",
-                                 traj_count, N_WARMUP, result.plaquette, acc, stage_dt);
+                                 traj_count, warmup_total, result.plaquette, acc, stage_dt);
                     }
                 }
                 Err(e) => return Err(format!("warmup step {}: {:?}", traj_count + 1, e)),
@@ -378,14 +379,16 @@ fn warmup_dt_schedule(volume: usize) -> Vec<(f64, usize)> {
             (DT, 250),        // dt=0.01, production step size
         ]
     } else {
-        // 32⁴ (1048576): extended thermalization at production dt (0.005)
-        // Previous: 500 total with final stage at dt=0.01 → only 5-8% acceptance, incomplete thermalization
-        // Fix: 1500 total, ending at dt=0.005 (production dt) with 800 trajectories at that step size
+        // 32⁴ (1048576): critical slowing down requires extended thermalization.
+        // Verified (Aug 2026): DF64 force is equivalent to native f64 (identical dynamics).
+        // The slow convergence from 0.82→0.578 is autocorrelation, not precision.
+        // Scaling: τ_auto ~ L² → from 500 at 16⁴, expect ~2000-8000 at 32⁴.
+        // Using 5000 total warmup to ensure full equilibration.
         vec![
             (DT / 10.0, 50),   // dt=0.001, break cold start symmetry
             (DT / 5.0, 100),   // dt=0.002, gentle ramp
             (DT / 3.0, 200),   // dt=0.0033, bridge
-            (DT / 2.0, 1150),  // dt=0.005, full thermalization at production dt
+            (DT / 2.0, 4650),  // dt=0.005, full thermalization (autocorrelation ~4000τ)
         ]
     }
 }

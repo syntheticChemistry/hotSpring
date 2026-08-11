@@ -468,6 +468,11 @@ fn main() {
         convergence_checks: conv_checks,
     };
 
+    hotspring_barracuda::gossip::analysis_complete(
+        summary.n_grid_points,
+        summary.n_configs,
+    );
+
     match mode {
         "--json" => {
             let json = serde_json::to_string_pretty(&summary).unwrap();

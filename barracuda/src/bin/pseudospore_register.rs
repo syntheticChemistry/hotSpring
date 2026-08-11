@@ -196,12 +196,21 @@ fn main() {
         std::fs::write(requests_dir.join("westgate_content_ingest.json"), &ingest_json).unwrap();
         std::fs::write(requests_dir.join("irongate_nft_register.json"), &nft_json).unwrap();
 
+        let cas_address = format!("westgate://content/blake3:{}", &bundle_blake3[..32]);
+        hotspring_barracuda::gossip::pseudospore_registered(
+            "hotspring-qcd-sun",
+            "1.0.0-rung1",
+            "dry-run-pending",
+            &cas_address,
+        );
+
         println!("  Request payloads written to: provenance/registration_requests/");
         println!("  Share with ironGate + westGate teams for endpoint wiring.");
+        println!("  [gossip: pseudospore.registered (dry-run)]");
     }
 
     println!();
-    println!("  Pipeline complete (dry-run). Full live path:");
+    println!("  Pipeline complete. Full live path:");
     println!("    compute → manifest → bundle → sign → register → publish");
     println!("  ═══════════════════════════════════════════════════════════");
 }

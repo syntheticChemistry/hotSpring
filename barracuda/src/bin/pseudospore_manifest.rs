@@ -290,6 +290,15 @@ fn main() {
     std::fs::write(out_dir.join("validation.json"), &val_json).unwrap();
     println!("  ✓ validation.json");
 
+    let n_files = checksums.len();
+
+    // Emit gossip event
+    hotspring_barracuda::gossip::pseudospore_manifest_generated(
+        "hotspring-qcd-sun",
+        "1.0.0-rung1",
+        n_files,
+    );
+
     // Symlink data (or note for bundling)
     println!();
     println!("  Data files: {} JSON + {} .lat configs", 
@@ -297,7 +306,7 @@ fn main() {
              checksums.keys().filter(|k| k.ends_with(".lat")).count());
     println!();
     println!("  ═══════════════════════════════════════════════════");
-    println!("  Manifest generation complete.");
+    println!("  Manifest generation complete. [gossip: pseudospore.manifest]");
     println!("  Next: pseudospore_bundle (package) → bearDog sign → ironGate register");
     println!("  ═══════════════════════════════════════════════════");
 }

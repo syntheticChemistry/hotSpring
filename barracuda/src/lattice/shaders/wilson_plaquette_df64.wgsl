@@ -53,9 +53,9 @@ fn plaquette_re_tr_df64(site: u32, mu: u32, nu: u32) -> f64 {
     return df64_to_f64(re_tr) / 3.0;
 }
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let idx = gid.x + gid.y * nwg.x * 64u;
+@compute @workgroup_size(128)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let idx = gid.x;
     let site = idx;
     if site >= params.volume { return; }
 

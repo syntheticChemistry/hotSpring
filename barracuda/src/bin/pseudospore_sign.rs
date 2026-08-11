@@ -199,7 +199,7 @@ fn main() {
     match request_signature_ipc(&request) {
         Ok(response) => {
             let record = SignatureRecord {
-                root_hash,
+                root_hash: root_hash.clone(),
                 signature: response.signature.clone(),
                 public_key: response.public_key.clone(),
                 signer: "strandGate".to_string(),
@@ -211,7 +211,13 @@ fn main() {
             std::fs::create_dir_all(bundle_dir.join("provenance")).unwrap();
             std::fs::write(&sig_path, serde_json::to_string_pretty(&record).unwrap()).unwrap();
 
-            println!("  ✓ Signature obtained from bearDog");
+            hotspring_barracuda::gossip::pseudospore_signed(
+                "hotspring-qcd-sun",
+                "1.0.0-rung1",
+                &root_hash,
+            );
+
+            println!("  ✓ Signature obtained from bearDog [gossip: pseudospore.signed]");
             println!("  ✓ Written to: provenance/signature.ed25519");
             println!();
             println!("  Next: pseudospore_bundle --include-signature");

@@ -96,9 +96,9 @@ fn df64_staple_to_f64(m: array<Cdf64, 9>) -> array<f64, 18> {
     return r;
 }
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let idx = gid.x + gid.y * nwg.x * 64u;
+@compute @workgroup_size(128)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let idx = gid.x;
     let link_idx = idx;
     let n_links = params.volume * 4u;
     if link_idx >= n_links { return; }
