@@ -37,10 +37,12 @@ fn main() {
         n_flavors_over_4: 0,
     };
 
+    let hot_epsilon = 3.0;
+
     println!("═══ 32⁴ β=5.90 Hot-Start Production ═══");
     println!("  Omelyan 2MN: n_md={}, dt={}, τ={:.3}", config.n_md_steps, config.dt,
         config.n_md_steps as f64 * config.dt);
-    println!("  Hot start: ε=0.2 (breaks cold symmetry immediately)");
+    println!("  Hot start: ε={hot_epsilon} (random SU(3) far from identity)");
     println!("  4,194,304 links → WG128 dispatch, 3-pass reduce");
     println!();
 
@@ -49,7 +51,7 @@ fn main() {
     println!("  Device: {} ({:.2}s)", qcd.device.adapter_info().name, t0.elapsed().as_secs_f64());
 
     qcd.upload_topology();
-    qcd.hot_start(0.2).expect("hot_start failed");
+    qcd.hot_start(hot_epsilon).expect("hot_start failed");
     qcd.seed_rng(42);
 
     let volume = qcd.volume();
