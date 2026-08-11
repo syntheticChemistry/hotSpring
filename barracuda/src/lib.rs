@@ -195,5 +195,11 @@ pub mod witness;
 #[cfg(feature = "barracuda-local")]
 pub mod workload_planner;
 
+/// Node-atomic composition layer for lattice QCD (v0.7 architecture).
+/// Thin orchestration over barraCuda's tested HMC infrastructure.
+#[cfg(feature = "barracuda-local")]
+pub mod node_atomic;
 /// Vendor-agnostic register maps for GPU reverse engineering.
 pub mod register_maps;
+/// Spring-specific QCD infrastructure: tolerances, provenance, validation, campaigns.
+pub mod spring;
