@@ -1,0 +1,722 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! Lattice QCD, GPU SpMV/Lanczos, and spectral theory tolerances.
+
+// ═══════════════════════════════════════════════════════════════════
+// Lattice QCD tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// Cold plaquette: absolute error (should be exactly 1.0 for unit links).
+///
+/// On a cold-start lattice (all links = identity), the plaquette trace
+/// is exactly 1. Machine-precision rounding gives ~1e-15 residual.
+pub const LATTICE_COLD_PLAQUETTE_ABS: f64 = 1e-12;
+
+/// Cold Wilson action: absolute error (should be exactly 0.0).
+///
+/// Wilson action = β × Σ(1 - Re Tr `U_p` / 3) is zero when all plaquettes
+/// are unit matrices. 1e-10 accounts for accumulated rounding.
+pub const LATTICE_COLD_ACTION_ABS: f64 = 1e-10;
+
+/// HMC acceptance rate lower bound.
+///
+/// A functional HMC must accept > 10% of trajectories. Zero acceptance
+/// indicates a bug in the gauge force, leapfrog integrator, or
+/// Metropolis step.
+pub const LATTICE_HMC_ACCEPTANCE_MIN: f64 = 0.10;
+
+/// Omelyan (2MN) integrator λ parameter.
+///
+/// Optimal value for second-order minimum-norm integrator (Omelyan, Mryglod,
+/// Folk 2003, Comp. Phys. Comm. 146, 188). Achieves O(dt⁴) errors in the
+/// shadow Hamiltonian vs O(dt²) for leapfrog.
+pub const OMELYAN_LAMBDA: f64 = 0.1931833275037836;
+
+/// CG solver residual: upper bound.
+///
+/// The conjugate gradient solver for D†D x = b should converge to
+/// a relative residual below 1e-6 on a cold lattice (identity links).
+pub const LATTICE_CG_RESIDUAL: f64 = 1e-6;
+
+/// U(1) Abelian Higgs cold plaquette: absolute error.
+///
+/// On a cold-start U(1) lattice (all link angles = 0), the plaquette
+/// is exactly 1. Machine-precision rounding gives ~1e-15 residual.
+pub const U1_COLD_PLAQUETTE_ABS: f64 = 1e-12;
+
+/// U(1) Abelian Higgs cold gauge action: absolute error.
+///
+/// Wilson gauge action = 0 on a cold-start lattice.
+pub const U1_COLD_ACTION_ABS: f64 = 1e-10;
+
+/// U(1) Abelian Higgs HMC acceptance lower bound.
+///
+/// A functional U(1)+Higgs HMC must accept > 30% of trajectories.
+/// Zero or very low acceptance indicates force/integrator bugs.
+pub const U1_HMC_ACCEPTANCE_MIN: f64 = 0.30;
+
+/// U(1) Abelian Higgs: weak-coupling plaquette lower bound.
+///
+/// At `β_pl` ≥ 6 (weak coupling), ⟨Re `U_p`⟩ > 0.7. Near-unity means
+/// the gauge field is nearly ordered.
+pub const U1_WEAK_COUPLING_PLAQ_MIN: f64 = 0.70;
+
+/// U(1) Abelian Higgs: Python-Rust observable parity.
+///
+/// Same algorithm, same LCG seed → observables should match to 1%.
+/// Differences arise only from FP summation order.
+pub const U1_PYTHON_RUST_PARITY: f64 = 0.01;
+
+/// U(1) Abelian Higgs: strong-coupling plaquette upper bound.
+///
+/// At `β_pl=0.5` (strong coupling), ⟨Re `U_p`⟩ < 0.5. Near-zero means
+/// the gauge field is strongly disordered.
+pub const U1_STRONG_COUPLING_PLAQ_MAX: f64 = 0.50;
+
+/// U(1) Abelian Higgs: Higgs condensate phase transition.
+///
+/// The Higgs condensate ⟨|φ|⟩ undergoes a crossover between the
+/// Coulomb (small ⟨|φ|⟩) and Higgs (large ⟨|φ|⟩) phases. 1.5 is
+/// the boundary below which the system is in the Coulomb phase at
+/// strong gauge coupling.
+pub const U1_HIGGS_CONDENSATE_BOUNDARY: f64 = 1.5;
+
+/// U(1) Abelian Higgs: condensate vs coupling monotonicity tolerance.
+///
+/// The condensate should increase with `κ_higgs` (Higgs self-coupling).
+/// 0.15 relative tolerance on the monotonicity check accommodates
+/// finite-size fluctuations on small (L=16) lattices.
+pub const U1_CONDENSATE_MONOTONICITY: f64 = 0.15;
+
+/// Thermodynamic consistency tolerance for `HotQCD` EOS.
+///
+/// Checks s ≈ (ε+p)/T within 30%. Some points near `T_c` have larger
+/// deviations due to the crossover nature of the QCD transition.
+pub const HOTQCD_CONSISTENCY: f64 = 0.30;
+
+/// Maximum allowed thermodynamic consistency violations.
+///
+/// Up to 3 data points may violate the consistency check near `T_c`,
+/// where the QCD crossover produces large ∂s/∂T gradients that amplify
+/// the discretization error in s ≈ (ε+p)/T. Measured: 2 violations
+/// typical, 3 worst-case on coarse interpolation grids.
+pub const HOTQCD_MAX_VIOLATIONS: usize = 3;
+
+// ═══════════════════════════════════════════════════════════════════
+// Production QCD β-scan tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// β-scan plaquette monotonicity: relative margin.
+///
+/// The average plaquette `<P>` must increase monotonically with β.
+/// At each β, the plaquette is averaged over measurement trajectories
+/// after thermalization. Zero tolerance — any non-monotonic pair fails.
+pub const BETA_SCAN_PLAQUETTE_MONOTONICITY: f64 = 0.0;
+
+/// β-scan Polyakov loop: confined-phase upper bound.
+///
+/// In the confined phase (β < `β_c` ≈ 5.69 for SU(3) on `N_t=4`),
+/// the spatial average of |L| should be suppressed. On a 4^4 lattice,
+/// finite-size effects give |L| ~ 0.1-0.3 even in confinement.
+/// 0.40 allows for fluctuations on small volumes.
+pub const BETA_SCAN_CONFINED_POLYAKOV_MAX: f64 = 0.40;
+
+/// β-scan acceptance rate: minimum for all β values.
+///
+/// Every β point in the scan must have HMC acceptance > 30%.
+/// Lower than 30% suggests the step size is too large for that coupling.
+pub const BETA_SCAN_ACCEPTANCE_MIN: f64 = 0.30;
+
+/// β-scan plaquette: Python-Rust parity.
+///
+/// Same algorithm, same LCG seed → same plaquette trajectory. The
+/// parity is limited by FP summation order differences between `NumPy`
+/// and Rust iterators. On 4^4 (256 sites), 1% relative is achievable.
+pub const BETA_SCAN_PYTHON_RUST_PLAQUETTE_PARITY: f64 = 0.01;
+
+/// β-scan / streaming pipeline: grid tolerance for nominal couplings and monotonicity slack.
+///
+/// Used when matching measurement rows to the same nominal β (e.g. |β − 6.0| &lt; tol)
+/// and when allowing thermal noise in mean plaquette between adjacent β
+/// (`⟨P⟩_{i+1} ≥ ⟨P⟩_i − tol`) in GPU β-scan and streaming-pipeline checks.
+pub const BETA_SCAN_GRID_TOLERANCE: f64 = BETA_SCAN_PYTHON_RUST_PLAQUETTE_PARITY;
+
+/// β-scan 8^4 scaling: plaquette should approach 4^4 at large β.
+///
+/// At β ≥ 6.0 (weak coupling), finite-size effects vanish and the
+/// 4^4 and 8^4 plaquettes converge. 5% relative tolerance accounts
+/// for residual finite-volume corrections.
+pub const BETA_SCAN_SCALING_PARITY: f64 = 0.05;
+
+/// Known plaquette at β=6.0 on 4^4: ~0.594.
+///
+/// Bali et al. (1993) and Necco & Sommer (2002) give the continuum-limit
+/// plaquette. On a finite 4^4 lattice, measured value is 0.55-0.61 with
+/// O(100) trajectories. 10% relative tolerance.
+pub const BETA6_PLAQUETTE_REF: f64 = 0.594;
+
+/// Tolerance for β=6.0 plaquette reference comparison.
+pub const BETA6_PLAQUETTE_TOLERANCE: f64 = 0.10;
+
+// ═══════════════════════════════════════════════════════════════════
+// Dynamical fermion QCD tolerances (Paper 10)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Dynamical HMC acceptance rate lower bound.
+///
+/// Naive staggered fermion HMC without multi-timescale integration or
+/// mass preconditioning has low acceptance on coarse lattices due to
+/// the stiff fermion force. Any nonzero acceptance proves the Metropolis
+/// step is functioning. Production efficiency requires Omelyan integrator
+/// and Hasenbusch mass splitting (future optimization).
+pub const DYNAMICAL_HMC_ACCEPTANCE_MIN: f64 = 0.01;
+
+// ═══════════════════════════════════════════════════════════════════
+// Adaptive step-size controller bounds
+// ═══════════════════════════════════════════════════════════════════
+
+/// Minimum MD step size for dynamical HMC.
+///
+/// Dynamical staggered fermions at strong coupling (β ≤ 5.5) or light
+/// mass (m ≤ 0.2) require very small dt due to the stiffness of the
+/// fermion force.  The Omelyan integrator's ΔH ∝ dt², so reducing dt
+/// by √10 reduces ΔH by ~10×.  Allow dt down to 1e-6 so the adaptive
+/// controller can find a viable step size during mass annealing even
+/// for light-quark dynamical fermions at strong coupling.
+pub const ADAPTIVE_DT_MIN: f64 = 0.000001;
+
+/// Maximum MD step size for dynamical HMC.
+///
+/// Above this, ΔH grows as dt² (leapfrog) or dt⁴ (Omelyan) and
+/// Metropolis rejection dominates. Pure gauge can tolerate dt=0.05,
+/// but dynamical fermions are stiff and need dt ≤ 0.02.
+pub const ADAPTIVE_DT_MAX: f64 = 0.02;
+
+/// Minimum MD steps per trajectory.
+///
+/// Trajectory length τ = dt × n_md should be ≥ 0.5 for ergodicity
+/// (traverses at least half a unit of "HMC time").
+pub const ADAPTIVE_NMD_MIN: usize = 20;
+
+/// Maximum MD steps per trajectory.
+///
+/// Cost is O(n_md × CG) per trajectory.  With DT_MIN=5e-5 and target
+/// τ≈0.5, we need up to 10,000 steps.  The adaptive controller clamps
+/// n_md to keep wall time bounded; long trajectories at tiny dt are
+/// still cheaper than rejecting every trajectory.
+pub const ADAPTIVE_NMD_MAX: usize = 10_000;
+
+/// Target acceptance rate for adaptive controller.
+///
+/// Creutz (1988) showed optimal HMC acceptance is 60–80% for typical
+/// lattice systems. 65% balances acceptance against trajectory length
+/// (shorter dt → better acceptance but more CG solves).
+pub const ADAPTIVE_TARGET_ACCEPTANCE: f64 = 0.65;
+
+/// Acceptance rate above which the controller increases dt.
+///
+/// If acceptance exceeds this, we're being too conservative and wasting
+/// compute on unnecessarily small steps.
+pub const ADAPTIVE_HIGH_ACCEPTANCE: f64 = 0.85;
+
+/// Acceptance rate below which the controller decreases dt.
+///
+/// If acceptance drops below this, ΔH is too large and most trajectories
+/// are rejected — wasting the CG cost.
+pub const ADAPTIVE_LOW_ACCEPTANCE: f64 = 0.40;
+
+/// Multiplicative factor for dt increase (acceptance too high).
+pub const ADAPTIVE_DT_BUMP: f64 = 1.15;
+
+/// Multiplicative factor for dt decrease (acceptance too low).
+///
+/// At 0% acceptance the controller needs to halve dt quickly;
+/// with Omelyan (ΔH ∝ dt⁴) halving dt gives 16× smaller ΔH.
+pub const ADAPTIVE_DT_DROP: f64 = 0.50;
+
+/// Dynamical plaquette: must remain physical (0 < P < 1).
+///
+/// Fermion backreaction modifies the plaquette relative to quenched,
+/// but it must remain in (0, 1) for any valid SU(3) configuration.
+pub const DYNAMICAL_PLAQUETTE_MAX: f64 = 1.0;
+
+/// Dynamical fermion action: must be positive.
+///
+/// `S_F` = φ†(D†D)⁻¹φ ≥ 0 since D†D is positive-definite. A negative
+/// value indicates a CG convergence failure or sign error.
+pub const DYNAMICAL_FERMION_ACTION_MIN: f64 = 0.0;
+
+/// CG convergence: all solves must converge within max iterations.
+///
+/// The CG solver for (D†D)x = φ should converge at the requested
+/// tolerance within 5000 iterations on 4^4 lattices.
+pub const DYNAMICAL_CG_MAX_ITER: usize = 5000;
+
+/// Maximum batch size for exponential back-off convergence checking.
+///
+/// GPU-resident CG solvers check convergence every N iterations (doubling
+/// each time). This cap limits wasted iterations past actual convergence
+/// while keeping the GPU pipeline saturated.
+pub const CG_BACKOFF_CAP: usize = 2000;
+
+/// Dynamical plaquette vs quenched: fermion backreaction changes plaquette.
+///
+/// At the same β, dynamical fermions shift the plaquette relative to
+/// quenched. The shift should not exceed 0.15 on 4^4 with light quarks
+/// (m=0.1). A larger shift indicates incorrect fermion force.
+pub const DYNAMICAL_VS_QUENCHED_SHIFT_MAX: f64 = 0.15;
+
+/// Polyakov loop confined-phase upper bound (dynamical).
+///
+/// In the confined phase with dynamical fermions, |L| is suppressed
+/// but string breaking allows slightly larger values than quenched.
+/// 0.5 is generous for 4^4 with light quarks.
+pub const DYNAMICAL_CONFINED_POLYAKOV_MAX: f64 = 0.50;
+
+// ═══════════════════════════════════════════════════════════════════
+// NAK eigensolve tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// NAK eigensolve: maximum relative error vs CPU reference.
+///
+/// GPU Jacobi eigensolve with 200 sweeps converges to ~1e-3 relative
+/// for 12-30 dimension matrices. 1e-2 is a conservative upper bound.
+pub const NAK_EIGENSOLVE_VS_CPU_REL: f64 = 1e-2;
+
+/// NAK baseline vs optimized: parity tolerance.
+///
+/// The optimized (FMA, unrolled) shader must produce identical results
+/// to the baseline shader — both are Jacobi rotation with the same
+/// convergence criterion. Machine-precision agreement expected.
+pub const NAK_EIGENSOLVE_PARITY: f64 = 1e-10;
+
+/// NAK eigensolve: performance regression threshold.
+///
+/// The optimized shader should not be more than 1.5× slower than
+/// the baseline. Values > 1.5 indicate a performance regression.
+pub const NAK_EIGENSOLVE_REGRESSION: f64 = 1.5;
+
+// ═══════════════════════════════════════════════════════════════════
+// GPU lattice QCD validation (CG, Dirac, SpMV)
+// ═══════════════════════════════════════════════════════════════════
+
+/// GPU CG solver: cold-lattice solution parity (GPU vs CPU).
+///
+/// On a cold (ordered) SU(3) lattice, the CG solver is well-conditioned.
+/// GPU and CPU f64 solutions should agree to ~1e-6 relative (limited by
+/// FP summation order differences in dot products).
+pub const LATTICE_GPU_CG_COLD_PARITY: f64 = 1e-6;
+
+/// GPU CG solver: hot-lattice solution parity (GPU vs CPU).
+///
+/// On a hot (random) lattice the condition number is higher and FP
+/// accumulation differences between GPU parallel reduction and CPU
+/// sequential sum become more visible. 1e-4 relative is achievable.
+pub const LATTICE_GPU_CG_HOT_PARITY: f64 = 1e-4;
+
+/// GPU CG: D†D x ≈ b residual verification.
+///
+/// After CG converges, reconstructing b' = D†D x and comparing to the
+/// original b gives a residual bounded by the CG tolerance times the
+/// condition number. 1e-7 is conservative for nuclear lattice sizes.
+pub const LATTICE_CG_VERIFY_RESIDUAL: f64 = 1e-7;
+
+/// GPU staggered Dirac: zero-input absolute error.
+///
+/// D*0 must equal 0 exactly; any deviation is a shader indexing bug.
+/// Machine epsilon for f64 is 2.22e-16; 1e-15 allows a few ULP.
+pub const LATTICE_DIRAC_ZERO_INPUT_ABS: f64 = 1e-15;
+
+/// GPU staggered Dirac: cold-lattice parity (GPU vs CPU).
+///
+/// Cold lattice: ordered gauge field, low condition number. GPU and CPU
+/// Dirac apply should agree to ~1e-14 (near machine epsilon, limited
+/// only by FMA vs separate multiply-add).
+pub const LATTICE_DIRAC_COLD_PARITY: f64 = 1e-14;
+
+/// GPU staggered Dirac: hot-lattice parity (GPU vs CPU).
+///
+/// Hot lattice: random gauge field, higher condition number. The GPU
+/// parallel summation order differs from CPU sequential, giving ~1e-13
+/// max component-wise error.
+pub const LATTICE_DIRAC_HOT_PARITY: f64 = 1e-13;
+
+// ═══════════════════════════════════════════════════════════════════
+// GPU SpMV and Lanczos eigensolve validation
+// ═══════════════════════════════════════════════════════════════════
+
+/// GPU `SpMV`: identity matrix absolute error.
+///
+/// I*x = x must hold to machine precision. Any deviation indicates
+/// a CSR indexing or buffer layout bug in the WGSL shader.
+pub const SPMV_IDENTITY_ABS: f64 = 1e-15;
+
+/// GPU `SpMV`: general matrix GPU-vs-CPU parity.
+///
+/// For Anderson model and lattice Hamiltonians, GPU CSR `SpMV` matches
+/// CPU reference to ~1e-14 (near machine epsilon). The parallel
+/// reduction per row introduces at most 1-2 ULP of rounding difference.
+pub const SPMV_GPU_VS_CPU_ABS: f64 = 1e-14;
+
+/// GPU `SpMV`: iterated product (A²x) error accumulation.
+///
+/// Two successive `SpMV` applications accumulate rounding errors; the
+/// tolerance is ~10× the single-pass tolerance.
+pub const SPMV_ITERATED_ABS: f64 = 1e-13;
+
+/// GPU Lanczos: β breakdown detection threshold.
+///
+/// In the Lanczos iteration, β_{k+1} = ||w|| measures the norm of the
+/// new Krylov vector. When β < 1e-14, the Krylov subspace is (near-)
+/// invariant and the iteration has converged or broken down.
+pub const LANCZOS_BREAKDOWN_THRESHOLD: f64 = 1e-14;
+
+/// GPU Lanczos: eigenvalue GPU-vs-CPU parity.
+///
+/// Full-spectrum Lanczos eigenvalues from GPU `SpMV` inner loop match CPU
+/// Lanczos to ~1e-10. The larger tolerance (vs `SpMV`) reflects error
+/// accumulation over O(N) Lanczos iterations, each with GPU `SpMV` and
+/// reorthogonalization.
+pub const LANCZOS_EIGENVALUE_GPU_PARITY: f64 = 1e-10;
+
+// ═══════════════════════════════════════════════════════════════════
+// Spectral theory tolerances (Anderson, Lanczos, Hofstadter)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Lanczos tridiagonal eigenvalue: absolute error vs Sturm bisection.
+///
+/// Lanczos tridiagonalization + Sturm eigenvalue finding produces the
+/// same tridiagonal matrix as direct construction, so eigenvalues agree
+/// to machine precision. 1e-14 allows a few ULP of rounding.
+pub const LANCZOS_TRIDIAG_EIGENVALUE_ABS: f64 = 1e-14;
+
+/// Lanczos convergence: relative error for extreme eigenvalues.
+///
+/// Lanczos converges extremal eigenvalues first; for m=50 Lanczos
+/// vectors on an N=100 tridiagonal, the top/bottom eigenvalues converge
+/// to ~1e-6 relative error. Interior eigenvalues converge more slowly.
+pub const LANCZOS_EXTREMAL_REL: f64 = 1e-6;
+
+/// Anderson localization: IPR relative tolerance.
+///
+/// The inverse participation ratio IPR = `Σ|ψ_i|⁴` fluctuates between
+/// disorder realizations. For W=2 (weak disorder), IPR ~ 1/N (extended);
+/// for W=20 (strong disorder), IPR ~ O(1) (localized). 1e-8 absolute
+/// tolerance for the tridiagonal→Lanczos eigenvalue comparison.
+pub const ANDERSON_EIGENVALUE_ABS: f64 = 1e-8;
+
+/// GOE level-spacing ratio: analytical ⟨r⟩ ≈ 0.5307.
+///
+/// For extended states in the GOE universality class, the mean adjacent
+/// gap ratio is `r_GOE` = 4 - 2√3 ≈ 0.5307 (Atas et al., PRL 110, 2013).
+/// Finite-size fluctuations at N=200 give ~0.04 spread.
+pub const GOE_MEAN_R: f64 = 0.5307;
+
+/// GOE level-spacing ratio: deviation tolerance.
+///
+/// At N=200 with 10 disorder realizations, ⟨r⟩ fluctuates by ~0.04
+/// around the analytical value. 0.05 accommodates sample variance.
+pub const GOE_DEVIATION_TOLERANCE: f64 = 0.05;
+
+/// Poisson level-spacing ratio: analytical ⟨r⟩ ≈ 0.3863.
+///
+/// For localized states (Poisson level statistics), ⟨r⟩ = 2 ln 2 - 1
+/// ≈ 0.3863. This is the strong-disorder limit.
+pub const POISSON_MEAN_R: f64 = 0.3863;
+
+/// Poisson level-spacing ratio: deviation tolerance.
+///
+/// At N=200 with strong disorder (W=20), ⟨r⟩ converges reliably.
+/// 0.05 tolerance matches the GOE side.
+pub const POISSON_DEVIATION_TOLERANCE: f64 = 0.05;
+
+/// Sturm bisection: LDLT pivot guard to avoid division by zero.
+///
+/// In the Sturm sequence (LDLT factorization), when q = diagonal - λ
+/// is nearly zero, we substitute ±1e-300 to prevent inf/NaN. This is
+/// well below any physical eigenvalue scale and serves only to avoid
+/// floating-point exceptions in the recurrence.
+pub const TRIDIAG_STURM_PIVOT_GUARD: f64 = 1e-300;
+
+/// Anderson 1D localization length: ln(2) analytical value tolerance.
+///
+/// At W=2 in 1D, the Lyapunov exponent γ ≈ W²/96. The localization
+/// length diverges as ξ ~ 96/W². 0.02 absolute tolerance on the
+/// normalized localization length ratio.
+pub const ANDERSON_1D_LYAPUNOV_TOLERANCE: f64 = 0.02;
+
+/// Hofstadter butterfly: energy band symmetry tolerance.
+///
+/// The Hofstadter Hamiltonian at rational flux p/q has spectrum
+/// symmetric about E=0: |`E_min` + `E_max`| should be near zero.
+/// Finite q gives max asymmetry of ~0.5 for edge-of-band states.
+pub const HOFSTADTER_SYMMETRY_TOLERANCE: f64 = 0.5;
+
+/// Hofstadter butterfly: minimum band width to count as "wide band".
+///
+/// Bands narrower than 0.01 are numerical artifacts from finite-N truncation.
+/// Only bands with (hi - lo) > this threshold are counted toward expected
+/// band structure (Paper 21).
+pub const HOFSTADTER_WIDE_BAND_MIN_WIDTH: f64 = 0.01;
+
+// ═══════════════════════════════════════════════════════════════════
+// Evolution validation tolerances (validate_barracuda_evolution)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Plaquette physical lower bound.
+///
+/// For any valid SU(3) or U(1) configuration, Re Tr `U_p` / Nc ∈ (0, 1).
+/// The lower bound 0 is strict; negative plaquettes indicate a bug.
+pub const LATTICE_PLAQUETTE_PHYSICAL_MIN: f64 = 0.0;
+
+/// Plaquette physical upper bound.
+///
+/// Unit matrices give plaquette = 1. Thermalized configurations have
+/// ⟨P⟩ < 1. Used for `check_upper` and physical-range sanity.
+pub const LATTICE_PLAQUETTE_PHYSICAL_MAX: f64 = 1.0;
+
+/// Evolution pure-gauge HMC: minimum accepted count for 20 trajectories.
+///
+/// Requires accepted > 6, i.e. ≥ 35% acceptance. Ensures the HMC
+/// integrator and Metropolis step are functioning; 30% is algorithmic
+/// sanity threshold (Paper 8).
+pub const EVOLUTION_PURE_GAUGE_MIN_ACCEPTED: u32 = 6;
+
+/// CG solver convergence tolerance (strict, evolution Dirac check).
+///
+/// The evolution binary uses 1e-10 for the Dirac CG solve. Stricter
+/// than `LATTICE_CG_RESIDUAL` because the cold/thermalized lattice
+/// is well-conditioned and we want solution parity with reference.
+pub const LATTICE_CG_TOLERANCE_STRICT: f64 = 1e-10;
+
+/// CG residual upper bound (strict, evolution Dirac check).
+///
+/// After CG solve, |Ax - b|/|b| must be < 1e-8. Stricter than
+/// `LATTICE_CG_RESIDUAL` (1e-6) for evolution correctness proof.
+pub const LATTICE_CG_RESIDUAL_STRICT: f64 = 1e-8;
+
+/// Dynamical HMC: CG convergence tolerance for pseudofermion action.
+///
+/// The CG solve for (D†D)⁻¹φ uses 1e-8. Balances accuracy vs iteration
+/// count; lighter masses need stricter tolerance.
+pub const DYNAMICAL_CG_TOLERANCE: f64 = 1e-8;
+
+/// CG solver tolerance on identity (cold) lattice.
+///
+/// Cold lattice has condition number ~1; 1e-8 achieves near-machine
+/// precision for the identity-link case (`validate_pure_gauge`).
+pub const LATTICE_CG_TOLERANCE_IDENTITY: f64 = 1e-8;
+
+/// CG solver tolerance on thermalized lattice.
+///
+/// Hot lattice has higher condition number; 1e-4 is achievable
+/// within 2000 iterations. Used for thermalized-lattice sanity check.
+pub const LATTICE_CG_TOLERANCE_THERMALIZED: f64 = 1e-4;
+
+/// Anderson 1D: |⟨r⟩ - `r_Poisson`| deviation tolerance.
+///
+/// At N=500, W=4, the localized phase gives ⟨r⟩ ≈ `r_Poisson` with
+/// sample variance ~0.05–0.06. 0.06 accommodates evolution validation
+/// (Paper 17).
+pub const ANDERSON_1D_LEVEL_SPACING_DEVIATION: f64 = 0.06;
+
+/// Anderson 3D clean lattice: bandwidth vs OBC theory tolerance.
+///
+/// Clean 3D bandwidth = 12 cos(π/(L+1)). Finite-L Lanczos gives
+/// ~0.1 absolute error vs exact OBC formula (Paper 20).
+pub const ANDERSON_3D_CLEAN_BANDWIDTH_ABS: f64 = 0.1;
+
+/// Anderson 3D GOE→Poisson transition: minimum Δ⟨r⟩.
+///
+/// Genuine phase transition requires r(weak) - r(strong) > 0.05.
+/// Smaller differences can be finite-size fluctuations.
+pub const ANDERSON_3D_GOE_POISSON_DELTA_R_MIN: f64 = 0.05;
+
+/// Anderson 3D metallic bulk: minimum mean level-spacing ratio ⟨r⟩ (GOE-like).
+///
+/// Weak-disorder 3D bulk should satisfy ⟨r⟩ above ~0.48 to match GOE
+/// universality (⟨r⟩ ≈ 0.531) within sample variance on L=8.
+pub const ANDERSON_3D_METALLIC_R_MIN: f64 = 0.48;
+
+/// Anderson 3D localized bulk: max |⟨r⟩ − r_Poisson| for strong disorder.
+///
+/// Stricter than `POISSON_DEVIATION_TOLERANCE` (0.05): 3D validation at W=30
+/// uses 0.04 to match the Poisson reference more tightly on small volumes.
+pub const ANDERSON_3D_POISSON_R_MEAN_DEVIATION: f64 = 0.04;
+
+/// Gershgorin / spectrum-bound slack (tight): eigenvalue padding vs analytic bounds.
+///
+/// Used for 1D Anderson and almost-Mathieu checks where the discrete spectrum
+/// should lie inside published intervals with O(0.01) numerical margin.
+pub const SPECTRAL_GERSHGORIN_SLACK: f64 = 0.01;
+
+/// Gershgorin / spectrum-bound slack (Lanczos finite-volume).
+///
+/// 2D/3D Anderson spectrum checks with full Lanczos on moderate L use a wider
+/// 0.1 padding vs `[-bound, bound]` from row-sum (Gershgorin) estimates.
+pub const SPECTRAL_GERSHGORIN_SLACK_LATTICE: f64 = 0.1;
+
+/// 1D Anderson Lyapunov at weak disorder: relative error vs Kappus–Wegner W²/96.
+///
+/// `validate_spectral` quantitative gate at W=1: |γ(0) − W²/96| / (W²/96) must
+/// stay within ~30% given transfer-matrix statistics at finite N.
+pub const SPECTRAL_LYAPUNOV_KW_THEORY_REL: f64 = 0.30;
+
+/// U(1) leapfrog reversibility: |ΔH| upper bound for small dt.
+///
+/// With dt=0.01 and 100 steps, |ΔH| should be < 1.0. Verifies
+/// integrator reversibility as dt → 0 (`validate_abelian_higgs`).
+pub const U1_LEAPFROG_REVERSIBILITY_DELTA_H_MAX: f64 = 1.0;
+
+/// U(1) Abelian Higgs: minimum Rust-vs-Python speedup.
+///
+/// Rust implementation must be faster than Python reference.
+/// Speedup = `python_ms` / `rust_ms`; must be > 1.0.
+pub const U1_SPEEDUP_MIN: f64 = 1.0;
+
+// ═══════════════════════════════════════════════════════════════════
+// GPU streaming and dynamical HMC validation tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// GPU streaming plaquette: dispatch-vs-streaming parity.
+///
+/// GPU streaming HMC batches encoder submissions instead of per-step
+/// submit+poll. The plaquette from streaming must match per-dispatch
+/// to 1e-10 (near machine epsilon for accumulated f64 sums).
+pub const GPU_STREAMING_PLAQUETTE_PARITY: f64 = 1e-10;
+
+// ═══════════════════════════════════════════════════════════════════
+// Wilson gradient flow — Chuna validation (`validate_chuna`, Paper 43)
+// ═══════════════════════════════════════════════════════════════════
+
+/// CPU–GPU plaquette absolute difference after long RK3 gradient flow.
+///
+/// On 8⁴ hot-start lattices, 200 RK3 steps with GPU parallel reduction vs
+/// CPU sequential accumulation gives |Δ⟨P⟩| ~2–3×10⁻¹⁰ empirically; 1e-9 is
+/// a safe upper bound (Bazavov & Chuna, arXiv:2101.05320 parity gate).
+pub const GRADIENT_FLOW_GPU_CPU_PLAQUETTE_ABS: f64 = 1e-9;
+
+/// Cross-GPU plaquette absolute difference (two f64 adapters, same algorithm).
+///
+/// Both sides use parallel reductions, so disagreement is smaller than CPU–GPU;
+/// driver/compiler differences remain. Measured scatter is below ~4×10⁻¹⁰; 5e-10
+/// is the acceptance ceiling for cross-substrate plaquette agreement.
+pub const GRADIENT_FLOW_CROSS_GPU_PLAQUETTE_ABS: f64 = 5e-10;
+
+/// LSCFRK4CK vs RK3 Lüscher energy density at fixed step (`ε`, flow time).
+///
+/// Fourth-order and third-order integrators agree on the smoothed observable
+/// within ~1% on 8⁴ for the validation parameters; tighter bounds would reject
+/// benign scheme differences while still catching instability or divergence.
+pub const GRADIENT_FLOW_CK4_RK3_ENERGY_ABS: f64 = 0.01;
+
+/// GPU dynamical fermion force: CPU-vs-GPU parity.
+///
+/// The staggered fermion force involves D†D⁻¹ and SU(3) matrix products.
+/// GPU parallel reduction order differs from CPU sequential, giving ~1e-12
+/// component-wise max error on small (4^4) lattices.
+pub const GPU_FERMION_FORCE_PARITY: f64 = 1e-12;
+
+/// GPU dynamical CG action: CPU-vs-GPU parity.
+///
+/// After CG solve on both CPU and GPU with identical tolerance, the
+/// fermion action `S_F` = φ†(D†D)⁻¹φ agrees to ~1e-6 relative. The
+/// larger error (vs force parity) reflects CG iteration count differences.
+pub const GPU_CG_ACTION_PARITY: f64 = 1e-6;
+
+/// Dispatch-vs-streaming dynamical HMC plaquette tolerance.
+///
+/// The dynamical streaming variant batches CG readbacks. The plaquette
+/// should agree with the dispatch variant to 10% relative (the CG
+/// convergence path may differ due to streaming encoder boundaries).
+pub const GPU_DYN_STREAMING_PLAQUETTE_PARITY: f64 = 0.10;
+
+// ═══════════════════════════════════════════════════════════════════
+// RHMC self-tuning calibrator constants
+// ═══════════════════════════════════════════════════════════════════
+
+/// Rational approximation max relative error threshold.
+///
+/// If the rational approximation's max relative error exceeds this value,
+/// the calibrator regenerates with additional poles. For 8-pole approx
+/// of x^{-1/4} on typical spectral ranges, error is O(1e-5). Threshold
+/// at 1e-3 triggers only when approximation is genuinely insufficient.
+pub const RHMC_APPROX_ERROR_THRESHOLD: f64 = 1e-3;
+
+/// Spectral safety factor: lower bound multiplier.
+///
+/// The spectral probe measures lambda_min; the rational approximation
+/// range is set to `RHMC_SPECTRAL_SAFETY_LOW * lambda_min_est`. The
+/// factor 0.5 provides a 2x margin below the estimated minimum eigenvalue
+/// of D†D, accommodating fluctuations as the gauge field evolves.
+pub const RHMC_SPECTRAL_SAFETY_LOW: f64 = 0.5;
+
+/// Spectral safety factor: upper bound multiplier.
+///
+/// The rational approximation range upper bound is set to
+/// `RHMC_SPECTRAL_SAFETY_HIGH * lambda_max_est`. Factor 1.5 provides
+/// a 50% margin above the estimated maximum eigenvalue.
+pub const RHMC_SPECTRAL_SAFETY_HIGH: f64 = 1.5;
+
+/// Power iteration count for lambda_max estimation.
+///
+/// 20 iterations of v → D†D v / ||D†D v|| converges the largest
+/// eigenvalue to ~1e-6 relative accuracy on typical gauge configurations.
+/// Cost: 20 Dirac applications (cheap vs one full CG solve).
+pub const RHMC_POWER_ITERATION_COUNT: usize = 20;
+
+/// Spectral re-probe interval (in trajectories).
+///
+/// How often the calibrator re-estimates eigenvalue bounds to detect
+/// spectral drift as the gauge field evolves. 50 trajectories balances
+/// the probe cost (~20 Dirac applications) against timely detection.
+pub const RHMC_SPECTRAL_REPROBE_INTERVAL: usize = 50;
+
+/// CG tolerance for force evaluation (loose, during MD integration).
+///
+/// During MD integration, CG errors contribute O(dt²) to ΔH through
+/// the integrator's symplectic error. Using tight tolerance here wastes
+/// iterations since the integrator already introduces comparable error.
+pub const RHMC_CG_TOL_FORCE: f64 = 1e-6;
+
+/// CG tolerance for Metropolis action evaluation (tight).
+///
+/// The Metropolis accept/reject requires accurate Hamiltonian evaluation
+/// to maintain detailed balance. 100x tighter than force tolerance.
+pub const RHMC_CG_TOL_METROPOLIS: f64 = 1e-8;
+
+/// Heatbath-action consistency threshold.
+///
+/// After heatbath generation with φ = r_hb(D†D)η, the fermion action
+/// S_f(old) = φ† r_act(D†D) φ should equal η†η by the consistency
+/// relation r_hb² · r_act = 1. Deviation beyond this threshold (as a
+/// fraction of η†η) signals approximation quality degradation.
+pub const RHMC_CONSISTENCY_THRESHOLD: f64 = 0.05;
+
+/// Pole count increment when approximation quality is insufficient.
+///
+/// When max_relative_error exceeds RHMC_APPROX_ERROR_THRESHOLD, the
+/// calibrator adds this many poles and regenerates. 2 poles typically
+/// improves error by ~10x for well-conditioned spectral ranges.
+pub const RHMC_POLE_INCREMENT: usize = 2;
+
+/// Maximum pole count for rational approximation.
+///
+/// Upper bound on auto-increased pole count. Beyond 24 poles, the
+/// marginal error reduction is negligible and CG cost per pole dominates.
+pub const RHMC_MAX_POLES: usize = 24;
+
+/// Short-flow gradient flow plaquette CPU-GPU parity gate.
+///
+/// Tighter than `GRADIENT_FLOW_GPU_CPU_PLAQUETTE_ABS` (1e-9) because short-flow
+/// accumulates fewer rounding operations. Used in `validate_gpu_gradient_flow`.
+pub const GRADIENT_FLOW_SHORT_PLAQUETTE_ABS: f64 = 1e-8;
+
+/// Gradient flow scale-setting (t₀, w₀) CPU-GPU parity gate.
+///
+/// Scale setting depends on derivative estimation which amplifies rounding;
+/// 1e-4 relative tolerance accommodates this.
+pub const GRADIENT_FLOW_SCALE_SETTING_REL: f64 = 1e-4;
+
+/// SpMV maximum absolute error (spectral validation).
+pub const SPECTRAL_SPMV_MAX_ABS: f64 = 1e-12;

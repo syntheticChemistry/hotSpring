@@ -1,0 +1,278 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! Precision routing for GPU shader compilation.
+//!
+//! Combines two axes of precision decision-making:
+//!
+//! 1. **Hardware capability** (from barraCuda's `DeviceCapabilities::precision_routing()`):
+//!    What f64 paths actually work on this GPU? (native, no-shared-mem, DF64-only, f32-only)
+//!
+//! 2. **Physics domain** (hotSpring-specific): What precision does this physics need?
+//!    (dielectric needs FMA-free, lattice QCD tolerates FMA, etc.)
+//!
+//! The routing decision respects hardware limits first, then applies domain
+//! requirements within those limits. `Fp64Strategy::Sovereign` (coralReef
+//! native compilation) routes like `Native` — it produces real f64 code.
+//!
+//! ## Upstream lean (barraCuda Sprint 56d, May 2026)
+//!
+//! `PrecisionTier` and `PhysicsDomain` are now re-exported from
+//! `barracuda::device::precision_tier` (originally absorbed from hotSpring
+//! v0.6.25). barraCuda's 15-tier `PrecisionTier` (Binary → DF128) and
+//! 15-variant `PhysicsDomain` (includes Inference, Training, Hashing) are
+//! the canonical definitions. hotSpring routing logic only produces the 4
+//! physics-relevant tiers (F32, DF64, F64, F64Precise) but accepts the full
+//! upstream enum for forward compatibility.
+//!
+//! `FmaPolicy` and `domain_requires_separate_fma` are re-exported from
+//! `barracuda::device::fma_policy`.
+
+use crate::gpu::GpuF64;
+pub use barracuda::device::PrecisionRoutingAdvice as HwPrecisionAdvice;
+pub use barracuda::device::precision_tier::{PhysicsDomain, PrecisionTier};
+pub use barracuda::device::{FmaPolicy, domain_requires_separate_fma};
+
+/// Precision routing advice for a given domain and hardware.
+#[derive(Clone, Debug)]
+pub struct PrecisionRoutingAdvice {
+    /// Recommended precision tier
+    pub tier: PrecisionTier,
+    /// Whether FMA fusion is safe for this domain
+    pub fma_safe: bool,
+    /// Human-readable rationale
+    pub rationale: &'static str,
+    /// Hardware-level precision advice from barraCuda's driver profile
+    pub hw_advice: HwPrecisionAdvice,
+}
+
+/// Route a physics domain to the appropriate precision tier given hardware caps.
+///
+/// Queries barraCuda's `DeviceCapabilities::precision_routing()` for hardware
+/// capability, then intersects with domain requirements.
+#[must_use]
+pub fn route_precision(domain: PhysicsDomain, gpu: &GpuF64) -> PrecisionRoutingAdvice {
+    let hw_advice = gpu.capabilities().precision_routing();
+    let is_df64_mode = gpu.full_df64_mode;
+
+    let hw_supports_native = matches!(
+        hw_advice,
+        HwPrecisionAdvice::F64Native | HwPrecisionAdvice::F64NativeNoSharedMem
+    );
+
+    match domain {
+        PhysicsDomain::Dielectric | PhysicsDomain::Eigensolve => {
+            if hw_supports_native && !is_df64_mode {
+                PrecisionRoutingAdvice {
+                    tier: PrecisionTier::F64Precise,
+                    fma_safe: false,
+                    rationale: "Complex arithmetic requires FMA-free precision to avoid cancellation",
+                    hw_advice,
+                }
+            } else {
+                PrecisionRoutingAdvice {
+                    tier: PrecisionTier::DF64,
+                    fma_safe: false,
+                    rationale: "DF64 with compensated arithmetic for precision-critical domains",
+                    hw_advice,
+                }
+            }
+        }
+        PhysicsDomain::GradientFlow
+        | PhysicsDomain::NuclearEos
+        | PhysicsDomain::PopulationPk
+        | PhysicsDomain::Hydrology => {
+            if hw_supports_native && !is_df64_mode {
+                PrecisionRoutingAdvice {
+                    tier: PrecisionTier::F64,
+                    fma_safe: true,
+                    rationale: "Native f64 with FMA fusion for moderate precision requirements",
+                    hw_advice,
+                }
+            } else {
+                PrecisionRoutingAdvice {
+                    tier: PrecisionTier::DF64,
+                    fma_safe: true,
+                    rationale: "DF64 provides sufficient precision for moderate domains",
+                    hw_advice,
+                }
+            }
+        }
+        PhysicsDomain::LatticeQcd
+        | PhysicsDomain::KineticFluid
+        | PhysicsDomain::MolecularDynamics
+        | PhysicsDomain::Bioinformatics
+        | PhysicsDomain::Statistics
+        | PhysicsDomain::General
+        | PhysicsDomain::Inference
+        | PhysicsDomain::Training
+        | PhysicsDomain::Hashing => {
+            if hw_supports_native && !is_df64_mode {
+                PrecisionRoutingAdvice {
+                    tier: PrecisionTier::F64,
+                    fma_safe: true,
+                    rationale: "Native f64 with FMA for compute-bound domains",
+                    hw_advice,
+                }
+            } else {
+                PrecisionRoutingAdvice {
+                    tier: PrecisionTier::DF64,
+                    fma_safe: true,
+                    rationale: "DF64 unlocks f32 throughput for compute-bound physics",
+                    hw_advice,
+                }
+            }
+        }
+    }
+}
+
+/// Create a compute pipeline with precision routing.
+///
+/// Selects the appropriate `GpuF64` method based on the routing advice.
+pub fn create_routed_pipeline(
+    gpu: &GpuF64,
+    shader_source: &str,
+    label: &str,
+    advice: &PrecisionRoutingAdvice,
+) -> wgpu::ComputePipeline {
+    match advice.tier {
+        PrecisionTier::DF64 | PrecisionTier::F64 => gpu.create_pipeline_f64(shader_source, label),
+        PrecisionTier::F64Precise => gpu.create_pipeline_f64_precise(shader_source, label),
+        _ => gpu.create_pipeline(shader_source, label),
+    }
+}
+
+/// Create a compute pipeline with precision routing and named entry point.
+pub fn create_routed_pipeline_entry(
+    gpu: &GpuF64,
+    shader_source: &str,
+    entry_point: &str,
+    label: &str,
+    advice: &PrecisionRoutingAdvice,
+) -> wgpu::ComputePipeline {
+    match advice.tier {
+        PrecisionTier::DF64 | PrecisionTier::F64 => {
+            gpu.create_pipeline_f64_entry(shader_source, entry_point, label)
+        }
+        PrecisionTier::F64Precise => {
+            gpu.create_pipeline_f64_entry_precise(shader_source, entry_point, label)
+        }
+        _ => gpu.create_pipeline(shader_source, label),
+    }
+}
+
+// ── Dual-device routing ──────────────────────────────────────────────
+
+/// Precision advice for a dual-GPU workload.
+///
+/// Contains per-device routing plus the workload assignment from the planner.
+#[derive(Debug, Clone)]
+pub struct DualPrecisionAdvice {
+    /// Routing advice for the precise card.
+    pub precise: PrecisionRoutingAdvice,
+    /// Routing advice for the throughput card.
+    pub throughput: PrecisionRoutingAdvice,
+    /// How the workload should be distributed.
+    pub assignment: crate::workload_planner::WorkloadAssignment,
+}
+
+/// Route a physics domain across a device pair.
+///
+/// Queries each device's hardware capability independently, then combines
+/// with the workload planner's transfer-gated assignment.
+#[must_use]
+pub fn route_precision_pair(
+    domain: PhysicsDomain,
+    pair: &crate::device_pair::DevicePair,
+    data_bytes: usize,
+    compute_us: f64,
+) -> DualPrecisionAdvice {
+    let precise = route_precision(domain, &pair.precise);
+    let throughput = route_precision(domain, &pair.throughput);
+    let assignment = crate::workload_planner::plan_workload(pair, domain, data_bytes, compute_us);
+    DualPrecisionAdvice {
+        precise,
+        throughput,
+        assignment,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dielectric_gets_precise() {
+        let advice_f64 = PrecisionRoutingAdvice {
+            tier: PrecisionTier::F64Precise,
+            fma_safe: false,
+            rationale: "test",
+            hw_advice: HwPrecisionAdvice::F64Native,
+        };
+        assert!(!advice_f64.fma_safe);
+        assert_eq!(advice_f64.tier, PrecisionTier::F64Precise);
+    }
+
+    #[test]
+    fn lattice_qcd_tolerates_fma() {
+        let advice = PrecisionRoutingAdvice {
+            tier: PrecisionTier::F64,
+            fma_safe: true,
+            rationale: "test",
+            hw_advice: HwPrecisionAdvice::F64Native,
+        };
+        assert!(advice.fma_safe);
+    }
+
+    #[test]
+    fn all_domains_covered() {
+        let domains = [
+            PhysicsDomain::LatticeQcd,
+            PhysicsDomain::GradientFlow,
+            PhysicsDomain::Dielectric,
+            PhysicsDomain::KineticFluid,
+            PhysicsDomain::Eigensolve,
+            PhysicsDomain::MolecularDynamics,
+            PhysicsDomain::NuclearEos,
+            PhysicsDomain::PopulationPk,
+            PhysicsDomain::Bioinformatics,
+            PhysicsDomain::Hydrology,
+            PhysicsDomain::Statistics,
+            PhysicsDomain::General,
+            PhysicsDomain::Inference,
+            PhysicsDomain::Training,
+            PhysicsDomain::Hashing,
+        ];
+        for domain in domains {
+            assert!(matches!(
+                domain,
+                PhysicsDomain::LatticeQcd
+                    | PhysicsDomain::GradientFlow
+                    | PhysicsDomain::Dielectric
+                    | PhysicsDomain::KineticFluid
+                    | PhysicsDomain::Eigensolve
+                    | PhysicsDomain::MolecularDynamics
+                    | PhysicsDomain::NuclearEos
+                    | PhysicsDomain::PopulationPk
+                    | PhysicsDomain::Bioinformatics
+                    | PhysicsDomain::Hydrology
+                    | PhysicsDomain::Statistics
+                    | PhysicsDomain::General
+                    | PhysicsDomain::Inference
+                    | PhysicsDomain::Training
+                    | PhysicsDomain::Hashing
+            ));
+        }
+    }
+
+    #[test]
+    fn hw_advice_maps_correctly() {
+        assert_eq!(
+            std::mem::discriminant(&HwPrecisionAdvice::F64Native),
+            std::mem::discriminant(&HwPrecisionAdvice::F64Native)
+        );
+        assert_ne!(
+            std::mem::discriminant(&HwPrecisionAdvice::F64Native),
+            std::mem::discriminant(&HwPrecisionAdvice::Df64Only)
+        );
+    }
+}

@@ -1,0 +1,351 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! GPU buffer creation, upload, and readback for f64/u32 science data.
+
+use super::GpuF64;
+
+impl GpuF64 {
+    /// Create a storage buffer from f64 data (read-only).
+    #[must_use]
+    pub fn create_f64_buffer(&self, data: &[f64], label: &str) -> wgpu::Buffer {
+        self.wgpu_device.create_buffer_f64_init(label, data)
+    }
+
+    /// Create a writable storage buffer for f64 output.
+    #[must_use]
+    pub fn create_f64_output_buffer(&self, count: usize, label: &str) -> wgpu::Buffer {
+        if let Ok(buf) = self.wgpu_device.create_buffer_f64(count) {
+            return buf;
+        }
+        self.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some(label),
+            size: (count * 8) as u64,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    /// Create a staging buffer for reading results back to CPU
+    #[must_use]
+    pub fn create_staging_buffer(&self, size: usize, label: &str) -> wgpu::Buffer {
+        self.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some(label),
+            size: size as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    /// Create a uniform buffer from raw bytes
+    #[must_use]
+    pub fn create_uniform_buffer(&self, data: &[u8], label: &str) -> wgpu::Buffer {
+        use wgpu::util::DeviceExt;
+        self.device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: data,
+                usage: wgpu::BufferUsages::UNIFORM,
+            })
+    }
+
+    /// Create a storage buffer from u32 data.
+    ///
+    /// Includes `COPY_DST` so cell-list buffers can be re-uploaded
+    /// when the neighbor list is rebuilt on CPU.
+    #[must_use]
+    pub fn create_u32_buffer(&self, data: &[u32], label: &str) -> wgpu::Buffer {
+        self.wgpu_device.create_buffer_u32_init(label, data)
+    }
+
+    /// Upload f64 data to a GPU storage buffer (overwrites from offset 0).
+    ///
+    /// Zero-fill a GPU buffer.
+    pub fn zero_buffer(&self, buffer: &wgpu::Buffer, size: u64) {
+        let zeros = vec![0u8; size as usize];
+        self.queue().write_buffer(buffer, 0, &zeros);
+    }
+
+    /// Create a writable storage buffer initialized with raw bytes.
+    #[must_use]
+    pub fn create_storage_buffer_init(&self, data: &[u8], label: &str) -> wgpu::Buffer {
+        use wgpu::util::DeviceExt;
+        self.device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: data,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            })
+    }
+
+    /// In full DF64 mode, converts each f64 to a (hi, lo) f32 pair before
+    /// upload — the GPU shader sees `array<vec2<f32>>` not `array<f64>`.
+    pub fn upload_f64(&self, buffer: &wgpu::Buffer, data: &[f64]) {
+        if self.full_df64_mode {
+            let bytes = super::f64_slice_to_df64_bytes(data);
+            self.queue().write_buffer(buffer, 0, &bytes);
+        } else {
+            let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
+            self.queue().write_buffer(buffer, 0, &bytes);
+        }
+    }
+
+    /// Read back f64 data from a GPU buffer via staging copy.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError::DeviceCreation`] if the GPU map
+    /// callback fails or the channel is dropped.
+    pub fn read_back_f64(
+        &self,
+        buffer: &wgpu::Buffer,
+        count: usize,
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
+        let staging = self.create_staging_buffer(count * 8, "readback");
+        let mut encoder = self
+            .device()
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("readback"),
+            });
+        encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, (count * 8) as u64);
+        self.queue().submit(std::iter::once(encoder.finish()));
+        self.read_staging_f64_inner(&staging)
+    }
+
+    /// Read f64 data from a staging buffer after submit + poll.
+    ///
+    /// Call this after [`Self::submit_encoder`] when the encoder included a
+    /// `copy_buffer_to_buffer` into the staging buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError::DeviceCreation`] if the GPU map
+    /// callback fails or the channel is dropped.
+    pub fn read_staging_f64(
+        &self,
+        staging: &wgpu::Buffer,
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
+        self.read_staging_f64_inner(staging)
+    }
+
+    /// Initiate a non-blocking readback from a staging buffer.
+    ///
+    /// Returns a channel receiver that signals when the map is complete.
+    /// Call `device().poll(PollType::Poll)` to drive progress without blocking,
+    /// or `device().poll(PollType::Wait { .. })` to block.
+    #[must_use]
+    pub fn start_async_readback(
+        &self,
+        staging: &wgpu::Buffer,
+    ) -> std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>> {
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        staging
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |result| {
+                let _ = tx.send(result);
+            });
+        let _ = self.device().poll(wgpu::PollType::Poll);
+        rx
+    }
+
+    /// Complete an async readback: block until ready, read f64 data, unmap.
+    pub fn finish_async_readback_f64(
+        &self,
+        staging: &wgpu::Buffer,
+        rx: std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
+        let _ = self.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
+        rx.recv()
+            .map_err(|_| {
+                crate::error::HotSpringError::DeviceCreation(
+                    "Async readback: channel recv failed".into(),
+                )
+            })?
+            .map_err(|e| {
+                crate::error::HotSpringError::DeviceCreation(format!("Async readback mapping: {e}"))
+            })?;
+        let data = staging.slice(..).get_mapped_range();
+        let result = if self.full_df64_mode {
+            super::df64_bytes_to_f64_slice(&data)
+        } else {
+            mapped_bytes_to_f64(&data)
+        };
+        drop(data);
+        staging.unmap();
+        Ok(result)
+    }
+
+    /// Read exactly `n` f64 values from the beginning of a staging buffer.
+    pub fn read_staging_f64_n(
+        &self,
+        staging: &wgpu::Buffer,
+        n: usize,
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
+        let mut data = self.read_staging_f64_inner(staging)?;
+        data.truncate(n);
+        Ok(data)
+    }
+
+    fn read_staging_f64_inner(
+        &self,
+        staging: &wgpu::Buffer,
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
+        let slice = staging.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(
+            wgpu::MapMode::Read,
+            move |result: Result<(), wgpu::BufferAsyncError>| {
+                let _ = sender.send(result);
+            },
+        );
+        let _ = self.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
+        receiver
+            .recv()
+            .map_err(|_| {
+                crate::error::HotSpringError::DeviceCreation(
+                    "GPU map callback: channel recv failed".into(),
+                )
+            })?
+            .map_err(|e| {
+                crate::error::HotSpringError::DeviceCreation(format!("GPU buffer mapping: {e}"))
+            })?;
+
+        let data = slice.get_mapped_range();
+        let result = if self.full_df64_mode {
+            super::df64_bytes_to_f64_slice(&data)
+        } else {
+            mapped_bytes_to_f64(&data)
+        };
+        drop(data);
+        staging.unmap();
+        Ok(result)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  f32 buffer helpers (ESN shaders, NPU parity testing)
+// ═══════════════════════════════════════════════════════════════════
+
+impl GpuF64 {
+    /// Create a storage buffer from f32 data (read-only).
+    #[must_use]
+    pub fn create_f32_buffer(&self, data: &[f32], label: &str) -> wgpu::Buffer {
+        self.wgpu_device.create_buffer_f32_init(label, data)
+    }
+
+    /// Create a writable storage buffer for f32 output.
+    #[must_use]
+    pub fn create_f32_rw_buffer(&self, data: &[f32], label: &str) -> wgpu::Buffer {
+        self.wgpu_device.create_buffer_f32_init(label, data)
+    }
+
+    /// Create a zero-initialized f32 output buffer.
+    #[must_use]
+    pub fn create_f32_output_buffer(&self, count: usize, label: &str) -> wgpu::Buffer {
+        if let Ok(buf) = self.wgpu_device.create_f32_output_buffer(label, count) {
+            return buf;
+        }
+        self.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some(label),
+            size: (count * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    /// Upload f32 data to a GPU storage buffer (overwrites from offset 0).
+    pub fn upload_f32(&self, buffer: &wgpu::Buffer, data: &[f32]) {
+        let _ = self.wgpu_device.write_buffer_f32(buffer, data);
+    }
+
+    /// Read back f32 data from a GPU buffer via staging copy.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError::DeviceCreation`] if the GPU map
+    /// callback fails or the channel is dropped.
+    pub fn read_back_f32(
+        &self,
+        buffer: &wgpu::Buffer,
+        count: usize,
+    ) -> Result<Vec<f32>, crate::error::HotSpringError> {
+        self.wgpu_device
+            .read_back_f32(buffer, count)
+            .map_err(Into::into)
+    }
+}
+
+/// Convert mapped GPU buffer bytes to f64 values.
+///
+/// GPU mapped buffers are typically page-aligned, so `bytemuck::try_cast_slice`
+/// will succeed. Falls back to manual byte conversion if alignment is wrong.
+pub fn mapped_bytes_to_f64(data: &[u8]) -> Vec<f64> {
+    bytemuck::try_cast_slice(data).map_or_else(
+        |_| {
+            data.chunks_exact(8)
+                .map(|chunk| {
+                    let mut b = [0u8; 8];
+                    b.copy_from_slice(chunk);
+                    f64::from_le_bytes(b)
+                })
+                .collect()
+        },
+        <[f64]>::to_vec,
+    )
+}
+
+// ── DF64 wire-format conversion (CPU side) ────────────────────────────────────
+
+/// Split a single `f64` into a DF64 `(hi, lo)` f32 pair.
+///
+/// `hi + lo ≈ value` with ~48-bit mantissa.
+#[inline]
+#[must_use]
+pub fn f64_to_df64(v: f64) -> [f32; 2] {
+    let hi = v as f32;
+    let lo = (v - f64::from(hi)) as f32;
+    [hi, lo]
+}
+
+/// Reconstruct a single `f64` from a DF64 `(hi, lo)` f32 pair.
+#[inline]
+#[must_use]
+pub fn df64_to_f64(pair: [f32; 2]) -> f64 {
+    f64::from(pair[0]) + f64::from(pair[1])
+}
+
+/// Convert a slice of `f64` values to DF64 wire format bytes (pairs of f32).
+///
+/// Output byte length equals input byte length (8 bytes per value).
+#[must_use]
+pub fn f64_slice_to_df64_bytes(data: &[f64]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(data.len() * 8);
+    for &v in data {
+        let [hi, lo] = f64_to_df64(v);
+        bytes.extend_from_slice(&hi.to_le_bytes());
+        bytes.extend_from_slice(&lo.to_le_bytes());
+    }
+    bytes
+}
+
+/// Convert DF64 wire format bytes back to `f64` values.
+#[must_use]
+pub fn df64_bytes_to_f64_slice(bytes: &[u8]) -> Vec<f64> {
+    bytes
+        .chunks_exact(8)
+        .map(|chunk| {
+            let hi = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            let lo = f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+            df64_to_f64([hi, lo])
+        })
+        .collect()
+}

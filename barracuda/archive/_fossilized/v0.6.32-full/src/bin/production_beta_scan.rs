@@ -1,0 +1,452 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! Production quenched β-scan at arbitrary lattice size.
+//!
+//! Runs GPU streaming Omelyan HMC at each β value, measuring plaquette,
+//! Polyakov loop, susceptibility, and action density. Output streams to
+//! stdout and a JSON results file.
+//!
+//! # Usage
+//!
+//! ```bash
+//! # Hypercubic (L⁴):
+//! cargo run --release --bin production_beta_scan -- \
+//!   --lattice=32 --betas=5.5,5.69,5.8,6.0 --therm=200 --meas=1000
+//!
+//! # Asymmetric (N_s³ × N_t) — finite-temperature:
+//! cargo run --release --bin production_beta_scan -- \
+//!   --dims=32,32,32,4 --betas=5.5,5.69,5.8,6.0 --therm=200 --meas=500
+//! ```
+
+use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
+};
+use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
+use hotspring_barracuda::lattice::wilson::Lattice;
+
+use std::io::Write;
+use std::time::Instant;
+
+struct CliArgs {
+    dims: [usize; 4],
+    betas: Vec<f64>,
+    n_therm: usize,
+    n_meas: usize,
+    seed: u64,
+    output: Option<String>,
+    trajectory_log: Option<String>,
+}
+
+impl CliArgs {
+    const fn is_asymmetric(&self) -> bool {
+        let [nx, ny, nz, nt] = self.dims;
+        nt != nx || ny != nx || nz != nx
+    }
+
+    fn label(&self) -> String {
+        let [nx, _, _, nt] = self.dims;
+        if self.is_asymmetric() {
+            format!("{nx}³×{nt}")
+        } else {
+            format!("{nx}⁴")
+        }
+    }
+}
+
+fn parse_args() -> CliArgs {
+    let mut dims: Option<[usize; 4]> = None;
+    let mut lattice: Option<usize> = None;
+    let mut betas = vec![5.5, 5.69, 5.8, 6.0, 6.5];
+    let mut n_therm = 200;
+    let mut n_meas = 1000;
+    let mut seed = 42u64;
+    let mut output = None;
+    let mut trajectory_log = None;
+
+    for arg in std::env::args().skip(1) {
+        if let Some(val) = arg.strip_prefix("--lattice=") {
+            lattice = Some(val.parse().expect("--lattice=N"));
+        } else if let Some(val) = arg.strip_prefix("--dims=") {
+            let d: Vec<usize> = val
+                .split(',')
+                .map(|s| s.parse().expect("dims: Nx,Ny,Nz,Nt"))
+                .collect();
+            assert_eq!(d.len(), 4, "--dims requires exactly 4 values: Nx,Ny,Nz,Nt");
+            dims = Some([d[0], d[1], d[2], d[3]]);
+        } else if let Some(val) = arg.strip_prefix("--betas=") {
+            betas = val
+                .split(',')
+                .map(|s| s.parse().expect("beta float"))
+                .collect();
+        } else if let Some(val) = arg.strip_prefix("--therm=") {
+            n_therm = val.parse().expect("--therm=N");
+        } else if let Some(val) = arg.strip_prefix("--meas=") {
+            n_meas = val.parse().expect("--meas=N");
+        } else if let Some(val) = arg.strip_prefix("--seed=") {
+            seed = val.parse().expect("--seed=N");
+        } else if let Some(val) = arg.strip_prefix("--output=") {
+            output = Some(val.to_string());
+        } else if let Some(val) = arg.strip_prefix("--trajectory-log=") {
+            trajectory_log = Some(val.to_string());
+        }
+    }
+
+    let resolved_dims = match (dims, lattice) {
+        (Some(d), _) => d,
+        (None, Some(l)) => [l, l, l, l],
+        (None, None) => [32, 32, 32, 32],
+    };
+
+    CliArgs {
+        dims: resolved_dims,
+        betas,
+        n_therm,
+        n_meas,
+        seed,
+        output,
+        trajectory_log,
+    }
+}
+
+#[derive(Clone, Debug)]
+struct BetaResult {
+    beta: f64,
+    mean_plaq: f64,
+    std_plaq: f64,
+    polyakov: f64,
+    susceptibility: f64,
+    action_density: f64,
+    acceptance: f64,
+    n_traj: usize,
+    wall_s: f64,
+}
+
+/// Compute running plaquette variance from a history window.
+fn plaquette_variance(history: &[f64]) -> f64 {
+    if history.len() < 2 {
+        return 0.0;
+    }
+    let mean = history.iter().sum::<f64>() / history.len() as f64;
+    history.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / (history.len() - 1) as f64
+}
+
+fn main() {
+    let args = parse_args();
+    let dims = args.dims;
+    let vol: usize = dims.iter().product();
+    let label = args.label();
+    let nt = dims[3];
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    if args.is_asymmetric() {
+        println!("║  Production Finite-T β-Scan — GPU Streaming HMC (DF64)    ║");
+    } else {
+        println!("║  Production Quenched β-Scan — GPU Streaming HMC (fp64)     ║");
+    }
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+    println!("  Lattice:  {label} ({vol} sites)");
+    println!(
+        "  Dims:     [{}, {}, {}, {}]",
+        dims[0], dims[1], dims[2], dims[3]
+    );
+    if args.is_asymmetric() {
+        println!("  N_t = {nt} → T = 1/(a × {nt})");
+    }
+    println!(
+        "  VRAM est: {:.2} GB (quenched)",
+        vol as f64 * 4.0 * 18.0 * 8.0 * 3.0 / 1e9
+    );
+    println!("  β values: {:?}", args.betas);
+    println!("  Therm:    {}, Meas: {}", args.n_therm, args.n_meas);
+    println!("  Seed:     {}", args.seed);
+    if args.trajectory_log.is_some() {
+        println!("  Trajectory log: ENABLED (JSONL per-trajectory)");
+    }
+    println!();
+
+    let rt = tokio::runtime::Runtime::new().unwrap_or_else(|e| panic!("runtime: {e}"));
+    let gpu = match rt.block_on(GpuF64::new()) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("  GPU not available: {e}");
+            std::process::exit(1);
+        }
+    };
+    println!("  GPU: {}", gpu.adapter_name);
+    println!();
+
+    let vol_f = vol as f64;
+    let ref_vol = 4096.0_f64;
+    let scale = (ref_vol / vol_f).powf(0.25);
+    let dt = (0.05 * scale).max(0.002);
+    let n_md = ((0.5 / dt).round() as usize).max(10);
+    println!(
+        "  HMC:      dt={:.4}, n_md={}, traj_length={:.3}",
+        dt,
+        n_md,
+        dt * n_md as f64
+    );
+    println!();
+
+    let mut traj_writer: Option<std::io::BufWriter<std::fs::File>> =
+        args.trajectory_log.as_ref().map(|path| {
+            let f = std::fs::File::create(path)
+                .unwrap_or_else(|e| panic!("Cannot create trajectory log {path}: {e}"));
+            std::io::BufWriter::new(f)
+        });
+
+    let total_start = Instant::now();
+    let mut results = Vec::new();
+
+    let pipelines = GpuHmcStreamingPipelines::new_with_tmu(&gpu);
+
+    for (bi, &beta) in args.betas.iter().enumerate() {
+        println!("── β = {:.4} ({}/{}) ──", beta, bi + 1, args.betas.len());
+
+        let start = Instant::now();
+        let mut lat = Lattice::hot_start(dims, beta, args.seed + bi as u64);
+
+        if vol <= 65536 {
+            let mut cfg = HmcConfig {
+                n_md_steps: n_md,
+                dt,
+                seed: args.seed + bi as u64 * 1000,
+                integrator: IntegratorType::Omelyan,
+            };
+            for _ in 0..5 {
+                hmc::hmc_trajectory(&mut lat, &mut cfg);
+            }
+        }
+
+        let state = GpuHmcState::from_lattice(&gpu, &lat, beta);
+        let mut seed = args.seed * 100 + bi as u64;
+        let mut plaq_history: Vec<f64> = Vec::with_capacity(32);
+
+        print!("  Thermalizing ({} traj)...", args.n_therm);
+        std::io::stdout().flush().ok();
+        for i in 0..args.n_therm {
+            let traj_start = Instant::now();
+            let r = gpu_hmc_trajectory_streaming(
+                &gpu, &pipelines, &state, n_md, dt, i as u32, &mut seed,
+            )
+            .expect("streaming HMC trajectory");
+            let wall_us = traj_start.elapsed().as_micros() as u64;
+
+            plaq_history.push(r.plaquette);
+            if plaq_history.len() > 32 {
+                plaq_history.remove(0);
+            }
+
+            if let Some(ref mut w) = traj_writer {
+                gpu_links_to_lattice(&gpu, &state, &mut lat);
+                let (re, im) = lat.complex_polyakov_average();
+                let poly_mag = re.hypot(im);
+                let poly_phase = im.atan2(re);
+                let pvar = plaquette_variance(&plaq_history);
+                let line = serde_json::json!({
+                    "beta": beta,
+                    "traj_idx": i,
+                    "is_therm": true,
+                    "accepted": r.accepted,
+                    "plaquette": r.plaquette,
+                    "polyakov_re": poly_mag,
+                    "delta_h": r.delta_h,
+                    "cg_iters": 0,
+                    "plaquette_var": pvar,
+                    "polyakov_phase": poly_phase,
+                    "action_density": 6.0 * (1.0 - r.plaquette),
+                    "wall_us": wall_us,
+                });
+                writeln!(w, "{line}").ok();
+            }
+
+            if (i + 1) % 50 == 0 {
+                print!(" {}", i + 1);
+                std::io::stdout().flush().ok();
+            }
+        }
+        println!(" done");
+
+        let mut plaq_vals = Vec::with_capacity(args.n_meas);
+        let mut poly_vals = Vec::with_capacity(args.n_meas);
+        let mut n_accepted = 0usize;
+        plaq_history.clear();
+
+        print!("  Measuring ({} traj)...", args.n_meas);
+        std::io::stdout().flush().ok();
+        for i in 0..args.n_meas {
+            let traj_start = Instant::now();
+            let r = gpu_hmc_trajectory_streaming(
+                &gpu,
+                &pipelines,
+                &state,
+                n_md,
+                dt,
+                (args.n_therm + i) as u32,
+                &mut seed,
+            )
+            .expect("streaming HMC trajectory");
+            let wall_us = traj_start.elapsed().as_micros() as u64;
+
+            plaq_vals.push(r.plaquette);
+            plaq_history.push(r.plaquette);
+            if plaq_history.len() > 32 {
+                plaq_history.remove(0);
+            }
+            if r.accepted {
+                n_accepted += 1;
+            }
+
+            let do_poly_readback = traj_writer.is_some() || (i + 1) % 100 == 0;
+            let mut poly_mag = 0.0;
+            let mut poly_phase = 0.0;
+            if do_poly_readback {
+                gpu_links_to_lattice(&gpu, &state, &mut lat);
+                let (re, im) = lat.complex_polyakov_average();
+                poly_mag = re.hypot(im);
+                poly_phase = im.atan2(re);
+                if (i + 1) % 100 == 0 {
+                    poly_vals.push(poly_mag);
+                }
+            }
+
+            if let Some(ref mut w) = traj_writer {
+                let pvar = plaquette_variance(&plaq_history);
+                let line = serde_json::json!({
+                    "beta": beta,
+                    "traj_idx": args.n_therm + i,
+                    "is_therm": false,
+                    "accepted": r.accepted,
+                    "plaquette": r.plaquette,
+                    "polyakov_re": poly_mag,
+                    "delta_h": r.delta_h,
+                    "cg_iters": 0,
+                    "plaquette_var": pvar,
+                    "polyakov_phase": poly_phase,
+                    "action_density": 6.0 * (1.0 - r.plaquette),
+                    "wall_us": wall_us,
+                });
+                writeln!(w, "{line}").ok();
+            }
+
+            if (i + 1) % 200 == 0 {
+                print!(" {}", i + 1);
+                std::io::stdout().flush().ok();
+            }
+        }
+        println!(" done");
+
+        if let Some(ref mut w) = traj_writer {
+            w.flush().ok();
+        }
+
+        let mean_plaq: f64 = plaq_vals.iter().sum::<f64>() / plaq_vals.len() as f64;
+        let var_plaq: f64 = plaq_vals
+            .iter()
+            .map(|p| (p - mean_plaq).powi(2))
+            .sum::<f64>()
+            / (plaq_vals.len() - 1).max(1) as f64;
+        let std_plaq = var_plaq.sqrt();
+
+        let mean_poly: f64 = if poly_vals.is_empty() {
+            gpu_links_to_lattice(&gpu, &state, &mut lat);
+            lat.average_polyakov_loop()
+        } else {
+            poly_vals.iter().sum::<f64>() / poly_vals.len() as f64
+        };
+
+        let susceptibility = var_plaq * vol as f64;
+        let action_density = 6.0 * (1.0 - mean_plaq);
+        let acceptance = n_accepted as f64 / args.n_meas as f64;
+        let wall_s = start.elapsed().as_secs_f64();
+
+        let result = BetaResult {
+            beta,
+            mean_plaq,
+            std_plaq,
+            polyakov: mean_poly,
+            susceptibility,
+            action_density,
+            acceptance,
+            n_traj: args.n_meas,
+            wall_s,
+        };
+        results.push(result.clone());
+
+        println!(
+            "  ⟨P⟩ = {:.6} ± {:.6}  |L| = {:.4}  χ = {:.4}  acc = {:.0}%  ({:.1}s)",
+            mean_plaq,
+            std_plaq,
+            mean_poly,
+            susceptibility,
+            acceptance * 100.0,
+            wall_s,
+        );
+        println!();
+    }
+
+    let total_wall = total_start.elapsed().as_secs_f64();
+
+    println!("═══════════════════════════════════════════════════════════");
+    println!("  Production β-Scan Summary: {} Quenched SU(3)", &label);
+    println!("═══════════════════════════════════════════════════════════");
+    println!(
+        "  {:>6} {:>10} {:>10} {:>10} {:>10} {:>8} {:>8}",
+        "β", "⟨P⟩", "σ(P)", "|L|", "χ", "acc%", "time"
+    );
+    for r in &results {
+        println!(
+            "  {:>6.4} {:>10.6} {:>10.6} {:>10.4} {:>10.4} {:>7.1}% {:>7.1}s",
+            r.beta,
+            r.mean_plaq,
+            r.std_plaq,
+            r.polyakov,
+            r.susceptibility,
+            r.acceptance * 100.0,
+            r.wall_s
+        );
+    }
+    println!();
+    println!(
+        "  Total wall time: {:.1}s ({:.1} min)",
+        total_wall,
+        total_wall / 60.0
+    );
+    println!("  GPU: {}", gpu.adapter_name);
+    println!();
+
+    if let Some(ref path) = args.trajectory_log {
+        println!("  Trajectory log: {path}");
+    }
+
+    let is_asym = args.is_asymmetric();
+    if let Some(path) = args.output {
+        let json = serde_json::json!({
+            "lattice": label,
+            "dims": dims,
+            "is_asymmetric": is_asym,
+            "nt": dims[3],
+            "volume": vol,
+            "gpu": gpu.adapter_name,
+            "n_therm": args.n_therm,
+            "n_meas": args.n_meas,
+            "seed": args.seed,
+            "total_wall_s": total_wall,
+            "points": results.iter().map(|r| serde_json::json!({
+                "beta": r.beta,
+                "mean_plaquette": r.mean_plaq,
+                "std_plaquette": r.std_plaq,
+                "polyakov": r.polyakov,
+                "susceptibility": r.susceptibility,
+                "action_density": r.action_density,
+                "acceptance": r.acceptance,
+                "n_trajectories": r.n_traj,
+                "wall_s": r.wall_s,
+            })).collect::<Vec<_>>(),
+        });
+        std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap())
+            .unwrap_or_else(|e| eprintln!("  Failed to write {path}: {e}"));
+        println!("  Results saved to: {path}");
+    }
+}
