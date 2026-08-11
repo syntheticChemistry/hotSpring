@@ -3,10 +3,8 @@
 //! HMC trajectory runner using barraCuda's `GpuHmcTrajectory`.
 //!
 //! Orchestrates warmup, production, and adaptive step-size tuning.
-//! All GPU physics is delegated — this module only handles scheduling
-//! and result interpretation.
-
-use barracuda::ops::lattice::gpu_hmc_types::GpuHmcResult;
+//! All GPU physics is delegated — this module only handles scheduling,
+//! result interpretation, and gossip event emission.
 
 use super::NodeAtomicQcd;
 
@@ -18,7 +16,7 @@ pub struct CampaignSegmentResult {
     pub mean_delta_h: f64,
 }
 
-/// Trajectory runner for HMC campaigns.
+/// Trajectory runner for HMC campaigns with gossip integration.
 pub struct TrajectoryRunner {
     pub warmup_count: usize,
     pub production_count: usize,
@@ -36,6 +34,45 @@ impl Default for TrajectoryRunner {
 }
 
 impl TrajectoryRunner {
+    /// Run a full campaign: warmup + production with gossip events.
+    ///
+    /// Emits `campaign_started`, periodic `campaign_progress`, `config_complete`,
+    /// and `campaign_complete` gossip events via swarmVine.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any GPU dispatch fails.
+    pub fn run_campaign(
+        &self,
+        qcd: &NodeAtomicQcd,
+        warmup_report_every: usize,
+        mut on_warmup_report: impl FnMut(usize, f64, f64),
+    ) -> Result<(CampaignSegmentResult, Vec<f64>), barracuda::error::BarracudaError> {
+        let volume_str = format!("{}x{}", qcd.config.nx, qcd.config.nt);
+        let total = self.warmup_count + self.production_count;
+
+        crate::gossip::campaign_started(&volume_str, qcd.config.beta, total);
+
+        let warmup = self.run_warmup(qcd, warmup_report_every, &mut on_warmup_report)?;
+
+        crate::gossip::campaign_progress(self.warmup_count, total, &volume_str);
+
+        let mut measurements = Vec::with_capacity(self.production_count);
+        let production = self.run_production(qcd, &mut measurements)?;
+
+        let acc_rate = production.accepted as f64 / production.trajectories as f64;
+        crate::gossip::config_complete(
+            &volume_str,
+            qcd.config.beta,
+            0,
+            production.final_plaquette,
+            acc_rate,
+        );
+        crate::gossip::campaign_complete(total, 0.0);
+
+        Ok((production, measurements))
+    }
+
     /// Run warmup trajectories, returning the segment result.
     ///
     /// # Errors

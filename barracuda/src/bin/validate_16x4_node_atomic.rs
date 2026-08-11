@@ -77,6 +77,13 @@ fn main() {
         / (measurements.len() - 1) as f64;
     let err_p = (var_p / measurements.len() as f64).sqrt();
 
+    let within_tolerance = (mean_p - 0.578).abs() < 0.03;
+    hotspring_barracuda::gossip::validation_result(
+        within_tolerance,
+        if within_tolerance { measurements.len() } else { 0 },
+        measurements.len(),
+    );
+
     println!("\n═══ RESULT ═══");
     println!("  ⟨P⟩ = {:.6} ± {:.6}", mean_p, err_p);
     println!("  Expected: ~0.578 (β=5.90, 16⁴)");
