@@ -86,6 +86,37 @@ impl NodeAtomicQcd {
         self.trajectory.upload_topology(&layout, &self.buffers);
     }
 
+    /// Initialize the gauge field to cold start (all links = SU(3) identity).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if GPU dispatch fails.
+    pub fn cold_start(&self) -> Result<(), barracuda::error::BarracudaError> {
+        use barracuda::ops::lattice::gpu_lattice_init::GpuLatticeInit;
+        let init = GpuLatticeInit::new(self.device.clone(), self.volume() as u32)?;
+        init.cold_start(
+            &self.buffers.links,
+            &self.buffers.rng_links,
+            self.volume() as u32,
+        )
+    }
+
+    /// Initialize the gauge field to hot start (random near identity).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if GPU dispatch fails.
+    pub fn hot_start(&self, epsilon: f64) -> Result<(), barracuda::error::BarracudaError> {
+        use barracuda::ops::lattice::gpu_lattice_init::GpuLatticeInit;
+        let init = GpuLatticeInit::new(self.device.clone(), self.volume() as u32)?;
+        init.hot_start(
+            &self.buffers.links,
+            &self.buffers.rng_links,
+            self.volume() as u32,
+            epsilon,
+        )
+    }
+
     /// Seed the GPU RNG state.
     pub fn seed_rng(&self, seed: u32) {
         self.trajectory.seed_rng(seed, &self.buffers);
