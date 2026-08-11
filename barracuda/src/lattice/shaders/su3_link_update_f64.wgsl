@@ -5,7 +5,7 @@
 
 struct LinkParams {
     n_links: u32,
-    pad0: u32,
+    _pad0: u32,
     dt: f64,
 }
 
@@ -130,9 +130,9 @@ fn reunitarize(u_in: array<f64, 18>) -> array<f64, 18> {
     return r;
 }
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let idx = gid.x + gid.y * nwg.x * 64u;
+@compute @workgroup_size(128)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let idx = gid.x;
     let link_idx = idx;
     if link_idx >= params.n_links { return; }
 

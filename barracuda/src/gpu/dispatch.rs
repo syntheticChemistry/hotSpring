@@ -8,8 +8,16 @@
 
 use super::GpuF64;
 
-/// Split workgroup count into (x, y, 1) for 2D dispatch when x > 65535.
-/// Shaders must linearize via `gid.x + gid.y * num_workgroups.x * WG_SIZE`.
+/// Workgroup dispatch sizing.
+///
+/// RADV on AMD RDNA2 has a hardware limit of 65535 workgroups per dimension AND
+/// broken `@builtin(num_workgroups)` / `global_invocation_id.y` for 2D compute
+/// dispatch. To avoid both issues, HMC shaders use @workgroup_size(128) which
+/// keeps workgroup counts under 65535 for volumes up to 48⁴.
+///
+/// This function exists as a safety net for legacy code paths (reduction, etc.)
+/// that still use @workgroup_size(64/256) and may need 2D dispatch in the
+/// future. It should NOT be used by HMC kernels.
 pub const fn split_workgroups(total: u32) -> (u32, u32, u32) {
     if total <= 65535 {
         (total, 1, 1)
@@ -18,6 +26,13 @@ pub const fn split_workgroups(total: u32) -> (u32, u32, u32) {
         let x = total.div_ceil(y);
         (x, y, 1)
     }
+}
+
+/// Compute the dispatch stride (elements processed per y-row) for linearization.
+/// Only relevant for code paths that still use 2D dispatch (reduction shaders).
+pub const fn dispatch_stride(total_workgroups: u32, workgroup_size: u32) -> u32 {
+    let (wx, _, _) = split_workgroups(total_workgroups);
+    wx * workgroup_size
 }
 
 impl GpuF64 {

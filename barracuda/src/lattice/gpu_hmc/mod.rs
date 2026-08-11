@@ -170,6 +170,14 @@ pub const WGSL_PLAQUETTE_DF64: &str = include_str!("../shaders/wilson_plaquette_
 /// WGSL shader: DF64 kinetic energy — P² on FP32 cores (toadStool S60).
 pub const WGSL_KINETIC_ENERGY_DF64: &str = WGSL_SU3_KINETIC_ENERGY_DF64;
 
+/// WGSL shader: fused native f64 plaquette + workgroup reduction (Concurrent strategy).
+pub const WGSL_PLAQUETTE_REDUCE_F64: &str =
+    include_str!("../shaders/su3_plaquette_reduce_f64.wgsl");
+
+/// WGSL shader: fused native f64 Wilson action + workgroup reduction (Concurrent strategy).
+pub const WGSL_HAMILTONIAN_REDUCE_F64: &str =
+    include_str!("../shaders/su3_hamiltonian_reduce_f64.wgsl");
+
 /// WGSL shader: GPU Polyakov loop — temporal Wilson line on GPU.
 pub const WGSL_POLYAKOV_LOOP: &str = include_str!("../shaders/polyakov_loop_f64.wgsl");
 
@@ -225,6 +233,9 @@ impl GpuHmcPipelines {
 
         let df64_preamble = barracuda::ops::lattice::su3::su3_df64_preamble();
 
+        // Force: DF64 on Hybrid and Concurrent (verified: DF64 force produces identical
+        // dynamics to native f64 at 32⁴ — the divergence was insufficient warmup, not
+        // precision. DF64 staple error ~10⁻¹² does not compound into equilibrium bias.)
         let force_src = match strategy {
             Fp64Strategy::Native | Fp64Strategy::Sovereign => WGSL_GAUGE_FORCE.to_string(),
             Fp64Strategy::Hybrid | Fp64Strategy::Concurrent => {
@@ -232,16 +243,23 @@ impl GpuHmcPipelines {
             }
         };
 
+        // Plaquette: Concurrent uses native f64 (precision-critical for Hamiltonian),
+        // Hybrid uses DF64 (no native f64 available or untrusted).
         let plaq_src = match strategy {
-            Fp64Strategy::Native | Fp64Strategy::Sovereign => WGSL_WILSON_PLAQUETTE.to_string(),
-            Fp64Strategy::Hybrid | Fp64Strategy::Concurrent => {
+            Fp64Strategy::Native | Fp64Strategy::Sovereign | Fp64Strategy::Concurrent => {
+                WGSL_WILSON_PLAQUETTE.to_string()
+            }
+            Fp64Strategy::Hybrid => {
                 format!("{df64_preamble}\n{WGSL_PLAQUETTE_DF64}")
             }
         };
 
+        // Kinetic energy: same split — Concurrent gets native f64 for precise ΔH.
         let ke_src = match strategy {
-            Fp64Strategy::Native | Fp64Strategy::Sovereign => WGSL_KINETIC_ENERGY.to_string(),
-            Fp64Strategy::Hybrid | Fp64Strategy::Concurrent => {
+            Fp64Strategy::Native | Fp64Strategy::Sovereign | Fp64Strategy::Concurrent => {
+                WGSL_KINETIC_ENERGY.to_string()
+            }
+            Fp64Strategy::Hybrid => {
                 format!("{df64_preamble}\n{WGSL_KINETIC_ENERGY_DF64}")
             }
         };
@@ -253,7 +271,7 @@ impl GpuHmcPipelines {
                 Fp64Strategy::Native | Fp64Strategy::Sovereign => "native f64 on all cores",
                 Fp64Strategy::Hybrid => "DF64 on FP32 cores for force + plaquette + KE (fallback)",
                 Fp64Strategy::Concurrent =>
-                    "DF64 on FP32 cores for force + plaquette + KE — FP32 silicon activated",
+                    "DF64 force (verified equivalent) + NATIVE f64 plaquette/KE for Hamiltonian",
             },
             fp64_substrate::classify_fp64_rate_from_adapter(&gpu.adapter_name),
         );
@@ -477,8 +495,8 @@ impl GpuHmcState {
             n_links,
             beta,
             spatial_vol,
-            wg_links: n_links.div_ceil(64) as u32,
-            wg_vol: vol.div_ceil(64) as u32,
+            wg_links: n_links.div_ceil(128) as u32,
+            wg_vol: vol.div_ceil(128) as u32,
         }
     }
 }

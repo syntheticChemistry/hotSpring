@@ -14,7 +14,7 @@ mod telemetry;
 
 pub use adapter::{AdapterInfo, discover_best_adapter, discover_primary_and_secondary_adapters};
 pub use buffers::{df64_bytes_to_f64_slice, df64_to_f64, f64_slice_to_df64_bytes, f64_to_df64};
-pub use dispatch::split_workgroups;
+pub use dispatch::{dispatch_stride, split_workgroups};
 
 use barracuda::device::{DeviceCapabilities, TensorContext, WgpuDevice};
 use std::sync::Arc;

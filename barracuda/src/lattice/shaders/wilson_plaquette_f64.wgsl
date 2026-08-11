@@ -4,9 +4,9 @@
 
 struct PlaqParams {
     volume: u32,
-    pad0: u32,
-    pad1: u32,
-    pad2: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
 }
 
 @group(0) @binding(0) var<uniform> params: PlaqParams;
@@ -101,10 +101,9 @@ fn plaquette_re_tr(site: u32, mu: u32, nu: u32) -> f64 {
     return trace_re / f64(3.0);
 }
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let idx = gid.x + gid.y * nwg.x * 64u;
-    let site = idx;
+@compute @workgroup_size(128)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let site = gid.x;
     if site >= params.volume { return; }
 
     var plaq_sum: f64 = f64(0.0);

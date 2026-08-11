@@ -38,9 +38,9 @@ fn gaussian(link_idx: u32, pair: u32) -> f64 {
     return box_muller_cos(u1, u2);
 }
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let idx = gid.x + gid.y * nwg.x * 64u;
+@compute @workgroup_size(128)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let idx = gid.x;
     if idx >= params.n_links { return; }
 
     let scale = f64(0.7071067811865476);

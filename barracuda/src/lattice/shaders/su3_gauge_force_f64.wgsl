@@ -5,7 +5,7 @@
 
 struct ForceParams {
     volume: u32,
-    pad0: u32,
+    _pad0: u32,
     beta: f64,
 }
 
@@ -67,10 +67,9 @@ fn zero_su3() -> array<f64, 18> {
     return r;
 }
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let idx = gid.x + gid.y * nwg.x * 64u;
-    let link_idx = idx;
+@compute @workgroup_size(128)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let link_idx = gid.x;
     let n_links = params.volume * 4u;
     if link_idx >= n_links { return; }
 

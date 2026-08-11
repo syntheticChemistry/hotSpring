@@ -5,7 +5,7 @@
 
 struct MomParams {
     n_links: u32,
-    pad0: u32,
+    _pad0: u32,
     dt: f64,
 }
 
@@ -13,9 +13,9 @@ struct MomParams {
 @group(0) @binding(1) var<storage, read> force: array<f64>;
 @group(0) @binding(2) var<storage, read_write> momenta: array<f64>;
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let idx = gid.x + gid.y * nwg.x * 64u;
+@compute @workgroup_size(128)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let idx = gid.x;
     let link_idx = idx;
     if link_idx >= params.n_links { return; }
 
