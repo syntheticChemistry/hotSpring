@@ -51,8 +51,8 @@ fn main() {
     println!("  Device: {} ({:.2}s)", qcd.device.adapter_info().name, t0.elapsed().as_secs_f64());
 
     qcd.upload_topology();
-    qcd.hot_start(hot_epsilon).expect("hot_start failed");
     qcd.seed_rng(42);
+    qcd.hot_start(hot_epsilon).expect("hot_start failed");
 
     let volume = qcd.volume();
     println!("  Volume: {volume} sites, {} links", volume * 4);
