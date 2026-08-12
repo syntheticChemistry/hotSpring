@@ -1236,6 +1236,11 @@ name = "bench_lanczos_scaling"
 path = "src/bin/bench_lanczos_scaling.rs"
 required-features = ["barracuda-local"]
 
+[[bin]]
+name = "validate_node_atomic_concurrent"
+path = "src/bin/validate_node_atomic_concurrent.rs"
+required-features = ["barracuda-local"]
+
 [[test]]
 name = "integration_spectral"
 required-features = ["barracuda-local"]

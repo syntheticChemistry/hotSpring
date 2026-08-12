@@ -4,7 +4,8 @@
 //!
 //! Orchestrates warmup, production, and adaptive step-size tuning.
 //! All GPU physics is delegated — this module only handles scheduling,
-//! result interpretation, and gossip event emission.
+//! result interpretation, gossip event emission, and toadStool
+//! performance surface reporting.
 
 use super::NodeAtomicQcd;
 
@@ -14,6 +15,10 @@ pub struct CampaignSegmentResult {
     pub accepted: usize,
     pub final_plaquette: f64,
     pub mean_delta_h: f64,
+    /// Average wall-clock milliseconds per trajectory.
+    pub ms_per_trajectory: f64,
+    /// FP64 strategy used by the underlying GpuHmcTrajectory.
+    pub fp64_strategy: String,
 }
 
 /// Trajectory runner for HMC campaigns with gossip integration.
@@ -92,6 +97,7 @@ impl TrajectoryRunner {
         let mut sum_delta_h = 0.0;
         let beta = qcd.config.beta;
         let volume = qcd.volume();
+        let t0 = std::time::Instant::now();
 
         for i in 0..self.warmup_count {
             let result = qcd.run_trajectory()?;
@@ -109,11 +115,22 @@ impl TrajectoryRunner {
             }
         }
 
+        let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        let ms_per_traj = if self.warmup_count > 0 {
+            elapsed_ms / self.warmup_count as f64
+        } else {
+            0.0
+        };
+
+        let strategy = format!("{:?}", qcd.trajectory.strategy());
+
         Ok(CampaignSegmentResult {
             trajectories: self.warmup_count,
             accepted,
             final_plaquette: last_plaquette,
-            mean_delta_h: sum_delta_h / self.warmup_count as f64,
+            mean_delta_h: sum_delta_h / self.warmup_count.max(1) as f64,
+            ms_per_trajectory: ms_per_traj,
+            fp64_strategy: strategy,
         })
     }
 
@@ -132,6 +149,7 @@ impl TrajectoryRunner {
         let mut sum_delta_h = 0.0;
         let beta = qcd.config.beta;
         let volume = qcd.volume();
+        let t0 = std::time::Instant::now();
 
         for _ in 0..self.production_count {
             let result = qcd.run_trajectory()?;
@@ -145,11 +163,22 @@ impl TrajectoryRunner {
             measurements.push(plaq);
         }
 
+        let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        let ms_per_traj = if self.production_count > 0 {
+            elapsed_ms / self.production_count as f64
+        } else {
+            0.0
+        };
+
+        let strategy = format!("{:?}", qcd.trajectory.strategy());
+
         Ok(CampaignSegmentResult {
             trajectories: self.production_count,
             accepted,
             final_plaquette: last_plaquette,
-            mean_delta_h: sum_delta_h / self.production_count as f64,
+            mean_delta_h: sum_delta_h / self.production_count.max(1) as f64,
+            ms_per_trajectory: ms_per_traj,
+            fp64_strategy: strategy,
         })
     }
 }

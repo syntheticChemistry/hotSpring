@@ -2,6 +2,22 @@
 
 //! Pure GPU HMC: all math on GPU via fp64 WGSL shaders.
 //!
+//! # DEPRECATION NOTICE
+//!
+//! This module is a **legacy fossil**. The Concurrent silicon-saturation
+//! routing (DF64 bulk + native f64 reductions) has been upstreamed into
+//! barraCuda's `GpuHmcTrajectory` via the Node-Atomic Silicon AAR.
+//!
+//! Production should use `node_atomic/` exclusively, which delegates to
+//! upstream `GpuHmcTrajectory` with full Concurrent support. This module
+//! remains only for validation comparison and will be removed after the
+//! Node-Atomic path demonstrates equivalent or better performance.
+//!
+//! **New code should NOT import from `lattice::gpu_hmc`.**
+//! Use `node_atomic::trajectory` → upstream `GpuHmcTrajectory` instead.
+//!
+//! # Original description
+//!
 //! The CPU only orchestrates dispatches and reads back scalars (ΔH,
 //! plaquette) for Metropolis accept/reject and observables. Links and
 //! momenta live in GPU buffers between MD steps — no round-trip.
@@ -30,7 +46,7 @@
 //! | `resident_cg_async` | Async variant with non-blocking convergence reads |
 //! | `resident_shifted_cg` | Multi-shift CG with GPU-resident scalars |
 //! | `brain_rhmc` | RHMC with dual-GPU brain routing |
-//! | `streaming` | Zero-dispatch-overhead batched encoder pipelines |
+//! | `streaming` | **DEPRECATED** Zero-dispatch-overhead batched encoder pipelines |
 //!
 //! ## Legacy (per-iteration GPU→CPU readback — trajectory functions excised)
 //!
@@ -154,8 +170,15 @@ pub const WGSL_GAUGE_FORCE_DF64: &str = include_str!("../shaders/su3_gauge_force
 /// WGSL shader: momentum update P += dt * F (WG128 — matches div_ceil(128) dispatch).
 pub const WGSL_MOMENTUM_UPDATE: &str = include_str!("../shaders/su3_momentum_update_f64.wgsl");
 
+/// WGSL shader: DF64 momentum update — P += dt * F on FP32 cores (WG128).
+pub const WGSL_MOMENTUM_UPDATE_DF64: &str =
+    include_str!("../shaders/su3_momentum_update_df64.wgsl");
+
 /// WGSL shader: link update U = exp(dt·P) * U via Cayley + reunitarize (WG128).
 pub const WGSL_LINK_UPDATE: &str = include_str!("../shaders/su3_link_update_f64.wgsl");
+
+/// WGSL shader: DF64 link update — Cayley + reunitarize on FP32 cores (WG128).
+pub const WGSL_LINK_UPDATE_DF64: &str = include_str!("../shaders/su3_link_update_df64.wgsl");
 
 /// WGSL shader: kinetic energy -½ Re Tr(P²) per link (WG128).
 pub const WGSL_KINETIC_ENERGY: &str = include_str!("../shaders/su3_kinetic_energy_f64.wgsl");
@@ -260,14 +283,44 @@ impl GpuHmcPipelines {
             }
         };
 
+        // Momentum update: Concurrent routes to DF64 (per-link throughput-bound,
+        // frees FP64 units for simultaneous reduction work).
+        let mom_src = match strategy {
+            Fp64Strategy::Native | Fp64Strategy::Sovereign => WGSL_MOMENTUM_UPDATE.to_string(),
+            Fp64Strategy::Hybrid | Fp64Strategy::Concurrent => {
+                format!("{df64_preamble}\n{WGSL_MOMENTUM_UPDATE_DF64}")
+            }
+        };
+
+        // Link update: same split — Cayley + reunitarize is compute-bound,
+        // benefits most from the 5120 FP32 cores via DF64.
+        let link_src = match strategy {
+            Fp64Strategy::Native | Fp64Strategy::Sovereign => WGSL_LINK_UPDATE.to_string(),
+            Fp64Strategy::Hybrid | Fp64Strategy::Concurrent => {
+                format!("{df64_preamble}\n{WGSL_LINK_UPDATE_DF64}")
+            }
+        };
+
+        let composition_info = if strategy == Fp64Strategy::Concurrent {
+            let (confirmed, mult) =
+                fp64_substrate::validate_concurrent_composition(&gpu.adapter_name);
+            if confirmed {
+                format!(" [silicon composition: {mult:.2}x overlap CONFIRMED]")
+            } else {
+                format!(" [silicon composition: {mult:.2}x (unvalidated — run bench_silicon)]")
+            }
+        } else {
+            String::new()
+        };
+
         eprintln!(
-            "[HMC] FP64 strategy: {:?} — {} [metalForge substrate: {:?}]",
+            "[HMC] FP64 strategy: {:?} — {} [substrate: {:?}]{composition_info}",
             strategy,
             match strategy {
                 Fp64Strategy::Native | Fp64Strategy::Sovereign => "native f64 on all cores",
-                Fp64Strategy::Hybrid => "DF64 on FP32 cores for force + plaquette + KE (fallback)",
+                Fp64Strategy::Hybrid => "DF64 on FP32 cores for all kernels (fallback)",
                 Fp64Strategy::Concurrent =>
-                    "DF64 force (verified equivalent) + NATIVE f64 plaquette/KE for Hamiltonian",
+                    "DF64 force/mom/link on FP32 + NATIVE f64 plaq/KE reductions (saturation)",
             },
             fp64_substrate::classify_fp64_rate_from_adapter(&gpu.adapter_name),
         );
@@ -282,8 +335,8 @@ impl GpuHmcPipelines {
         Self {
             plaquette_pipeline: gpu.create_pipeline_f64(&plaq_src, "hmc_plaq"),
             force_pipeline: gpu.create_pipeline_f64(&force_src, "hmc_force"),
-            momentum_pipeline: gpu.create_pipeline_f64(WGSL_MOMENTUM_UPDATE, "hmc_mom_update"),
-            link_pipeline: gpu.create_pipeline_f64(WGSL_LINK_UPDATE, "hmc_link_update"),
+            momentum_pipeline: gpu.create_pipeline_f64(&mom_src, "hmc_mom_update"),
+            link_pipeline: gpu.create_pipeline_f64(&link_src, "hmc_link_update"),
             kinetic_pipeline: gpu.create_pipeline_f64(&ke_src, "hmc_ke"),
             polyakov_pipeline: gpu.create_pipeline_f64(&poly_src, "hmc_polyakov"),
             fp64_strategy: strategy,

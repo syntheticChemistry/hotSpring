@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Streaming GPU HMC — zero dispatch overhead via batched command encoders.
+//! **DEPRECATED** — Streaming GPU HMC (legacy hotSpring-local pipeline).
+//!
+//! This module is superseded by upstream `GpuHmcTrajectory` in barraCuda,
+//! which now supports `Fp64Strategy::Concurrent` (silicon saturation).
+//! The Node-Atomic path (`node_atomic/trajectory.rs`) uses the upstream
+//! engine directly and inherits Concurrent routing for all springs.
+//!
+//! Retained temporarily for A/B validation. Production binaries should
+//! use `node_atomic::trajectory` exclusively.
+//!
+//! # Original description
 //!
 //! Pure gauge streaming batches all Omelyan MD steps into a single encoder
 //! submission. Dynamical streaming adds GPU PRNG for momenta and pseudofermion
