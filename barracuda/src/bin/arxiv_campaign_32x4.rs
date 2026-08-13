@@ -12,9 +12,11 @@
 //!
 //! Output: ~/.local/share/hotspring/production_v2/ (same format as campaign binary)
 
+use barracuda::device::WgpuDevice;
 use barracuda::ops::lattice::gpu_hmc_types::GpuHmcConfig;
 use hotspring_barracuda::node_atomic::NodeAtomicQcd;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
 const N_WARMUP: usize = 500;
@@ -74,15 +76,30 @@ struct RunResult {
 }
 
 fn build_grid() -> Vec<RunSpec> {
-    let betas = [5.9, 6.0, 6.2];
+    let betas_filter: Option<Vec<f64>> = std::env::var("CAMPAIGN_BETAS").ok().map(|s| {
+        s.split(',').filter_map(|b| b.trim().parse::<f64>().ok()).collect()
+    });
+    let all_betas = [5.9, 6.0, 6.2];
     let seeds: &[u64] = &[42, 137, 271, 503, 719];
     let mut specs = Vec::new();
-    for &beta in &betas {
+    for &beta in &all_betas {
+        if let Some(ref filter) = betas_filter {
+            if !filter.iter().any(|&b| (b - beta).abs() < 0.01) {
+                continue;
+            }
+        }
         for &seed in seeds {
             specs.push(RunSpec { beta, seed });
         }
     }
     specs
+}
+
+fn create_device() -> Arc<WgpuDevice> {
+    Arc::new(
+        hotspring_barracuda::block_on::block_on(WgpuDevice::from_env())
+            .expect("Failed to create GPU device (set BARRACUDA_GPU_ADAPTER=AMD or =NVIDIA)")
+    )
 }
 
 fn main() {
@@ -104,6 +121,11 @@ fn main() {
     println!("  Output: {:?}", output_dir());
     println!();
 
+    let device = create_device();
+    let gpu_name = device.adapter_info().name.clone();
+    println!("  GPU: {gpu_name}");
+    println!();
+
     let campaign_start = Instant::now();
     let mut completed_this_run = 0;
 
@@ -116,7 +138,7 @@ fn main() {
         println!("━━━ [{}/{}] 32⁴ β={:.2} seed={} ━━━",
                  n_done + completed_this_run + 1, n_total, spec.beta, spec.seed);
 
-        match run_single(spec) {
+        match run_single(spec, device.clone()) {
             Ok(result) => {
                 let json = serde_json::to_string_pretty(&result).unwrap();
                 std::fs::write(json_path(spec), &json).unwrap();
@@ -149,7 +171,7 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════════════");
 }
 
-fn run_single(spec: &RunSpec) -> Result<RunResult, String> {
+fn run_single(spec: &RunSpec, device: Arc<WgpuDevice>) -> Result<RunResult, String> {
     let t0 = Instant::now();
 
     let config = GpuHmcConfig {
@@ -166,11 +188,10 @@ fn run_single(spec: &RunSpec) -> Result<RunResult, String> {
         n_flavors_over_4: 0,
     };
 
-    let qcd = NodeAtomicQcd::new(config.clone(), spec.seed)
+    let qcd = NodeAtomicQcd::with_device(device, config.clone(), spec.seed)
         .map_err(|e| format!("init: {e:?}"))?;
 
     let gpu_name = qcd.device.adapter_info().name.clone();
-    println!("  GPU: {gpu_name}");
 
     qcd.upload_topology();
     qcd.seed_rng(spec.seed as u32);
