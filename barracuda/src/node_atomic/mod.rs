@@ -48,17 +48,7 @@ impl NodeAtomicQcd {
         let device = Arc::new(
             crate::block_on::block_on(barracuda::device::WgpuDevice::new_f64_capable())?
         );
-        let geometry = LatticeGeometry::new(&config);
-        let trajectory = GpuHmcTrajectory::with_seed(device.clone(), config.clone(), seed)?;
-        let buffers = GpuHmcBuffers::new(&device, &config)?;
-
-        Ok(Self {
-            device,
-            config,
-            buffers,
-            trajectory,
-            geometry,
-        })
+        Self::init_with_device(device, config, seed)
     }
 
     /// Create with an existing device (for shared-device scenarios).
@@ -67,6 +57,27 @@ impl NodeAtomicQcd {
         config: GpuHmcConfig,
         seed: u64,
     ) -> Result<Self, barracuda::error::BarracudaError> {
+        Self::init_with_device(device, config, seed)
+    }
+
+    fn init_with_device(
+        device: Arc<WgpuDevice>,
+        config: GpuHmcConfig,
+        seed: u64,
+    ) -> Result<Self, barracuda::error::BarracudaError> {
+        // Probe FP64 throughput ratio to enable silicon-saturating Concurrent strategy.
+        // Cached globally per adapter — first call measures, subsequent calls are free.
+        if let Some(ratio) = crate::block_on::block_on(
+            barracuda::device::probe_throughput::probe_f64_throughput_ratio(&device)
+        ) {
+            let tier = ratio.tier();
+            eprintln!(
+                "[NodeAtomic] FP64 throughput probe: ratio={:.1}, tier={tier}, \
+                 f32={:.0} GFLOPS, f64={:.0} GFLOPS",
+                ratio.ratio, ratio.f32_gflops, ratio.f64_gflops
+            );
+        }
+
         let geometry = LatticeGeometry::new(&config);
         let trajectory = GpuHmcTrajectory::with_seed(device.clone(), config.clone(), seed)?;
         let buffers = GpuHmcBuffers::new(&device, &config)?;
