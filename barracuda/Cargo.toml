@@ -1241,6 +1241,11 @@ name = "validate_node_atomic_concurrent"
 path = "src/bin/validate_node_atomic_concurrent.rs"
 required-features = ["barracuda-local"]
 
+[[bin]]
+name = "arxiv_campaign_32x4"
+path = "src/bin/arxiv_campaign_32x4.rs"
+required-features = ["barracuda-local"]
+
 [[test]]
 name = "integration_spectral"
 required-features = ["barracuda-local"]
