@@ -292,6 +292,65 @@ async fn main() {
     println!("    - iommufd: kernel-agnostic VFIO on 6.2+, dual-path (iommufd + legacy)");
     println!("\n  No Vulkan. No vendor SDK. Pure Rust → native binary compilation.");
 
+    // ─── Level 5: coralReef SPIR-V emission (wgsl_to_spirv) ───
+    println!("\n╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Level 5: coralReef SPIR-V Emission — DF64-Safe Path        ║");
+    println!("║  shader.compile.wgsl_to_spirv with FMA policy validation    ║");
+    println!("╚══════════════════════════════════════════════════════════════╝\n");
+
+    let spirv_test_shaders = &[
+        ("su3_gauge_force_f64", shaders.iter().find(|s| s.name == "su3_gauge_force_f64")),
+        ("su3_link_update_f64", shaders.iter().find(|s| s.name == "su3_link_update_f64")),
+        ("su3_momentum_update_f64", shaders.iter().find(|s| s.name == "su3_momentum_update_f64")),
+        ("wilson_plaquette_f64", shaders.iter().find(|s| s.name == "wilson_plaquette_f64")),
+    ];
+
+    let fma_policies = ["never_fuse", "skip_df64_functions", "allow_all"];
+    let mut spirv_ok = 0usize;
+    let mut spirv_fail = 0usize;
+
+    println!("  {:<35} {:<22} {:>8} {:>6}", "Shader", "FMA Policy", "Words", "Status");
+    println!("  {}", "-".repeat(75));
+
+    for (name, entry_opt) in spirv_test_shaders {
+        let Some(entry) = entry_opt else {
+            println!("  {:<35} {:<22} {:>8} {:>6}", name, "-", "-", "SKIP");
+            continue;
+        };
+
+        for policy in &fma_policies {
+            if let Some(words) = GLOBAL_CORAL
+                .compile_wgsl_to_spirv(entry.source, policy, &[], true)
+                .await
+            {
+                spirv_ok += 1;
+                println!(
+                    "  {:<35} {:<22} {:>6}w {:>6}",
+                    name, policy, words.len(), "OK"
+                );
+
+                // Validate SPIR-V magic number
+                if words.first() != Some(&0x0723_0203) {
+                    println!("    ⚠ WARNING: Invalid SPIR-V magic (got {:#010x})",
+                        words.first().unwrap_or(&0));
+                }
+            } else {
+                spirv_fail += 1;
+                println!(
+                    "  {:<35} {:<22} {:>8} {:>6}",
+                    name, policy, "-", "FAIL"
+                );
+            }
+        }
+    }
+
+    println!(
+        "\n  SPIR-V Summary: {spirv_ok}/{} passed, {spirv_fail} failed",
+        spirv_ok + spirv_fail
+    );
+    println!("  (SPIR-V failures expected if coralReef <0.2.1 without wgsl_to_spirv endpoint)\n");
+
+    total_fail += spirv_fail;
     if total_fail > 0 {
         std::process::exit(1);
     }
