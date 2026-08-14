@@ -133,13 +133,17 @@ impl NodeAtomicQcd {
         self.trajectory.seed_rng(seed, &self.buffers);
     }
 
-    /// Run one HMC trajectory. Returns accept/reject + observables.
+    /// Run one HMC trajectory using streaming encoder (single GPU submission for MD).
+    ///
+    /// For pure gauge (n_flavors_over_4 == 0): batches all MD passes into one
+    /// command encoder, eliminating per-dispatch host-device round-trip overhead.
+    /// Falls back to per-dispatch mode for dynamical fermions (CG needs readbacks).
     ///
     /// # Errors
     ///
     /// Returns an error if GPU dispatch or readback fails.
     pub fn run_trajectory(&self) -> Result<GpuHmcResult, barracuda::error::BarracudaError> {
-        self.trajectory.run(&self.buffers)
+        self.trajectory.run_streaming(&self.buffers)
     }
 
     /// Number of lattice sites (Nx × Ny × Nz × Nt).

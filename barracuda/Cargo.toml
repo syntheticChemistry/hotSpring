@@ -1246,6 +1246,11 @@ name = "arxiv_campaign_32x4"
 path = "src/bin/arxiv_campaign_32x4.rs"
 required-features = ["barracuda-local"]
 
+[[bin]]
+name = "smoke_streaming_32x4"
+path = "src/bin/smoke_streaming_32x4.rs"
+required-features = ["barracuda-local"]
+
 [[test]]
 name = "integration_spectral"
 required-features = ["barracuda-local"]
