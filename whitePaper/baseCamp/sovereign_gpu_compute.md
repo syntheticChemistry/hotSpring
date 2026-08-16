@@ -1,5 +1,26 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
+> **HISTORICAL — superseded Aug 16, 2026.** Read this as a record of what was
+> attempted, not as a statement of current capability.
+>
+> Three claims in this document did not survive re-measurement:
+>
+> - **"ALL 3 GPUs sovereign"** — Tier 1 warm *infrastructure* was reached. No
+>   shader has ever executed on the sovereign path on any NVIDIA GPU, warm or
+>   cold. Tier 2 remains blocked by PFIFO runlist configuration and FECS
+>   context load; on Volta additionally by the GPCCS HS fuse lock.
+> - **"K80 sovereign boot proven"** — K80 sovereign init reaches identity
+>   probe, PMC, and a PGRAPH ungate, then halts at devinit against a Kepler
+>   register map that is still incomplete. The cards are back in service.
+> - **AMD GCN5 / DRM "E2E verified"** — those results came from the
+>   coral-driver, excised in coralReef Sprint 9. They do not describe the
+>   current architecture and have not been revalidated on it.
+>
+> Verified compute today runs through wgpu/Vulkan with a vendor driver
+> present. Current state: `infra/wateringHole/handoffs/BIOMEGATE_K80_SOVEREIGN_AAR_AUG16_2026.md`
+> and `BIOMEGATE_MEASUREMENT_TRUTH_AAR_AUG16_2026.md`.
+
+
 **Date:** 2026-03-25 (updated 2026-05-17 — **ALL 3 GPUs sovereign**, warm-catch pipeline in pure Rust, ELF patcher replaces Python scripts, vendor-agnostic `BootPipeline` trait validated)  
 **Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch, fork-isolated MMIO gateway, staged sovereign init, PCI remove/rescan with kernel override handling, binary ELF patching, warm-catch orchestration, era-aware memory settle**  
 **Experiments:** 060-190  
