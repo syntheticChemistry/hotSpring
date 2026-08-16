@@ -1254,3 +1254,38 @@ required-features = ["barracuda-local"]
 [[test]]
 name = "integration_spectral"
 required-features = ["barracuda-local"]
+
+# ── Dark Silicon A/B: ROP render-path vs compute atomicAdd ──
+[[bin]]
+name = "bench_rop_force_ab"
+path = "src/bin/bench_rop_force_ab.rs"
+required-features = ["barracuda-local"]
+
+# ── Dark Silicon Exploration: RT core BVH probe ──
+[[bin]]
+name = "bench_rt_core_probe"
+path = "src/bin/bench_rt_core_probe.rs"
+required-features = ["barracuda-local"]
+
+# ── Dark Silicon Exploration: render-pass silicon benchmark (ROP, rasterizer, depth) ──
+[[bin]]
+name = "bench_render_silicon"
+path = "src/bin/bench_render_silicon.rs"
+required-features = ["barracuda-local"]
+
+# ── Dark Silicon Exploration: Voronoi coarsening via depth buffer ──
+[[bin]]
+name = "bench_voronoi_coarsening"
+path = "src/bin/bench_voronoi_coarsening.rs"
+required-features = ["barracuda-local"]
+
+# ── Dark Silicon Exploration: Tessellation PoC (mesh shader subdivision) ──
+[[bin]]
+name = "bench_tessellation_poc"
+path = "src/bin/bench_tessellation_poc.rs"
+required-features = ["barracuda-local"]
+
+# ── Dark Silicon Exploration: RT/Tensor feature availability probe ──
+[[bin]]
+name = "probe_rt_tensor_features"
+path = "src/bin/probe_rt_tensor_features.rs"

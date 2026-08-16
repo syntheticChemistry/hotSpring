@@ -103,6 +103,7 @@ pub mod true_multishift_cg;
 pub mod uni_hamiltonian;
 pub mod unidirectional_cortex;
 pub mod unidirectional_rhmc;
+pub mod video_archival;
 
 pub use dynamical::{
     GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, WGSL_AXPY, WGSL_COMPLEX_DOT_RE,
