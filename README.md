@@ -34,7 +34,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WG
 |-------|-------|
 | **Gate** | strandGate (primary), biomeGate (secondary, OFFLINE — kernel recovery) |
 | **Composition** | Node Atomic (full NUCLEUS + skunkBat) |
-| **NUCLEUS status** | strandGate: operational (265/282 validation, RTX 3090 + RX 6950 XT); biomeGate: OFFLINE |
+| **NUCLEUS status** | strandGate: operational (RTX 3090 + RX 6950 XT, dual-GPU campaigns, 45 SU(3) configs, 7/8 silicon unit classes lit); biomeGate: OFFLINE |
 | **Songbird federation** | port 7700 |
 | **LAN mesh** | proven — 2-gate mesh validated (strandGate ↔ eastGate, 64ms RTT) |
 | **Cell graph** | `plasmidBin/cells/hotspring_cell.toml` |

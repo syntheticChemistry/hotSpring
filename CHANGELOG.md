@@ -7,6 +7,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## AMD Full Silicon Activation + arXiv Analysis — Wave 157k (August 16-17, 2026)
+
+### Added
+- **Dark silicon exploration binaries:** `bench_rop_force_ab`, `bench_voronoi_coarsening`,
+  `bench_tessellation_poc` — benchmarks for ROPs, rasterizer+depth buffer, mesh shaders.
+- **Video archival module:** `src/lattice/gpu_hmc/video_archival.rs` — NVENC/VAAPI
+  hardware encoder integration for zero-ALU config archival.
+- **arXiv analysis report:** `analysis_report_wave157k.md` — 45 production configs,
+  9 grid points, jackknife statistics, literature comparison.
+- **Cross-GPU campaign support:** `BARRACUDA_GPU_ADAPTER` + `CAMPAIGN_BETAS` env vars
+  for dual-GPU production runs.
+- **Streaming encoder:** NodeAtomicQcd activates streaming (2.83× speedup on NVIDIA).
+- **FP64 throughput probing:** NodeAtomicQcd probes and reports FP64 rate at init.
+- **Sovereign compile Level 5:** coralReef SPIR-V emission validation in `validate_sovereign_compile`.
+
+### Fixed
+- **32⁴ campaign stability:** Node-Atomic path replaces broken GPU PRNG pipeline.
+- **Hot start:** seed RNG before generating random links; ε=3.0 for proper thermalization.
+- **Campaign gossip:** `campaign_complete` emits actual wall_clock_hours.
+
+### Changed
+- **GPU HMC fossilized:** Old `gpu_hmc/` Concurrent path archived; production uses
+  Node-Atomic upstream path.
+- **Campaign receipts:** Moved stray JSON from barracuda root to `data/campaign_receipts/`.
+- **abg.md fossilized:** Original ABG document moved to `fossilRecord/`.
+
+### Metrics
+- 45 SU(3) production configs banked (3 volumes × 3 betas × 5 seeds)
+- 7/8 GPU silicon unit classes activated (ROPs, RT, rasterizer, depth, video, mesh, FP64)
+- Cross-GPU agreement: 0.19% at β=6.20 32⁴
+- cargo clean: 12.2 GB reclaimed
+
+---
+
 ## Deep Debt Sprint + Modernization — Wave 155n (August 1, 2026)
 
 ### Changed
