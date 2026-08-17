@@ -17,6 +17,12 @@ pub struct CampaignConfig {
     pub n_production: usize,
     pub dt: f64,
     pub n_md_steps: usize,
+    /// Hot start epsilon (0 = cold start, >0 = random perturbation magnitude).
+    #[serde(default)]
+    pub epsilon: f64,
+    /// Whether warmup count is adaptive (runtime convergence detection).
+    #[serde(default)]
+    pub adaptive_warmup: bool,
 }
 
 /// Result of a completed configuration.
@@ -65,8 +71,78 @@ impl CampaignGrid {
                         n_production: 200,
                         dt: 0.01,
                         n_md_steps: 20,
+                        epsilon: 0.0,
+                        adaptive_warmup: false,
                     });
                 }
+            }
+        }
+        Self { configs, output_dir }
+    }
+
+    /// Generate the v3 "climate shift" campaign grid:
+    /// Unified protocol — one dt, one start type, adaptive warmup.
+    ///
+    /// 3 volumes x 3 betas x 5 seeds = 45 configurations.
+    /// Protocol: dt=0.005, n_md=20 (tau=0.1), hot start epsilon=0.2,
+    /// adaptive warmup (convergence-detected), 500 production trajectories.
+    #[must_use]
+    pub fn arxiv_v3(output_dir: std::path::PathBuf) -> Self {
+        let volumes: &[[u32; 4]] = &[
+            [16, 16, 16, 16],
+            [24, 24, 24, 24],
+            [32, 32, 32, 32],
+        ];
+        let betas = [5.90, 6.00, 6.20];
+        let seeds = [42, 137, 271, 503, 719];
+
+        let mut configs = Vec::with_capacity(45);
+        for &dims in volumes {
+            for &beta in &betas {
+                for &seed in &seeds {
+                    configs.push(CampaignConfig {
+                        dims,
+                        beta,
+                        seed,
+                        n_warmup: 2000,
+                        n_production: 500,
+                        dt: 0.005,
+                        n_md_steps: 20,
+                        epsilon: 0.2,
+                        adaptive_warmup: true,
+                    });
+                }
+            }
+        }
+        Self { configs, output_dir }
+    }
+
+    /// Generate a cross-validation subset (1 seed per grid point).
+    /// Used for NVIDIA overnight cross-check runs.
+    #[must_use]
+    pub fn arxiv_v3_xval(output_dir: std::path::PathBuf) -> Self {
+        let volumes: &[[u32; 4]] = &[
+            [16, 16, 16, 16],
+            [24, 24, 24, 24],
+            [32, 32, 32, 32],
+        ];
+        let betas = [5.90, 6.00, 6.20];
+        let seed = 42;
+
+        let mut configs = Vec::with_capacity(9);
+        for &dims in volumes {
+            for &beta in &betas {
+                configs.push(CampaignConfig {
+                    dims,
+                    beta,
+                    seed,
+                    n_warmup: 2000,
+                    n_production: 500,
+                    dt: 0.005,
+                    n_md_steps: 20,
+                    epsilon: 0.2,
+                    adaptive_warmup: true,
+                });
             }
         }
         Self { configs, output_dir }

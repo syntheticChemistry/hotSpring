@@ -23,7 +23,7 @@ use barracuda::ops::lattice::gpu_hmc_types::{GpuHmcBuffers, GpuHmcConfig, GpuHmc
 
 pub use geometry::LatticeGeometry;
 pub use observables::Observables;
-pub use trajectory::TrajectoryRunner;
+pub use trajectory::{AdaptiveWarmupResult, CampaignSegmentResult, TrajectoryRunner};
 
 /// Node-atomic QCD state: thin orchestration over barraCuda's HMC infrastructure.
 ///
